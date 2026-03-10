@@ -1,8 +1,11 @@
-version: v1
+version: v2
+
 lint:
   use:
     - DEFAULT
   except:
     - PACKAGE_VERSION_SUFFIX
-  exclude:
-    - docs/
+
+breaking:
+  use:
+    - FILE
