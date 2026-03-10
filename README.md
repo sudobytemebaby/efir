@@ -126,8 +126,10 @@ Important service groups:
 - `services/gateway` - public HTTP entrypoint
 - `services/auth`, `services/user`, `services/room`, `services/message` - core domain services
 - `services/websocket` - realtime delivery
-- `services/sidecar` - planned policy enforcement proxy
+- `services/sidecar` - scaffolded policy enforcement proxy reserved for the sidecar module
 - `services/shared` - reusable packages shared across services
+
+Proto contracts live in `proto/` and generate shared Go bindings into `services/shared/gen`.
 
 ## Development Modules
 

@@ -12,6 +12,8 @@ We need a Policy Enforcement Point (PEP) to validate incoming requests before th
 
 Implement sidecar as a Go gRPC reverse proxy that validates protobuf messages.
 
+In Module 0, keep the sidecar as a lightweight scaffold in the repository and behind a dedicated Compose profile until the policy engine is implemented.
+
 ## Rationale
 
 - **Single toolchain**: Go only, no Rust toolchain required

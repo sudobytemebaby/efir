@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	runPlaceholderServer("auth", "AUTH_GRPC_PORT", "50051")
+	runPlaceholderServer("sidecar", "SIDECAR_GRPC_PORT", "51051")
 }
 
 func runPlaceholderServer(serviceName, envKey, fallbackPort string) {

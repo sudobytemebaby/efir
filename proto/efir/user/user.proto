@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package efir.user;
+
+option go_package = "efir.sh/services/shared/gen/user;userv1";
+
+service UserService {
+  rpc Ping(PingRequest) returns (PingResponse);
+}
+
+message PingRequest {}
+
+message PingResponse {
+  string status = 1;
+}

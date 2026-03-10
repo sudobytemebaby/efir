@@ -2,33 +2,9 @@ version: v2
 
 plugins:
   - remote: buf.build/protocolbuffers/go:v1.34.2
-    out: services/auth/gen
-    opt: module=efir.sh/services/auth
-
-  - remote: buf.build/protocolbuffers/go:v1.34.2
-    out: services/user/gen
-    opt: module=efir.sh/services/user
-
-  - remote: buf.build/protocolbuffers/go:v1.34.2
-    out: services/message/gen
-    opt: module=efir.sh/services/message
-
-  - remote: buf.build/protocolbuffers/go:v1.34.2
-    out: services/room/gen
-    opt: module=efir.sh/services/room
+    out: services/shared
+    opt: module=efir.sh/services/shared
 
   - remote: buf.build/grpc/go:v1.5.1
-    out: services/auth/gen
-    opt: module=efir.sh/services/auth
-
-  - remote: buf.build/grpc/go:v1.5.1
-    out: services/user/gen
-    opt: module=efir.sh/services/user
-
-  - remote: buf.build/grpc/go:v1.5.1
-    out: services/message/gen
-    opt: module=efir.sh/services/message
-
-  - remote: buf.build/grpc/go:v1.5.1
-    out: services/room/gen
-    opt: module=efir.sh/services/room
+    out: services/shared
+    opt: module=efir.sh/services/shared
