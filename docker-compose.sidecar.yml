@@ -2,7 +2,9 @@ version: '3.9'
 
 services:
   auth-sidecar:
-    build: ./services/sidecar
+    build:
+      context: .
+      dockerfile: ./services/sidecar/Dockerfile
     container_name: efir-auth-sidecar
     profiles: ["sidecar"]
     env_file:
@@ -19,7 +21,9 @@ services:
       - efir-network
 
   user-sidecar:
-    build: ./services/sidecar
+    build:
+      context: .
+      dockerfile: ./services/sidecar/Dockerfile
     container_name: efir-user-sidecar
     profiles: ["sidecar"]
     env_file:
@@ -36,7 +40,9 @@ services:
       - efir-network
 
   room-sidecar:
-    build: ./services/sidecar
+    build:
+      context: .
+      dockerfile: ./services/sidecar/Dockerfile
     container_name: efir-room-sidecar
     profiles: ["sidecar"]
     env_file:
@@ -53,7 +59,9 @@ services:
       - efir-network
 
   message-sidecar:
-    build: ./services/sidecar
+    build:
+      context: .
+      dockerfile: ./services/sidecar/Dockerfile
     container_name: efir-message-sidecar
     profiles: ["sidecar"]
     env_file:

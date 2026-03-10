@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-The messenger system requires multiple services: Auth, User, Room, Message, WebSocket, Gateway. We need to decide whether to use a monorepo (single repository) or polyrepo (separate repositories per service).
+The messenger system requires multiple services: Auth, User, Room, Message, WebSocket, Gateway, and a Sidecar PEP. We need to decide whether to use a monorepo (single repository) or polyrepo (separate repositories per service).
 
 ## Decision
 
@@ -19,6 +19,7 @@ Use a monorepo with Go workspaces (`go.work`).
 - **Shared code**: Common utilities in `services/shared` without publishing packages
 - **Single CI/CD pipeline**: One repository to configure
 - **Consistent tooling**: golangci-lint, buf, go version across all services
+- **Clear service boundaries**: Runnable binaries stay in service modules, while `services/shared` remains library-only
 
 ## Alternatives Considered
 

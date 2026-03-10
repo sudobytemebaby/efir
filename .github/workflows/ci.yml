@@ -74,6 +74,8 @@ jobs:
             docs/adr/002-sidecar-pep.md
             docs/adr/003-modular-compose.md
             docs/adr/004-go-workspace.md
+            docs/adr/005-git-hooks-without-husky.md
+            docs/adr/006-ci-pipeline.md
             infra/postgres/init/01_create_databases.sql
             infra/postgres/init/02_create_users.sh
             infra/nats/nats.conf
@@ -102,6 +104,7 @@ jobs:
             services/message
             services/websocket
             services/gateway
+            services/sidecar
             services/shared
           )
 

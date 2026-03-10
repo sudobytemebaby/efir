@@ -7,5 +7,6 @@ use (
 	./services/room
 	./services/websocket
 	./services/gateway
+	./services/sidecar
 	./services/shared
 )

@@ -33,6 +33,7 @@ use (
     ./services/message
     ./services/websocket
     ./services/gateway
+    ./services/sidecar
     ./services/shared
 )
 ```
@@ -49,8 +50,9 @@ use (
 
 ## Consequences
 
-- Each service has its own go.mod (independent versioning)
+- Each runtime service has its own go.mod (independent versioning)
 - Build each service independently: `go build ./services/auth`
 - Import shared code: `import "efir.sh/services/shared"`
+- `services/shared` remains a library module without its own runnable `cmd/`
 - CI builds each service separately
 - Requires Go 1.18+

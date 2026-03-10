@@ -2,7 +2,9 @@ version: '3.9'
 
 services:
   auth:
-    build: ./services/auth
+    build:
+      context: .
+      dockerfile: ./services/auth/Dockerfile
     container_name: efir-auth
     env_file:
       - .env
@@ -17,7 +19,9 @@ services:
       - efir-network
 
   user:
-    build: ./services/user
+    build:
+      context: .
+      dockerfile: ./services/user/Dockerfile
     container_name: efir-user
     env_file:
       - .env
@@ -30,7 +34,9 @@ services:
       - efir-network
 
   room:
-    build: ./services/room
+    build:
+      context: .
+      dockerfile: ./services/room/Dockerfile
     container_name: efir-room
     env_file:
       - .env
@@ -43,7 +49,9 @@ services:
       - efir-network
 
   message:
-    build: ./services/message
+    build:
+      context: .
+      dockerfile: ./services/message/Dockerfile
     container_name: efir-message
     env_file:
       - .env
@@ -58,7 +66,9 @@ services:
       - efir-network
 
   websocket:
-    build: ./services/websocket
+    build:
+      context: .
+      dockerfile: ./services/websocket/Dockerfile
     container_name: efir-websocket
     env_file:
       - .env
@@ -74,7 +84,9 @@ services:
       - "traefik.http.services.websocket.loadbalancer.server.port=8081"
 
   gateway:
-    build: ./services/gateway
+    build:
+      context: .
+      dockerfile: ./services/gateway/Dockerfile
     container_name: efir-gateway
     env_file:
       - .env
