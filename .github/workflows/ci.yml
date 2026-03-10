@@ -13,12 +13,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check for proto files
+        id: check-proto
+        run: |
+          if find proto/ -name "*.proto" 2>/dev/null | grep -q .; then
+            echo "has_proto=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_proto=false" >> $GITHUB_OUTPUT
+            echo "No proto files found, skipping"
+          fi
+
       - name: Setup buf
+        if: steps.check-proto.outputs.has_proto == 'true'
         uses: bufbuild/buf-setup-action@v1
         with:
           version: "1.32.0"
 
       - name: Lint proto files
+        if: steps.check-proto.outputs.has_proto == 'true'
         run: buf lint
 
   proto-generate:
@@ -28,23 +40,37 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check for proto files
+        id: check-proto
+        run: |
+          if find proto/ -name "*.proto" 2>/dev/null | grep -q .; then
+            echo "has_proto=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_proto=false" >> $GITHUB_OUTPUT
+            echo "No proto files found, skipping"
+          fi
+
       - name: Setup Go
+        if: steps.check-proto.outputs.has_proto == 'true'
         uses: actions/setup-go@v5
         with:
           go-version: "1.23"
           cache: true
 
       - name: Setup buf
+        if: steps.check-proto.outputs.has_proto == 'true'
         uses: bufbuild/buf-setup-action@v1
         with:
           version: "1.32.0"
 
       - name: Install protoc-gen-go plugins
+        if: steps.check-proto.outputs.has_proto == 'true'
         run: |
           go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 
       - name: Generate Go code from proto
+        if: steps.check-proto.outputs.has_proto == 'true'
         run: buf generate
 
   lint:
@@ -54,26 +80,41 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check for Go files
+        id: check-go
+        run: |
+          if find services/ -name "*.go" 2>/dev/null | grep -q .; then
+            echo "has_go=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_go=false" >> $GITHUB_OUTPUT
+            echo "No Go files found, skipping"
+          fi
+
       - name: Setup Go
+        if: steps.check-go.outputs.has_go == 'true'
         uses: actions/setup-go@v5
         with:
           go-version: "1.23"
           cache: true
 
       - name: Setup buf
+        if: steps.check-go.outputs.has_go == 'true'
         uses: bufbuild/buf-setup-action@v1
         with:
           version: "1.32.0"
 
       - name: Install protoc-gen-go plugins
+        if: steps.check-go.outputs.has_go == 'true'
         run: |
           go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 
       - name: Generate proto (needed before lint)
+        if: steps.check-go.outputs.has_go == 'true'
         run: buf generate
 
       - name: Run golangci-lint
+        if: steps.check-go.outputs.has_go == 'true'
         uses: golangci/golangci-lint-action@v6
         with:
           version: v1.61.0
@@ -86,35 +127,51 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check for Go files
+        id: check-go
+        run: |
+          if find services/ -name "*.go" 2>/dev/null | grep -q .; then
+            echo "has_go=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_go=false" >> $GITHUB_OUTPUT
+            echo "No Go files found, skipping"
+          fi
+
       - name: Setup Go
+        if: steps.check-go.outputs.has_go == 'true'
         uses: actions/setup-go@v5
         with:
           go-version: "1.23"
           cache: true
 
       - name: Setup buf
+        if: steps.check-go.outputs.has_go == 'true'
         uses: bufbuild/buf-setup-action@v1
         with:
           version: "1.32.0"
 
       - name: Install protoc-gen-go plugins
+        if: steps.check-go.outputs.has_go == 'true'
         run: |
           go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 
       - name: Generate proto (needed before test)
+        if: steps.check-go.outputs.has_go == 'true'
         run: buf generate
 
       - name: Run tests with coverage
+        if: steps.check-go.outputs.has_go == 'true'
         run: go test -coverprofile=coverage.out -covermode=atomic ./...
 
       - name: Upload coverage artifact
+        if: steps.check-go.outputs.has_go == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: coverage
           path: coverage.out
 
-  # Заглушен до Модуля 1 — раскомментить и убрать "if: false" когда будут тесты
+  # Заглушен до Модуля 1 — убрать "if: false" когда будут тесты
   coverage-gate:
     name: Coverage Gate
     runs-on: ubuntu-latest
@@ -150,33 +207,46 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check for Dockerfiles
+        id: check-docker
+        run: |
+          if find services/ -name "Dockerfile" 2>/dev/null | grep -q .; then
+            echo "has_dockerfiles=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_dockerfiles=false" >> $GITHUB_OUTPUT
+            echo "No Dockerfiles found, skipping"
+          fi
+
       - name: Setup buf
+        if: steps.check-docker.outputs.has_dockerfiles == 'true'
         uses: bufbuild/buf-setup-action@v1
         with:
           version: "1.32.0"
 
       - name: Setup Go
+        if: steps.check-docker.outputs.has_dockerfiles == 'true'
         uses: actions/setup-go@v5
         with:
           go-version: "1.23"
           cache: true
 
       - name: Install protoc-gen-go plugins
+        if: steps.check-docker.outputs.has_dockerfiles == 'true'
         run: |
           go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 
       - name: Generate proto before build
+        if: steps.check-docker.outputs.has_dockerfiles == 'true'
         run: buf generate
 
       - name: Build all service images
+        if: steps.check-docker.outputs.has_dockerfiles == 'true'
         run: |
           services=(gateway auth user message room media presence notification search websocket sidecar)
           for svc in "${services[@]}"; do
             if [ -f "services/$svc/Dockerfile" ]; then
               echo "Building $svc..."
               docker build -t efir-$svc:ci -f services/$svc/Dockerfile .
-            else
-              echo "Skipping $svc (no Dockerfile yet)"
             fi
           done
