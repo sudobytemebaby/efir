@@ -13,8 +13,6 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./infra/postgres/init:/docker-entrypoint-initdb.d
-    ports:
-      - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 10s
@@ -28,13 +26,14 @@ services:
     container_name: efir-nats
     env_file:
       - .env
-    command: ["-c", "/etc/nats/nats.conf"]
+    command:
+      - "--user=${NATS_USER:-nats}"
+      - "--pass=${NATS_PASSWORD:-nats}"
+      - "-c"
+      - "/etc/nats/nats.conf"
     volumes:
       - ./infra/nats/nats.conf:/etc/nats/nats.conf:ro
       - nats_data:/var/lib/nats
-    ports:
-      - "4222:4222"
-      - "8222:8222"
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8222/healthz"]
       interval: 10s
@@ -48,14 +47,12 @@ services:
     container_name: efir-valkey
     env_file:
       - .env
-    command: valkey-server /etc/valkey/valkey.conf
+    command: sh -c 'exec valkey-server /etc/valkey/valkey.conf --requirepass "$${VALKEY_PASSWORD:-valkey}"'
     volumes:
       - ./infra/valkey/valkey.conf:/etc/valkey/valkey.conf:ro
       - valkey_data:/data
-    ports:
-      - "6379:6379"
     healthcheck:
-      test: ["CMD", "valkey-cli", "ping"]
+      test: ["CMD-SHELL", "valkey-cli -a \"$${VALKEY_PASSWORD:-valkey}\" ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -74,12 +71,8 @@ services:
       - ./infra/traefik/dynamic:/etc/traefik/dynamic:ro
       - ./infra/traefik/certs:/certs:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
-    ports:
-      - "80:80"
-      - "443:443"
-      - "8080:8080"
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:80/ping"]
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/ping"]
       interval: 10s
       timeout: 5s
       retries: 5

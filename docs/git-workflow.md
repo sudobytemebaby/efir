@@ -58,7 +58,7 @@ refactor(message): extract pagination logic to helper
 
 ### Local Validation
 
-Commit messages are validated locally using a pure bash script
+Commit messages are validated locally using a pure bash script stored in `.githooks/commit-msg`.
 
 ```bash
 # .githooks/commit-msg
@@ -82,7 +82,7 @@ This makes git use `.githooks/` directory for all hooks instead of `.git/hooks/`
 
 ### CI Validation
 
-GitHub Actions CI also validates commit messages in the pipeline. See `.github/workflows/ci.yml` for details.
+GitHub Actions validates commit messages with the same Conventional Commit regex used by the local hook, then runs the rest of the Module 0 foundation checks. See `.github/workflows/ci.yml` for details.
 
 ## Workflow
 

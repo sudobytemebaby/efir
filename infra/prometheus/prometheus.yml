@@ -26,3 +26,11 @@ scrape_configs:
   - job_name: "message"
     static_configs:
       - targets: ["message:50054"]
+
+  - job_name: "gateway"
+    static_configs:
+      - targets: ["gateway:8080"]
+
+  - job_name: "websocket"
+    static_configs:
+      - targets: ["websocket:8081"]

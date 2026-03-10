@@ -4,6 +4,7 @@ services:
   auth-sidecar:
     build: ./services/sidecar
     container_name: efir-auth-sidecar
+    profiles: ["sidecar"]
     env_file:
       - .env
     environment:
@@ -20,6 +21,7 @@ services:
   user-sidecar:
     build: ./services/sidecar
     container_name: efir-user-sidecar
+    profiles: ["sidecar"]
     env_file:
       - .env
     environment:
@@ -36,6 +38,7 @@ services:
   room-sidecar:
     build: ./services/sidecar
     container_name: efir-room-sidecar
+    profiles: ["sidecar"]
     env_file:
       - .env
     environment:
@@ -52,6 +55,7 @@ services:
   message-sidecar:
     build: ./services/sidecar
     container_name: efir-message-sidecar
+    profiles: ["sidecar"]
     env_file:
       - .env
     environment:

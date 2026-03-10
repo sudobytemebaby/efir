@@ -7,7 +7,7 @@ Accepted
 We need to validate commit messages to enforce Conventional Commits format. Traditionally, this is done with Husky (npm package) which manages Git hooks.
 
 ## Decision
-Use pure bash scripts for Git hooks without any npm/bun dependencies.
+Use pure bash scripts for local Git hooks without any npm/bun dependencies, and validate the same commit message pattern again in CI.
 
 ## Rationale
 - **Zero dependencies**: No npm/bun packages needed
@@ -15,6 +15,7 @@ Use pure bash scripts for Git hooks without any npm/bun dependencies.
 - **Simple pattern matching**: Using `grep -qE` for validation is fast and reliable
 - **Future-proof**: Plain shell scripts will always work regardless of npm ecosystem changes
 - **No node_modules**: Keeps the repository clean
+- **Same rule in CI**: The repository can enforce the same message format remotely without bringing Node tooling into the Go project
 
 ## Implementation
 
@@ -55,5 +56,5 @@ fi
 - Commit messages validated locally on every `git commit`
 - Fast validation (pure shell, no external process spawn)
 - No npm/bun dependencies in the project
-- CI pipeline also validates (see ADR-006)
+- CI pipeline validates the same regex-based rule (see ADR-006)
 - No package.json needed for git hooks
