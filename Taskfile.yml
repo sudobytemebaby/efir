@@ -22,12 +22,22 @@ tasks:
   restart:
     desc: Restart a specific service
     cmds:
-      - docker compose restart {{.CLI_ARGS}}
+      - |
+        if [ -z "{{.SERVICE}}" ]; then
+          echo "Usage: task restart SERVICE=auth"
+          exit 1
+        fi
+        docker compose restart {{.SERVICE}}
 
   logs:
     desc: Show logs for a specific service
     cmds:
-      - docker compose logs -f {{.CLI_ARGS}}
+      - |
+        if [ -z "{{.SERVICE}}" ]; then
+          echo "Usage: task logs SERVICE=auth"
+          exit 1
+        fi
+        docker compose logs -f {{.SERVICE}}
 
   ps:
     desc: Show status of all containers
@@ -37,32 +47,32 @@ tasks:
   infra:up:
     desc: Start infrastructure only
     cmds:
-      - docker compose -f docker-compose.infra.yml up -d
+      - docker compose up -d postgres nats valkey traefik
 
   infra:down:
     desc: Stop infrastructure
     cmds:
-      - docker compose -f docker-compose.infra.yml down
+      - docker compose stop postgres nats valkey traefik
 
   obs:up:
     desc: Start infrastructure + observability
     cmds:
-      - docker compose -f docker-compose.infra.yml -f docker-compose.observability.yml up -d
+      - docker compose --profile observability up -d postgres nats valkey traefik otel-collector prometheus loki tempo grafana
 
   obs:down:
     desc: Stop observability
     cmds:
-      - docker compose -f docker-compose.observability.yml down
+      - docker compose stop otel-collector prometheus loki tempo grafana
 
   sidecar:up:
     desc: Start sidecar containers
     cmds:
-      - docker compose -f docker-compose.sidecar.yml up -d
+      - docker compose --profile sidecar up -d auth-sidecar user-sidecar room-sidecar message-sidecar
 
   sidecar:down:
     desc: Stop sidecar containers
     cmds:
-      - docker compose -f docker-compose.sidecar.yml down
+      - docker compose stop auth-sidecar user-sidecar room-sidecar message-sidecar
 
   proto:lint:
     desc: Lint proto files
@@ -77,58 +87,77 @@ tasks:
   generate:
     desc: Generate mocks for all services
     cmds:
-      - go generate ./...
+      - |
+        for dir in $(go list -m -f '{{.Dir}}'); do
+          go generate "$dir"/... || exit 1
+        done
 
   run:
     desc: Run a service locally
     cmds:
-      - cd services/{{.CLI_ARGS}} && go run cmd/main.go
+      - |
+        if [ -z "{{.SERVICE}}" ]; then
+          echo "Usage: task run SERVICE=auth"
+          exit 1
+        fi
+        go run ./services/{{.SERVICE}}/cmd
 
   test:
     desc: Run tests for all services
     cmds:
-      - go test ./...
+      - |
+        for dir in $(go list -m -f '{{.Dir}}'); do
+          go test "$dir"/... || exit 1
+        done
 
   lint:
     desc: Run golangci-lint
     cmds:
-      - golangci-lint run ./...
+      - |
+        for dir in $(go list -m -f '{{.Dir}}'); do
+          golangci-lint run "$dir"/... || exit 1
+        done
 
   migrate:up:
-    desc: Apply all pending migrations for a service
+    desc: Apply all pending migrations
     cmds:
       - |
-        if [ -z "{{.CLI_ARGS}}" ]; then
-          echo "Usage: task migrate:up SERVICE=auth"
-          exit 1
+        if [ -n "{{.SERVICE}}" ]; then
+          goose -dir="services/{{.SERVICE}}/migrations" up
+          exit 0
         fi
-        goose -dir=services/{{.CLI_ARGS}}/migrations up
+        for dir in services/*/migrations; do
+          [ -d "$dir" ] || continue
+          echo "=== ${dir%/migrations} ==="
+          goose -dir="$dir" up
+        done
 
   migrate:down:
     desc: Rollback last migration for a service
     cmds:
       - |
-        if [ -z "{{.CLI_ARGS}}" ]; then
+        if [ -z "{{.SERVICE}}" ]; then
           echo "Usage: task migrate:down SERVICE=auth"
           exit 1
         fi
-        goose -dir=services/{{.CLI_ARGS}}/migrations down
+        goose -dir="services/{{.SERVICE}}/migrations" down
 
   migrate:create:
     desc: Create a new migration
     cmds:
       - |
-        if [ -z "{{.CLI_ARGS}}" ]; then
+        if [ -z "{{.SERVICE}}" ] || [ -z "{{.NAME}}" ]; then
           echo "Usage: task migrate:create SERVICE=auth NAME=create_users"
           exit 1
         fi
-        goose -dir=services/{{.CLI_ARGS}}/migrations create {{.CLI_ARGS}} sql
+        goose -dir="services/{{.SERVICE}}/migrations" create "{{.NAME}}" sql
 
   migrate:status:
     desc: Show migration status for all services
     cmds:
       - |
-        for svc in auth user room message; do
-          echo "=== $svc ==="
-          goose -dir=services/$svc/migrations status || true
+        for dir in services/*/migrations; do
+          [ -d "$dir" ] || continue
+          echo "=== ${dir%/migrations} ==="
+          goose -dir="$dir" status || true
         done

@@ -6,7 +6,7 @@
 
 commit_msg=$(cat "$1")
 
-# Allowed types (from git-workflow.md)
+# Allowed types (mirrors CI validation)
 pattern="^(feat|fix|infra|refactor|test|docs|chore)(\([a-z0-9-]+\))?: .{1,100}$"
 
 if ! echo "$commit_msg" | grep -qE "$pattern"; then

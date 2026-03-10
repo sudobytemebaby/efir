@@ -14,6 +14,12 @@ Use GitHub Actions with a multi-stage CI pipeline defined in `.github/workflows/
 
 ## Pipeline Stages
 
+### 0. Foundation Check
+
+- Validates commit messages before the rest of the pipeline
+- Verifies the required Module 0 files and directories exist
+- Fails fast when the repository scaffold drifts from the agreed foundation
+
 ### 1. Proto Lint
 
 - Uses `buf` to lint all `.proto` files
@@ -72,6 +78,11 @@ This ensures every push to main and every PR is validated.
 - Version: v1.61.0
 - Config: `.golangci.yml`
 
+### Commit message policy
+
+- CI reuses the same Conventional Commit regex enforced by the local Git hook
+- Local hooks and CI stay dependency-free for commit validation
+
 ### Services Built
 
 - gateway, auth, user, message, room
@@ -86,6 +97,7 @@ This ensures every push to main and every PR is validated.
 ## Consequences
 
 - Every PR and push is automatically validated
+- Foundation drift is caught before lint, test, or build jobs run
 - Proto, lint, test, and build issues caught before merge
 - Coverage reporting available
 - Docker images built for all services

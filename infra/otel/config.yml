@@ -36,6 +36,7 @@ exporters:
     endpoint: "http://loki:3100/loki/api/v1/push"
 
 service:
+  extensions: [health_check]
   pipelines:
     traces:
       receivers: [otlp]
@@ -51,3 +52,7 @@ service:
       receivers: [otlp]
       processors: [memory_limiter, batch]
       exporters: [loki]
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
