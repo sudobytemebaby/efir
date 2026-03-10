@@ -13,7 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 50
 
       - name: Validate commit subjects
         env:
@@ -23,7 +23,7 @@ jobs:
           PUSH_BEFORE_SHA: ${{ github.event.before }}
           CURRENT_SHA: ${{ github.sha }}
         run: |
-          pattern='^(feat|fix|infra|refactor|test|docs|chore)(\([a-z0-9-]+\))?: .{1,100}$'
+          pattern='^(feat|fix|infra|refactor|test|docs|ci|style|chore)(\([a-z0-9-]+\))?: \S.{0,99}$'
           zero_sha='0000000000000000000000000000000000000000'
 
           if [ "$EVENT_NAME" = "pull_request" ]; then
@@ -136,7 +136,8 @@ jobs:
         if: steps.check-proto.outputs.has_proto == 'true'
         uses: bufbuild/buf-setup-action@v1
         with:
-          version: "1.32.0"
+          version: "1.66.0"
+          github_token: ${{ github.token }}
 
       - name: Lint proto files
         if: steps.check-proto.outputs.has_proto == 'true'
@@ -159,28 +160,17 @@ jobs:
             echo "No proto files found, skipping"
           fi
 
-      - name: Setup Go
+      - name: Setup Go + Proto
         if: steps.check-proto.outputs.has_proto == 'true'
-        uses: actions/setup-go@v5
+        uses: ./.github/actions/setup-go-proto
+
+      - name: Upload generated proto files
+        if: steps.check-proto.outputs.has_proto == 'true'
+        uses: actions/upload-artifact@v4
         with:
-          go-version: "1.23"
-          cache: true
-
-      - name: Setup buf
-        if: steps.check-proto.outputs.has_proto == 'true'
-        uses: bufbuild/buf-setup-action@v1
-        with:
-          version: "1.32.0"
-
-      - name: Install protoc-gen-go plugins
-        if: steps.check-proto.outputs.has_proto == 'true'
-        run: |
-          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-
-      - name: Generate Go code from proto
-        if: steps.check-proto.outputs.has_proto == 'true'
-        run: buf generate
+          name: proto-generated
+          path: services/**/pb/
+          retention-days: 3
 
   lint:
     name: Lint
@@ -199,34 +189,29 @@ jobs:
             echo "No Go files found, skipping"
           fi
 
-      - name: Setup Go
+      - name: Setup Go + Proto
         if: steps.check-go.outputs.has_go == 'true'
-        uses: actions/setup-go@v5
+        uses: ./.github/actions/setup-go-proto
         with:
-          go-version: "1.23"
-          cache: true
+          generate: "false"
 
-      - name: Setup buf
+      - name: Download generated proto files
         if: steps.check-go.outputs.has_go == 'true'
-        uses: bufbuild/buf-setup-action@v1
+        uses: actions/download-artifact@v4
         with:
-          version: "1.32.0"
+          name: proto-generated
+          path: services/
+        continue-on-error: true
 
-      - name: Install protoc-gen-go plugins
+      - name: Install golangci-lint v2
         if: steps.check-go.outputs.has_go == 'true'
-        run: |
-          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-          go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.61.0
+        run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.8.0
 
-      - name: Generate proto (needed before lint)
-        if: steps.check-go.outputs.has_go == 'true'
-        run: buf generate
-
-      - name: Run golangci-lint
+      - name: Run golangci-lint across all workspace modules
         if: steps.check-go.outputs.has_go == 'true'
         run: |
           for dir in $(go list -m -f '{{.Dir}}'); do
+            echo "→ Linting $dir"
             (
               cd "$dir"
               golangci-lint run --config "$GITHUB_WORKSPACE/.golangci.yml" ./...
@@ -250,28 +235,19 @@ jobs:
             echo "No Go files found, skipping"
           fi
 
-      - name: Setup Go
+      - name: Setup Go + Proto
         if: steps.check-go.outputs.has_go == 'true'
-        uses: actions/setup-go@v5
+        uses: ./.github/actions/setup-go-proto
         with:
-          go-version: "1.23"
-          cache: true
+          generate: "false"
 
-      - name: Setup buf
+      - name: Download generated proto files
         if: steps.check-go.outputs.has_go == 'true'
-        uses: bufbuild/buf-setup-action@v1
+        uses: actions/download-artifact@v4
         with:
-          version: "1.32.0"
-
-      - name: Install protoc-gen-go plugins
-        if: steps.check-go.outputs.has_go == 'true'
-        run: |
-          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-
-      - name: Generate proto (needed before test)
-        if: steps.check-go.outputs.has_go == 'true'
-        run: buf generate
+          name: proto-generated
+          path: services/
+        continue-on-error: true
 
       - name: Run tests with coverage
         if: steps.check-go.outputs.has_go == 'true'
@@ -305,13 +281,13 @@ jobs:
         with:
           name: coverage
           path: coverage.out
+          retention-days: 3
 
-  # Заглушен до Модуля 1 — убрать "if: false" когда будут тесты
   coverage-gate:
     name: Coverage Gate
     runs-on: ubuntu-latest
     needs: test
-    if: false # TODO: активировать в Модуле 1 (порог: 70% service, 60% handler)
+    if: false
     steps:
       - uses: actions/checkout@v4
 
@@ -352,28 +328,9 @@ jobs:
             echo "No Dockerfiles found, skipping"
           fi
 
-      - name: Setup buf
+      - name: Setup Go + Proto
         if: steps.check-docker.outputs.has_dockerfiles == 'true'
-        uses: bufbuild/buf-setup-action@v1
-        with:
-          version: "1.32.0"
-
-      - name: Setup Go
-        if: steps.check-docker.outputs.has_dockerfiles == 'true'
-        uses: actions/setup-go@v5
-        with:
-          go-version: "1.23"
-          cache: true
-
-      - name: Install protoc-gen-go plugins
-        if: steps.check-docker.outputs.has_dockerfiles == 'true'
-        run: |
-          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-
-      - name: Generate proto before build
-        if: steps.check-docker.outputs.has_dockerfiles == 'true'
-        run: buf generate
+        uses: ./.github/actions/setup-go-proto
 
       - name: Build all service images
         if: steps.check-docker.outputs.has_dockerfiles == 'true'

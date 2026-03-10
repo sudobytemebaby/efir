@@ -1,20 +1,27 @@
-linters-settings:
-  errcheck:
-    check-type-assertions: true
-  govet:
-    check-shadowing: true
-  staticcheck:
-    checks: ["all"]
-  unused:
-    checks: ["all"]
+version: "2"
 
 linters:
+  default: none
   enable:
     - errcheck
     - govet
     - staticcheck
-    - gofmt
     - unused
+    - ineffassign
+    - gosec
+
+  settings:
+    errcheck:
+      check-type-assertions: true
+    govet:
+      enable:
+        - shadow
+    staticcheck:
+      checks: ["all"]
+
+formatters:
+  enable:
+    - gofmt
 
 run:
   timeout: 5m

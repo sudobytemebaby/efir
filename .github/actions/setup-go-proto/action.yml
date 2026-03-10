@@ -1,0 +1,36 @@
+name: Setup Go + Proto
+description: |
+  Installs Go, buf, and protoc-gen-go plugins, then runs buf generate.
+  Used by lint, test, and build jobs to avoid repeating the same setup steps.
+
+inputs:
+  generate:
+    description: Whether to run buf generate after setup
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: "1.25"
+        cache: true
+
+    - name: Setup buf
+      uses: bufbuild/buf-setup-action@v1
+      with:
+        version: "1.66.0"
+        github_token: ${{ github.token }}
+
+    - name: Install protoc-gen-go plugins (pinned versions)
+      shell: bash
+      run: |
+        go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11
+        go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.1
+
+    - name: Generate Go code from proto
+      if: inputs.generate == 'true'
+      shell: bash
+      run: buf generate
