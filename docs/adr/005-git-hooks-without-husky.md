@@ -1,44 +1,59 @@
 ## ADR-005: Git Hooks Without Husky
 
 ## Status
-
 Accepted
 
 ## Context
-
 We need to validate commit messages to enforce Conventional Commits format. Traditionally, this is done with Husky (npm package) which manages Git hooks.
 
 ## Decision
-
-Use plain shell scripts for Git hooks without the Husky npm package.
+Use pure bash scripts for Git hooks without any npm/bun dependencies.
 
 ## Rationale
-
-- **Husky v9 is deprecated**: The `husky install` command is deprecated and will fail in v10.0.0
-- **No dependency needed**: Git hooks are just shell scripts — no npm package required
-- **Simpler**: Using `bunx commitlint --edit $1` directly in the hook script works perfectly
-- **Future-proof**: Plain shell scripts will continue to work regardless of Husky versions
-- **Less complexity**: No package.json, no node_modules, no npm/bun dependencies
+- **Zero dependencies**: No npm/bun packages needed
+- **Husky v9 deprecated**: The `husky install` command is deprecated and will fail in v10.0.0
+- **Simple pattern matching**: Using `grep -qE` for validation is fast and reliable
+- **Future-proof**: Plain shell scripts will always work regardless of npm ecosystem changes
+- **No node_modules**: Keeps the repository clean
 
 ## Implementation
 
-```sh
-# .husky/commit-msg
-#!/usr/bin/env sh
-bunx --no -- commitlint --edit ${1}
+### Hook Setup
+```bash
+# Configure git to use .githooks directory
+git config core.hooksPath .githooks
 ```
 
-This hook runs on every `git commit` and validates the commit message format.
+### Commit Message Hook (.githooks/commit-msg)
+```bash
+#!/bin/sh
+
+# Conventional Commits validator
+# Format: <type>(<scope>): <description>
+# Example: feat(auth): add jwt validation
+
+commit_msg=$(cat "$1")
+
+# Allowed types: feat, fix, infra, refactor, test, docs, chore
+pattern="^(feat|fix|infra|refactor|test|docs|chore)(\([a-z0-9-]+\))?: .{1,100}$"
+
+if ! echo "$commit_msg" | grep -qE "$pattern"; then
+  echo "✗ Invalid commit message format"
+  echo "Expected: <type>(<scope>): <description>"
+  echo "Allowed types: feat, fix, infra, refactor, test, docs, chore"
+  exit 1
+fi
+```
 
 ## Alternatives Considered
-
-- **Husky bun npackage**: Traditional approach, but deprecated and adds unnecessary dependency
+- **Husky npm package**: Traditional approach, but deprecated, adds unnecessary dependency
+- **bunx commitlint**: Works but requires bun installation on each machine
 - **Lefthook**: Another npm-based hook manager, still adds dependency
-- **CI-only validation**: Skip local hooks, validate only in CI pipeline
+- **CI-only validation**: Would only catch issues in CI, not locally
 
 ## Consequences
-
-- Commit message validation still works locally (via shell script)
-- CI pipeline also validates (see ADR-006 for CI setup)
-- No npm/bun dependencies in package.json for git hooks
-- Simpler maintenance, no package version tracking
+- Commit messages validated locally on every `git commit`
+- Fast validation (pure shell, no external process spawn)
+- No npm/bun dependencies in the project
+- CI pipeline also validates (see ADR-006)
+- No package.json needed for git hooks

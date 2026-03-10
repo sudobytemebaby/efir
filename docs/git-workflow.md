@@ -50,9 +50,38 @@ refactor(message): extract pagination logic to helper
 - `docs`: Documentation
 - `chore`: Maintenance, dependencies
 
+## Git Hooks
+
+### Local Validation
+
+Commit messages are validated locally using a pure bash script (no npm dependencies):
+
+```bash
+# .githooks/commit-msg
+#!/bin/sh
+commit_msg=$(cat "$1")
+pattern="^(feat|fix|infra|refactor|test|docs|chore)(\([a-z0-9-]+\))?: .{1,100}$"
+
+if ! echo "$commit_msg" | grep -qE "$pattern"; then
+  echo "✗ Invalid commit message format"
+  exit 1
+fi
+```
+
+The hook is configured via:
+```bash
+git config core.hooksPath .githooks
+```
+
+This makes git use `.githooks/` directory for all hooks instead of `.git/hooks/`.
+
+### CI Validation
+
+GitHub Actions CI also validates commit messages in the pipeline. See `.github/workflows/ci.yml` for details.
+
 ## Workflow
 
 1. Create branch from `main`: `git checkout -b feature/auth-service`
-2. Make commits following conventions
-3. Push and create PR
+2. Make commits following conventions (validated locally by `.githooks/commit-msg`)
+3. Push and create PR (validated again in CI)
 4. After merge, delete branch
