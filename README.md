@@ -129,6 +129,8 @@ Important service groups:
 - `services/sidecar` - scaffolded policy enforcement proxy reserved for the sidecar module
 - `services/shared` - reusable packages shared across services
 
+Proto contracts live in `proto/` and generate shared Go bindings into `services/shared/gen`.
+
 ## Development Modules
 
 - Module 1 - MVP: auth, users, rooms, messages, gateway, websocket delivery, base tests
