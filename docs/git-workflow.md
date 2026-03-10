@@ -4,17 +4,18 @@
 
 Format: `<type>/<short-description-in-kebab-case>`
 
-| Type | When to use | Example |
-|------|--------------|---------|
-| `feature/` | New functionality | `feature/auth-service` |
-| `fix/` | Bug fixes | `fix/jwt-expiry-validation` |
-| `infra/` | Infrastructure, docker, configs | `infra/traefik-ssl-setup` |
-| `refactor/` | Refactoring without behavior change | `refactor/message-repository` |
-| `test/` | Adding or fixing tests | `test/auth-service-unit` |
-| `docs/` | Documentation, ADRs | `docs/adr-jwt-auth` |
-| `chore/` | Routine: dependencies, code generation | `chore/proto-generation` |
+| Type        | When to use                            | Example                       |
+| ----------- | -------------------------------------- | ----------------------------- |
+| `feature/`  | New functionality                      | `feature/auth-service`        |
+| `fix/`      | Bug fixes                              | `fix/jwt-expiry-validation`   |
+| `infra/`    | Infrastructure, docker, configs        | `infra/traefik-ssl-setup`     |
+| `refactor/` | Refactoring without behavior change    | `refactor/message-repository` |
+| `test/`     | Adding or fixing tests                 | `test/auth-service-unit`      |
+| `docs/`     | Documentation, ADRs                    | `docs/adr-jwt-auth`           |
+| `chore/`    | Routine: dependencies, code generation | `chore/proto-generation`      |
 
 ### Rules
+
 - One branch = one task (one epic or subtask)
 - Branches created from `main`, merge back to `main`
 - Branch names in English, lowercase, words separated by hyphen
@@ -25,6 +26,7 @@ Format: `<type>/<short-description-in-kebab-case>`
 Format: [Conventional Commits](https://www.conventionalcommits.org/): `<type>(<scope>): <description>`
 
 ### Examples
+
 ```
 feat(auth): add refresh token rotation
 fix(gateway): return 401 on expired jwt instead of 500
@@ -36,12 +38,14 @@ refactor(message): extract pagination logic to helper
 ```
 
 ### Rules
+
 - Description in English, lowercase, no period at end
 - `scope` — service or component name: `auth`, `gateway`, `infra`, `proto`, `shared`, `sidecar`
 - One commit = one logical change
 - Don't commit generated files separately — include in the same commit that triggered generation
 
 ### Types
+
 - `feat`: New feature
 - `fix`: Bug fix
 - `infra`: Infrastructure changes
@@ -54,7 +58,7 @@ refactor(message): extract pagination logic to helper
 
 ### Local Validation
 
-Commit messages are validated locally using a pure bash script (no npm dependencies):
+Commit messages are validated locally using a pure bash script
 
 ```bash
 # .githooks/commit-msg
@@ -69,6 +73,7 @@ fi
 ```
 
 The hook is configured via:
+
 ```bash
 git config core.hooksPath .githooks
 ```
