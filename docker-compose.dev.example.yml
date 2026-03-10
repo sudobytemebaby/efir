@@ -1,0 +1,70 @@
+version: '3.9'
+
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+
+  nats:
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+
+  valkey:
+    ports:
+      - "6379:6379"
+
+  traefik:
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
+
+  auth:
+    ports:
+      - "50051:50051"
+
+  user:
+    ports:
+      - "50052:50052"
+
+  room:
+    ports:
+      - "50053:50053"
+
+  message:
+    ports:
+      - "50054:50054"
+
+  websocket:
+    ports:
+      - "8081:8081"
+
+  gateway:
+    ports:
+      - "8080:8080"
+
+  otel-collector:
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "8888:8888"
+      - "8889:8889"
+
+  prometheus:
+    ports:
+      - "9090:9090"
+
+  loki:
+    ports:
+      - "3100:3100"
+
+  tempo:
+    ports:
+      - "4311:4311"
+      - "4312:4312"
+      - "9411:9411"
+
+  grafana:
+    ports:
+      - "3000:3000"

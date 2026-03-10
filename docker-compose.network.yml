@@ -1,0 +1,6 @@
+version: '3.9'
+
+networks:
+  efir-network:
+    name: efir-network
+    driver: bridge

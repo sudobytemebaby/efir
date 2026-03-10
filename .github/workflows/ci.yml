@@ -1,0 +1,182 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  proto-lint:
+    name: Proto Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup buf
+        uses: bufbuild/buf-setup-action@v1
+        with:
+          version: "1.32.0"
+
+      - name: Lint proto files
+        run: buf lint
+
+  proto-generate:
+    name: Proto Generate
+    runs-on: ubuntu-latest
+    needs: proto-lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache: true
+
+      - name: Setup buf
+        uses: bufbuild/buf-setup-action@v1
+        with:
+          version: "1.32.0"
+
+      - name: Install protoc-gen-go plugins
+        run: |
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
+      - name: Generate Go code from proto
+        run: buf generate
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    needs: proto-generate
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache: true
+
+      - name: Setup buf
+        uses: bufbuild/buf-setup-action@v1
+        with:
+          version: "1.32.0"
+
+      - name: Install protoc-gen-go plugins
+        run: |
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
+      - name: Generate proto (needed before lint)
+        run: buf generate
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.61.0
+          args: --config .golangci.yml ./...
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: proto-generate
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache: true
+
+      - name: Setup buf
+        uses: bufbuild/buf-setup-action@v1
+        with:
+          version: "1.32.0"
+
+      - name: Install protoc-gen-go plugins
+        run: |
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
+      - name: Generate proto (needed before test)
+        run: buf generate
+
+      - name: Run tests with coverage
+        run: go test -coverprofile=coverage.out -covermode=atomic ./...
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.out
+
+  # Заглушен до Модуля 1 — раскомментить и убрать "if: false" когда будут тесты
+  coverage-gate:
+    name: Coverage Gate
+    runs-on: ubuntu-latest
+    needs: test
+    if: false # TODO: активировать в Модуле 1 (порог: 70% service, 60% handler)
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage
+
+      - name: Check coverage threshold
+        run: |
+          go tool cover -func=coverage.out | grep -E "service|handler" | awk '
+          {
+            pct = substr($3, 1, length($3)-1)
+            if ($2 ~ /service/ && pct+0 < 70) {
+              print "FAIL: " $0 " (below 70%)"
+              exit 1
+            }
+            if ($2 ~ /handler/ && pct+0 < 60) {
+              print "FAIL: " $0 " (below 60%)"
+              exit 1
+            }
+          }'
+
+  build:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup buf
+        uses: bufbuild/buf-setup-action@v1
+        with:
+          version: "1.32.0"
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache: true
+
+      - name: Install protoc-gen-go plugins
+        run: |
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
+      - name: Generate proto before build
+        run: buf generate
+
+      - name: Build all service images
+        run: |
+          services=(gateway auth user message room media presence notification search websocket sidecar)
+          for svc in "${services[@]}"; do
+            if [ -f "services/$svc/Dockerfile" ]; then
+              echo "Building $svc..."
+              docker build -t efir-$svc:ci -f services/$svc/Dockerfile .
+            else
+              echo "Skipping $svc (no Dockerfile yet)"
+            fi
+          done

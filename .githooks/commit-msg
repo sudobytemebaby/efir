@@ -1,0 +1,25 @@
+#!/bin/sh
+
+# Conventional Commits validator
+# Format: <type>(<scope>): <description>
+# Example: feat(auth): add jwt validation
+
+commit_msg=$(cat "$1")
+
+# Allowed types (from git-workflow.md)
+pattern="^(feat|fix|infra|refactor|test|docs|chore)(\([a-z0-9-]+\))?: .{1,100}$"
+
+if ! echo "$commit_msg" | grep -qE "$pattern"; then
+  echo ""
+  echo "  ✗ Invalid commit message format"
+  echo ""
+  echo "  Expected: <type>(<scope>): <description>"
+  echo "  Example:  feat(auth): add jwt validation"
+  echo ""
+  echo "  Allowed types: feat, fix, infra, refactor, test, docs, chore"
+  echo "  Your message: $commit_msg"
+  echo ""
+  exit 1
+fi
+
+exit 0

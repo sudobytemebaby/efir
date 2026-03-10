@@ -1,0 +1,122 @@
+version: '3.9'
+
+services:
+  auth:
+    build: ./services/auth
+    container_name: efir-auth
+    env_file:
+      - .env
+    ports:
+      - "50051:50051"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    networks:
+      - efir-network
+    labels:
+      - "traefik.enable=true"
+
+  user:
+    build: ./services/user
+    container_name: efir-user
+    env_file:
+      - .env
+    ports:
+      - "50052:50052"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    networks:
+      - efir-network
+    labels:
+      - "traefik.enable=true"
+
+  room:
+    build: ./services/room
+    container_name: efir-room
+    env_file:
+      - .env
+    ports:
+      - "50053:50053"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    networks:
+      - efir-network
+    labels:
+      - "traefik.enable=true"
+
+  message:
+    build: ./services/message
+    container_name: efir-message
+    env_file:
+      - .env
+    ports:
+      - "50054:50054"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+      room:
+        condition: service_healthy
+    networks:
+      - efir-network
+    labels:
+      - "traefik.enable=true"
+
+  websocket:
+    build: ./services/websocket
+    container_name: efir-websocket
+    env_file:
+      - .env
+    ports:
+      - "8081:8081"
+    depends_on:
+      nats:
+        condition: service_healthy
+    networks:
+      - efir-network
+    labels:
+      - "traefik.enable=true"
+
+  gateway:
+    build: ./services/gateway
+    container_name: efir-gateway
+    env_file:
+      - .env
+    ports:
+      - "8080:8080"
+    depends_on:
+      auth:
+        condition: service_healthy
+      user:
+        condition: service_healthy
+      room:
+        condition: service_healthy
+      message:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    networks:
+      - efir-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.gateway.rule=Host(`api.localhost`)"
+      - "traefik.http.routers.gateway.entrypoints=web"
+      - "traefik.http.services.gateway.loadbalancer.server.port=8080"
+      - "traefik.http.routers.websocket.rule=Host(`ws.localhost`)"
+      - "traefik.http.routers.websocket.entrypoints=web"
+      - "traefik.http.services.websocket.loadbalancer.server.port=8081"
+
+networks:
+  efir-network:
+    external: true

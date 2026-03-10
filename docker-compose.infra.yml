@@ -1,0 +1,96 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: efir-postgres
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_HOST_AUTH_METHOD: md5
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - efir-network
+
+  nats:
+    image: nats:2.10-alpine
+    container_name: efir-nats
+    env_file:
+      - .env
+    command: ["-c", "/etc/nats/nats.conf"]
+    volumes:
+      - ./infra/nats/nats.conf:/etc/nats/nats.conf:ro
+      - nats_data:/var/lib/nats
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8222/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - efir-network
+
+  valkey:
+    image: valkey:8-alpine
+    container_name: efir-valkey
+    env_file:
+      - .env
+    command: valkey-server /etc/valkey/valkey.conf
+    volumes:
+      - ./infra/valkey/valkey.conf:/etc/valkey/valkey.conf:ro
+      - valkey_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - efir-network
+
+  traefik:
+    image: traefik:v3.0
+    container_name: efir-traefik
+    env_file:
+      - .env
+    command:
+      - "--configFile=/etc/traefik/traefik.yml"
+    volumes:
+      - ./infra/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./infra/traefik/dynamic:/etc/traefik/dynamic:ro
+      - ./infra/traefik/certs:/certs:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:80/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - efir-network
+
+volumes:
+  postgres_data:
+  nats_data:
+  valkey_data:
+
+networks:
+  efir-network:
+    external: true

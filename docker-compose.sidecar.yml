@@ -1,0 +1,70 @@
+version: '3.9'
+
+services:
+  auth-sidecar:
+    build: ./services/sidecar
+    container_name: efir-auth-sidecar
+    env_file:
+      - .env
+    environment:
+      - UPSTREAM_SERVICE=auth
+      - UPSTREAM_ADDR=auth:50051
+    volumes:
+      - ./services/sidecar/config:/config:ro
+    depends_on:
+      auth:
+        condition: service_started
+    networks:
+      - efir-network
+
+  user-sidecar:
+    build: ./services/sidecar
+    container_name: efir-user-sidecar
+    env_file:
+      - .env
+    environment:
+      - UPSTREAM_SERVICE=user
+      - UPSTREAM_ADDR=user:50052
+    volumes:
+      - ./services/sidecar/config:/config:ro
+    depends_on:
+      user:
+        condition: service_started
+    networks:
+      - efir-network
+
+  room-sidecar:
+    build: ./services/sidecar
+    container_name: efir-room-sidecar
+    env_file:
+      - .env
+    environment:
+      - UPSTREAM_SERVICE=room
+      - UPSTREAM_ADDR=room:50053
+    volumes:
+      - ./services/sidecar/config:/config:ro
+    depends_on:
+      room:
+        condition: service_started
+    networks:
+      - efir-network
+
+  message-sidecar:
+    build: ./services/sidecar
+    container_name: efir-message-sidecar
+    env_file:
+      - .env
+    environment:
+      - UPSTREAM_SERVICE=message
+      - UPSTREAM_ADDR=message:50054
+    volumes:
+      - ./services/sidecar/config:/config:ro
+    depends_on:
+      message:
+        condition: service_started
+    networks:
+      - efir-network
+
+networks:
+  efir-network:
+    external: true

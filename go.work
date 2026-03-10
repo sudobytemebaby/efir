@@ -1,0 +1,11 @@
+go 1.23
+
+use (
+	./services/auth
+	./services/user
+	./services/message
+	./services/room
+	./services/websocket
+	./services/gateway
+	./services/shared
+)

@@ -1,0 +1,28 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: "otel-collector"
+    static_configs:
+      - targets: ["otel-collector:8888", "otel-collector:8889"]
+
+  - job_name: "auth"
+    static_configs:
+      - targets: ["auth:50051"]
+
+  - job_name: "user"
+    static_configs:
+      - targets: ["user:50052"]
+
+  - job_name: "room"
+    static_configs:
+      - targets: ["room:50053"]
+
+  - job_name: "message"
+    static_configs:
+      - targets: ["message:50054"]

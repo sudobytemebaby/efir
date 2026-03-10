@@ -1,0 +1,30 @@
+http:
+  middlewares:
+    rate-limit:
+      rateLimit:
+        average: 100
+        period: 1m
+        burst: 50
+
+    cors:
+      headers:
+        accessControlAllowMethods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+        accessControlAllowOriginList:
+          - "*"
+        accessControlAllowHeaders:
+          - "*"
+        accessControlExposeHeaders:
+          - "*"
+
+    strip-prefix:
+      stripPrefix:
+        prefixes:
+          - "/auth"
+          - "/user"
+          - "/room"
+          - "/message"
