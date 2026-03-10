@@ -226,8 +226,12 @@ jobs:
       - name: Run golangci-lint
         if: steps.check-go.outputs.has_go == 'true'
         run: |
-          mapfile -t packages < <(for dir in $(go list -m -f '{{.Dir}}'); do go list "$dir"/...; done)
-          golangci-lint run --config .golangci.yml "${packages[@]}"
+          for dir in $(go list -m -f '{{.Dir}}'); do
+            (
+              cd "$dir"
+              golangci-lint run --config "$GITHUB_WORKSPACE/.golangci.yml" ./...
+            ) || exit 1
+          done
 
   test:
     name: Test
@@ -272,8 +276,28 @@ jobs:
       - name: Run tests with coverage
         if: steps.check-go.outputs.has_go == 'true'
         run: |
-          mapfile -t packages < <(for dir in $(go list -m -f '{{.Dir}}'); do go list "$dir"/...; done)
-          go test -coverprofile=coverage.out -covermode=atomic "${packages[@]}"
+          rm -f coverage.out
+          touch coverage.out
+          first=1
+          for dir in $(go list -m -f '{{.Dir}}'); do
+            tmp=$(mktemp)
+            (
+              cd "$dir"
+              go test -coverprofile="$tmp" -covermode=atomic ./...
+            ) || {
+              rm -f "$tmp"
+              exit 1
+            }
+            if [ -s "$tmp" ]; then
+              if [ "$first" -eq 1 ]; then
+                cat "$tmp" > coverage.out
+                first=0
+              else
+                tail -n +2 "$tmp" >> coverage.out
+              fi
+            fi
+            rm -f "$tmp"
+          done
 
       - name: Upload coverage artifact
         if: steps.check-go.outputs.has_go == 'true'

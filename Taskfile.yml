@@ -107,15 +107,22 @@ tasks:
     cmds:
       - |
         for dir in $(go list -m -f '{{.Dir}}'); do
-          go test "$dir"/... || exit 1
+          (
+            cd "$dir"
+            go test ./...
+          ) || exit 1
         done
 
   lint:
     desc: Run golangci-lint
     cmds:
       - |
+        root=$(git rev-parse --show-toplevel)
         for dir in $(go list -m -f '{{.Dir}}'); do
-          golangci-lint run "$dir"/... || exit 1
+          (
+            cd "$dir"
+            golangci-lint run --config "$root/.golangci.yml" ./...
+          ) || exit 1
         done
 
   migrate:up:

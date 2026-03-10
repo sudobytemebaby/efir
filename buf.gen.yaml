@@ -2,9 +2,9 @@ version: v2
 
 plugins:
   - remote: buf.build/protocolbuffers/go:v1.34.2
-    out: services/shared/gen
+    out: services/shared
     opt: module=efir.sh/services/shared
 
   - remote: buf.build/grpc/go:v1.5.1
-    out: services/shared/gen
+    out: services/shared
     opt: module=efir.sh/services/shared
