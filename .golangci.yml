@@ -1,20 +1,19 @@
-linters-settings:
-  errcheck:
-    check-type-assertions: true
-  govet:
-    check-shadowing: true
-  staticcheck:
-    checks: ["all"]
-  unused:
-    checks: ["all"]
-
 linters:
+  settings:
+    errcheck:
+      check-type-assertions: true
+    govet:
+      enable:
+        - shadow
+    staticcheck:
+      checks: ["all"]
+
   enable:
     - errcheck
     - govet
     - staticcheck
     - gofmt
-    - unused
+    - deadcode
 
 run:
   timeout: 5m
