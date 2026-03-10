@@ -1,6 +1,15 @@
 version: "2"
 
 linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - ineffassign
+    - gosec
+
   settings:
     errcheck:
       check-type-assertions: true
@@ -10,12 +19,9 @@ linters:
     staticcheck:
       checks: ["all"]
 
+formatters:
   enable:
-    - errcheck
-    - govet
-    - staticcheck
     - gofmt
-    - deadcode
 
 run:
   timeout: 5m
