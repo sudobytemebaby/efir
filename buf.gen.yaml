@@ -1,0 +1,18 @@
+version: v1
+
+plugins:
+  - plugin: buf.build/protocolbuffers/go:v1.33.0
+    out: services/auth/gen
+    opt: module=efir.sh/services/auth
+
+  - plugin: buf.build/protocolbuffers/go:v1.33.0
+    out: services/user/gen
+    opt: module=efir.sh/services/user
+
+  - plugin: buf.build/protocolbuffers/go:v1.33.0
+    out: services/message/gen
+    opt: module=efir.sh/services/message
+
+  - plugin: buf.build/protocolbuffers/go:v1.33.0
+    out: services/room/gen
+    opt: module=efir.sh/services/room
