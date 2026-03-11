@@ -52,7 +52,6 @@ func TestUserIDInterceptor(t *testing.T) {
 	}
 
 	resp, err := interceptor(ctx, req, info, handler)
-
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -85,7 +84,6 @@ func TestUserIDInterceptorNoMetadata(t *testing.T) {
 	}
 
 	resp, err := interceptor(ctx, req, info, handler)
-
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}

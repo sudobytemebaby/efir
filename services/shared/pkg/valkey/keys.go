@@ -1,3 +1,4 @@
+// Package valkey provides constants and helpers for Valkey key naming.
 package valkey
 
 const (

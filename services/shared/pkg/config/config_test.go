@@ -13,7 +13,6 @@ func TestLoadWithDefaults(t *testing.T) {
 
 	cfg := &Config{}
 	err := Load(cfg)
-
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -65,7 +64,6 @@ func TestLoadWithAllFields(t *testing.T) {
 
 	cfg := &Config{}
 	err := Load(cfg)
-
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
