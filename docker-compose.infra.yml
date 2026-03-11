@@ -1,5 +1,3 @@
-version: '3.9'
-
 services:
   postgres:
     image: postgres:16-alpine
@@ -52,7 +50,7 @@ services:
       - ./infra/valkey/valkey.conf:/etc/valkey/valkey.conf:ro
       - valkey_data:/data
     healthcheck:
-      test: ["CMD-SHELL", "valkey-cli -a \"$${VALKEY_PASSWORD:-valkey}\" ping"]
+      test: ["CMD-SHELL", 'valkey-cli -a "$VALKEY_PASSWORD" ping']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -72,7 +70,7 @@ services:
       - ./infra/traefik/certs:/certs:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/ping"]
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
       interval: 10s
       timeout: 5s
       retries: 5

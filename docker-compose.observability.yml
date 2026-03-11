@@ -1,8 +1,6 @@
-version: '3.9'
-
 services:
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:latest
+    image: otel/opentelemetry-collector-contrib:0.147.0
     container_name: efir-otel-collector
     profiles: ["observability"]
     env_file:
@@ -19,7 +17,7 @@ services:
       - efir-network
 
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:3.10.0
     container_name: efir-prometheus
     profiles: ["observability"]
     env_file:
@@ -36,7 +34,7 @@ services:
       - efir-network
 
   loki:
-    image: grafana/loki:latest
+    image: grafana/loki:3.6.7
     container_name: efir-loki
     profiles: ["observability"]
     env_file:
@@ -53,7 +51,7 @@ services:
       - efir-network
 
   tempo:
-    image: grafana/tempo:latest
+    image: grafana/tempo:2.10.1
     container_name: efir-tempo
     profiles: ["observability"]
     env_file:
@@ -71,7 +69,7 @@ services:
       - efir-network
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:12.4.1
     container_name: efir-grafana
     profiles: ["observability"]
     env_file:
@@ -83,7 +81,8 @@ services:
       - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
       - grafana_data:/var/lib/grafana
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health"]
+      test:
+        ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health"]
       interval: 10s
       timeout: 5s
       retries: 5
