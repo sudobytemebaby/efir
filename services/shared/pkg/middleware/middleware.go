@@ -1,0 +1,83 @@
+// Package middleware provides gRPC interceptors for logging, recovery, and user ID extraction.
+package middleware
+
+import (
+	"context"
+	"log/slog"
+	"time"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
+)
+
+const (
+	MetadataKeyUserID = "x-user-id"
+)
+
+func LoggingInterceptor(logger *slog.Logger) grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+		start := time.Now()
+
+		logger.Info("gRPC request started",
+			"method", info.FullMethod,
+		)
+
+		resp, err := handler(ctx, req)
+
+		duration := time.Since(start)
+		level := slog.LevelInfo
+		if err != nil {
+			level = slog.LevelError
+		}
+
+		logger.Log(ctx, level, "gRPC request completed",
+			"method", info.FullMethod,
+			"duration_ms", duration.Milliseconds(),
+			"error", err,
+		)
+
+		return resp, err
+	}
+}
+
+func RecoveryInterceptor(logger *slog.Logger) grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+		defer func() {
+			if r := recover(); r != nil {
+				logger.Error("panic recovered in gRPC handler",
+					"method", info.FullMethod,
+					"panic", r,
+				)
+			}
+		}()
+
+		resp, err := handler(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		return resp, nil
+	}
+}
+
+func UserIDInterceptor() grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+		md, ok := metadata.FromIncomingContext(ctx)
+		if !ok {
+			return handler(ctx, req)
+		}
+
+		userIDs := md.Get(MetadataKeyUserID)
+		if len(userIDs) > 0 {
+			ctx = context.WithValue(ctx, contextKeyUserID{}, userIDs[0])
+		}
+
+		return handler(ctx, req)
+	}
+}
+
+func GetUserID(ctx context.Context) (string, bool) {
+	userID, ok := ctx.Value(contextKeyUserID{}).(string)
+	return userID, ok
+}
+
+type contextKeyUserID struct{}
