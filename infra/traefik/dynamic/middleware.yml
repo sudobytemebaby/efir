@@ -11,20 +11,27 @@ http:
         accessControlAllowMethods:
           - GET
           - POST
-          - PUT
+          - PATCH
           - DELETE
           - OPTIONS
         accessControlAllowOriginList:
           - "*"
         accessControlAllowHeaders:
-          - "*"
+          - "Authorization"
+          - "Content-Type"
         accessControlExposeHeaders:
           - "*"
+        accessControlMaxAge: 86400
 
-    strip-prefix:
-      stripPrefix:
-        prefixes:
-          - "/auth"
-          - "/user"
-          - "/room"
-          - "/message"
+    # Generate: htpasswd -nb admin yourpassword
+    dashboard-auth:
+      basicAuth:
+        users:
+          - "admin:$apr1$xyz$hashedpassword"
+
+  routers:
+    dashboard:
+      rule: "Host(`traefik.localhost`)"
+      service: api@internal
+      middlewares:
+        - dashboard-auth
