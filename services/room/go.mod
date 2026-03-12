@@ -1,3 +1,3 @@
-module efir.sh/services/room
+module github.com/sudobytemebaby/efir/services/room
 
-go 1.23
+go 1.24.0
