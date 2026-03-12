@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package efir.user;
 
-option go_package = "efir.sh/services/shared/gen/user;userv1";
+option go_package = "github.com/sudobytemebaby/efir/services/shared/gen/user;userv1";
 
 service UserService {
   rpc Ping(PingRequest) returns (PingResponse);

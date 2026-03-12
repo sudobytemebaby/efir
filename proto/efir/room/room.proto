@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package efir.room;
 
-option go_package = "efir.sh/services/shared/gen/room;roomv1";
+option go_package = "github.com/sudobytemebaby/efir/services/shared/gen/room;roomv1";
 
 service RoomService {
   rpc Ping(PingRequest) returns (PingResponse);
