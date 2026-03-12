@@ -2,6 +2,7 @@
 package valkey
 
 const (
+	//nolint:gosec
 	AuthRefreshToken = "auth:refresh:%s"
 	GatewayRateLimit = "gateway:ratelimit:%s:%s:%s"
 	WSPubsubChannel  = "ws:pubsub:%s"
