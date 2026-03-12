@@ -1,4 +1,3 @@
-// Package logger contains tests for the logger package.
 package logger
 
 import (
