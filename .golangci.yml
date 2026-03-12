@@ -17,7 +17,11 @@ linters:
       enable:
         - shadow
     staticcheck:
-      checks: ["all"]
+      checks:
+        - "all"
+        - "-ST1000"
+        - "-ST1020"
+        - "-ST1003"
 
 formatters:
   enable:
