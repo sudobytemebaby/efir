@@ -1,3 +1,4 @@
+// Package middleware provides gRPC interceptors for logging, recovery, and user ID extraction.
 package middleware
 
 import (
