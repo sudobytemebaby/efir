@@ -1,4 +1,4 @@
-module efir.sh/services/shared
+module github.com/sudobytemebaby/efir/services/shared
 
 go 1.24.0
 

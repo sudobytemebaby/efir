@@ -1,3 +1,3 @@
-module efir.sh/services/message
+module github.com/sudobytemebaby/efir/services/message
 
-go 1.23
+go 1.24.0

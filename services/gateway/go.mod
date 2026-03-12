@@ -1,3 +1,3 @@
-module efir.sh/services/gateway
+module github.com/sudobytemebaby/efir/services/gateway
 
-go 1.23
+go 1.24.0
