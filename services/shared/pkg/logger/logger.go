@@ -1,3 +1,4 @@
+// Package logger provides a structured JSON logger based on slog.
 package logger
 
 import (
