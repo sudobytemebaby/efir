@@ -5,11 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"sync/atomic"
 	"time"
 )
 
 type Handler struct {
-	ready bool
+	ready atomic.Bool
 }
 
 type Response struct {
@@ -17,13 +18,11 @@ type Response struct {
 }
 
 func New() *Handler {
-	return &Handler{
-		ready: false,
-	}
+	return &Handler{}
 }
 
 func (h *Handler) SetReady(ready bool) {
-	h.ready = ready
+	h.ready.Store(ready)
 }
 
 func (h *Handler) Health(w http.ResponseWriter, _ *http.Request) {
@@ -35,7 +34,7 @@ func (h *Handler) Health(w http.ResponseWriter, _ *http.Request) {
 func (h *Handler) Ready(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	if !h.ready {
+	if !h.ready.Load() {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		_ = json.NewEncoder(w).Encode(Response{Status: "not ready"})
 		return

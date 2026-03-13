@@ -6,6 +6,9 @@ services:
     container_name: efir-auth
     env_file:
       - .env
+    environment:
+      - POSTGRES_DSN=${POSTGRES_AUTH_DSN}
+      - GRPC_PORT=${AUTH_GRPC_PORT}
     depends_on:
       postgres:
         condition: service_healthy
