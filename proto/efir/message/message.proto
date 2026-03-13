@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package efir.message;
+
+option go_package = "github.com/sudobytemebaby/efir/services/shared/gen/message;messagev1";
+
+service MessageService {
+  rpc Ping(PingRequest) returns (PingResponse);
+}
+
+message PingRequest {}
+
+message PingResponse {
+  string status = 1;
+}
