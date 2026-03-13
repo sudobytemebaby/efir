@@ -5,11 +5,56 @@ package efir.message;
 option go_package = "github.com/sudobytemebaby/efir/services/shared/gen/message;messagev1";
 
 service MessageService {
-  rpc Ping(PingRequest) returns (PingResponse);
+  rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
+  rpc GetMessages(GetMessagesRequest) returns (GetMessagesResponse);
+  rpc GetMessageById(GetMessageByIdRequest) returns (GetMessageByIdResponse);
+  rpc DeleteMessage(DeleteMessageRequest) returns (DeleteMessageResponse);
 }
 
-message PingRequest {}
+message SendMessageRequest {
+  string room_id = 1;
+  string sender_id = 2;
+  string content = 3;
+}
 
-message PingResponse {
-  string status = 1;
+message SendMessageResponse {
+  Message message = 1;
+}
+
+message GetMessagesRequest {
+  string room_id = 1;
+  string requester_id = 2;
+  optional string cursor = 3;
+  int32 limit = 4;
+}
+
+message GetMessagesResponse {
+  repeated Message messages = 1;
+  optional string next_cursor = 2;
+}
+
+message GetMessageByIdRequest {
+  string message_id = 1;
+  string requester_id = 2;
+}
+
+message GetMessageByIdResponse {
+  Message message = 1;
+}
+
+message DeleteMessageRequest {
+  string message_id = 1;
+  string requester_id = 2;
+}
+
+message DeleteMessageResponse {}
+
+message Message {
+  string message_id = 1;
+  string room_id = 2;
+  string sender_id = 3;
+  string content = 4;
+  bool is_deleted = 5;
+  string created_at = 6;
+  string updated_at = 7;
 }
