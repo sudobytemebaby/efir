@@ -25,7 +25,7 @@ func TestHealth(t *testing.T) {
 
 func TestReadyNotReady(t *testing.T) {
 	h := New()
-	h.ready = false
+	h.ready.Store(false)
 
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest("GET", "/ready", nil)
@@ -39,7 +39,7 @@ func TestReadyNotReady(t *testing.T) {
 
 func TestReadyReady(t *testing.T) {
 	h := New()
-	h.ready = true
+	h.ready.Store(true)
 
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest("GET", "/ready", nil)
@@ -54,20 +54,20 @@ func TestReadyReady(t *testing.T) {
 func TestSetReady(t *testing.T) {
 	h := New()
 
-	if h.ready != false {
+	if h.ready.Load() {
 		t.Error("expected initial ready to be false")
 	}
 
 	h.SetReady(true)
 
-	if h.ready != true {
+	if !h.ready.Load() {
 		t.Error("expected ready to be true after SetReady(true)")
 	}
 }
 
 func TestMiddlewarePassthrough(t *testing.T) {
 	h := New()
-	h.ready = true
+	h.ready.Store(true)
 
 	nextCalled := false
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
