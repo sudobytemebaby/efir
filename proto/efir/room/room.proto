@@ -5,11 +5,89 @@ package efir.room;
 option go_package = "github.com/sudobytemebaby/efir/services/shared/gen/room;roomv1";
 
 service RoomService {
-  rpc Ping(PingRequest) returns (PingResponse);
+  rpc CreateRoom(CreateRoomRequest) returns (CreateRoomResponse);
+  rpc GetRoom(GetRoomRequest) returns (GetRoomResponse);
+  rpc UpdateRoom(UpdateRoomRequest) returns (UpdateRoomResponse);
+  rpc DeleteRoom(DeleteRoomRequest) returns (DeleteRoomResponse);
+  rpc AddMember(AddMemberRequest) returns (AddMemberResponse);
+  rpc RemoveMember(RemoveMemberRequest) returns (RemoveMemberResponse);
+  rpc GetRoomMembers(GetRoomMembersRequest) returns (GetRoomMembersResponse);
+  rpc IsMember(IsMemberRequest) returns (IsMemberResponse);
 }
 
-message PingRequest {}
+message CreateRoomRequest {
+  string name = 1;
+  string type = 2;
+  string created_by = 3;
+}
 
-message PingResponse {
-  string status = 1;
+message CreateRoomResponse {
+  Room room = 1;
+}
+
+message GetRoomRequest {
+  string room_id = 1;
+}
+
+message GetRoomResponse {
+  Room room = 1;
+}
+
+message UpdateRoomRequest {
+  string room_id = 1;
+  string requester_id = 2;
+  optional string name = 3;
+}
+
+message UpdateRoomResponse {
+  Room room = 1;
+}
+
+message DeleteRoomRequest {
+  string room_id = 1;
+  string requester_id = 2;
+}
+
+message DeleteRoomResponse {}
+
+message AddMemberRequest {
+  string room_id = 1;
+  string user_id = 2;
+  string requester_id = 3;
+}
+
+message AddMemberResponse {}
+
+message RemoveMemberRequest {
+  string room_id = 1;
+  string user_id = 2;
+  string requester_id = 3;
+}
+
+message RemoveMemberResponse {}
+
+message GetRoomMembersRequest {
+  string room_id = 1;
+}
+
+message GetRoomMembersResponse {
+  repeated string user_ids = 1;
+}
+
+message IsMemberRequest {
+  string room_id = 1;
+  string user_id = 2;
+}
+
+message IsMemberResponse {
+  bool is_member = 1;
+}
+
+message Room {
+  string room_id = 1;
+  string name = 2;
+  string type = 3;
+  string created_by = 4;
+  string created_at = 5;
+  string updated_at = 6;
 }
