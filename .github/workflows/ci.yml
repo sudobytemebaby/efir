@@ -94,10 +94,10 @@ jobs:
       - name: Verify required directories
         run: |
           required=(
-            proto/efir/auth
-            proto/efir/user
-            proto/efir/room
-            proto/efir/message
+            proto/auth
+            proto/user
+            proto/room
+            proto/message
             services/auth
             services/user
             services/room
