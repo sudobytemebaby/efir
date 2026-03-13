@@ -1,12 +1,12 @@
 # 🛰 Efir
 
 **What is Efir?**
-It’s a simple, honest messenger. I’m building this because I’m tired of "everything apps" that try to be a store, a crypto wallet, and a social network all at once. Efir is just about talking to people without extra noise, pressure, or distraction.
+It’s a simple, honest messenger. I’m building this because I’m tired of "everything apps" that try to be a store, a crypto wallet, and a social network all at once. Efir is just about talking to people without extra noise and stuff they usually don't expect to appear in a communiation tool.
 
 **The Philosophy**
-I am a firm believer in the **Unix philosophy**: a tool should do one thing and do it well. For me, Efir's only job is to let people communicate — via text or voice — as reliably as possible. No stories, no ads, no algorithms, cryptowallets or whatever
+I am a firm believer in the **Unix philosophy**: a tool should do one thing and do it well. For me, Efir's only job is to let people communicate — via text or voice — as reliably as possible.
 
-I also believe in **ownership**. Efir follows a self-hosting model: you can use my instance or spin up your own Efir on your hardware with a single command. In a world of digital blocks and censorship, having your own communication node isn't just a feature — it's a right.
+I also believe in **ownership**. Efir follows a self-hosting model: you can use my instance or spin up your own on your hardware with a single command. In a world of digital blocks and censorship, having your own communication node isn't just a feature — it's a right.
 
 ---
 
@@ -40,8 +40,4 @@ task setup
 
 # Spin up all services and infrastructure
 task up
-
----
-
-I just want everyone to have the opportunity to communicate and use a quality tool for it. That's it.
 ```
