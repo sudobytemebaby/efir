@@ -90,8 +90,7 @@ func (s *authService) Register(ctx context.Context, email, password string) (*re
 	}
 
 	if err := s.publisher.PublishUserRegistered(ctx, acc.ID, acc.Email); err != nil {
-		// Log error but don't fail the whole registration if we want to be eventually consistent
-		// However, for this project, let's keep it simple and return error if it fails
+		// Let's keep it simple and return error if it fails
 		return nil, nil, fmt.Errorf("publish user registered event: %w", err)
 	}
 

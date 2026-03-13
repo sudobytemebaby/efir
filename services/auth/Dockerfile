@@ -7,7 +7,7 @@ COPY services ./services
 
 RUN cd services/auth && go build -o /out/auth ./cmd
 
-FROM alpine:latest
+FROM alpine:3.20
 
 RUN apk --no-cache add ca-certificates
 

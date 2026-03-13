@@ -67,7 +67,7 @@ func main() {
 	defer valkeyClient.Close()
 
 	// 3. NATS
-	nc, err := sharednats.Connect(cfg.NATSURL, cfg.NATSUser, cfg.NATSPass) // Assuming no auth for now or handled by URL
+	nc, err := sharednats.Connect(cfg.NATSURL, cfg.NATSUser, cfg.NATSPass)
 	if err != nil {
 		slog.Error("failed to connect to nats", "error", err)
 		os.Exit(1)
