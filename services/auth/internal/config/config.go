@@ -16,6 +16,8 @@ type Config struct {
 	JWTSecret   string `env:"JWT_SECRET" env-required:"true"`
 	AccessTTL   string `env:"JWT_ACCESS_TTL" env-default:"15m"`
 	RefreshTTL  string `env:"JWT_REFRESH_TTL" env-default:"168h"`
+	NATSUser    string `env:"NATS_USER"`
+	NATSPass    string `env:"NATS_PASSWORD"`
 }
 
 func Load() (*Config, error) {

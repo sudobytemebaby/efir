@@ -7,7 +7,9 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -41,21 +43,14 @@ func LoggingInterceptor(logger *slog.Logger) grpc.UnaryServerInterceptor {
 }
 
 func RecoveryInterceptor(logger *slog.Logger) grpc.UnaryServerInterceptor {
-	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (_ any, err error) {
 		defer func() {
 			if r := recover(); r != nil {
-				logger.Error("panic recovered in gRPC handler",
-					"method", info.FullMethod,
-					"panic", r,
-				)
+				logger.Error("panic recovered", "method", info.FullMethod, "panic", r)
+				err = status.Errorf(codes.Internal, "internal server error")
 			}
 		}()
-
-		resp, err := handler(ctx, req)
-		if err != nil {
-			return nil, err
-		}
-		return resp, nil
+		return handler(ctx, req)
 	}
 }
 
