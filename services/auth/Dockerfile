@@ -3,8 +3,7 @@ FROM golang:1.25-alpine AS builder
 WORKDIR /workspace
 
 COPY go.work go.work.sum ./
-COPY services/shared ./services/shared
-COPY services/auth ./services/auth
+COPY services ./services
 
 RUN cd services/auth && go build -o /out/auth ./cmd
 
