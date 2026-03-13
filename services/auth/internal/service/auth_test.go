@@ -10,9 +10,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/sudobytemebaby/efir/services/auth/internal/repository"
+	repomocks "github.com/sudobytemebaby/efir/services/auth/internal/repository/mocks"
 	"github.com/sudobytemebaby/efir/services/auth/internal/service"
 	"github.com/sudobytemebaby/efir/services/auth/internal/service/mocks"
-	repomocks "github.com/sudobytemebaby/efir/services/auth/internal/repository/mocks"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -48,7 +48,7 @@ func TestAuthService_Register(t *testing.T) {
 		assert.NotNil(t, tokens)
 		assert.NotEmpty(t, tokens.AccessToken)
 		assert.NotEmpty(t, tokens.RefreshToken)
-		
+
 		accountRepo.AssertExpectations(t)
 		tokenRepo.AssertExpectations(t)
 		publisher.AssertExpectations(t)
@@ -62,7 +62,7 @@ func TestAuthService_Register(t *testing.T) {
 		assert.ErrorIs(t, err, service.ErrAccountAlreadyExists)
 		assert.Nil(t, acc)
 		assert.Nil(t, tokens)
-		
+
 		accountRepo.AssertExpectations(t)
 	})
 }
@@ -97,7 +97,7 @@ func TestAuthService_Login(t *testing.T) {
 		assert.NotNil(t, acc)
 		assert.Equal(t, userID, acc.ID)
 		assert.NotNil(t, tokens)
-		
+
 		accountRepo.AssertExpectations(t)
 		tokenRepo.AssertExpectations(t)
 	})
@@ -114,7 +114,7 @@ func TestAuthService_Login(t *testing.T) {
 		assert.ErrorIs(t, err, service.ErrInvalidCredentials)
 		assert.Nil(t, acc)
 		assert.Nil(t, tokens)
-		
+
 		accountRepo.AssertExpectations(t)
 	})
 }
