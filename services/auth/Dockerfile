@@ -1,18 +1,23 @@
-FROM golang:1.24-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 WORKDIR /workspace
 
-COPY go.work ./
-COPY services ./services
+COPY go.work go.work.sum ./
+COPY services/shared ./services/shared
+COPY services/auth ./services/auth
 
-RUN go build -o /out/auth ./services/auth/cmd
+RUN cd services/auth && go build -o /out/auth ./cmd
 
-FROM alpine:3.20
+FROM alpine:latest
+
+RUN apk --no-cache add ca-certificates
 
 RUN adduser -D -H -s /sbin/nologin appuser
 
 COPY --from=builder /out/auth /usr/local/bin/auth
 
 USER appuser
+
+EXPOSE 50051 8080
 
 ENTRYPOINT ["/usr/local/bin/auth"]

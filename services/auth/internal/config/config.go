@@ -1,8 +1,8 @@
-// Package config provides configuration loading from environment variables.
 package config
 
 import (
-	"errors"
+	"fmt"
+	"time"
 
 	"github.com/ilyakaznacheev/cleanenv"
 )
@@ -18,11 +18,20 @@ type Config struct {
 	RefreshTTL  string `env:"JWT_REFRESH_TTL" env-default:"168h"`
 }
 
-func Load(cfg *Config) error {
+func Load() (*Config, error) {
+	cfg := &Config{}
 	err := cleanenv.ReadEnv(cfg)
 	if err != nil {
-		return errors.New("failed to read config: " + err.Error())
+		return nil, fmt.Errorf("read env: %w", err)
 	}
 
-	return nil
+	return cfg, nil
+}
+
+func (c *Config) ParseAccessTTL() (time.Duration, error) {
+	return time.ParseDuration(c.AccessTTL)
+}
+
+func (c *Config) ParseRefreshTTL() (time.Duration, error) {
+	return time.ParseDuration(c.RefreshTTL)
 }
