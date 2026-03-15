@@ -67,15 +67,15 @@ This ensures every push to main and every PR is validated.
 
 ### Go Version
 
-- Uses Go 1.23 for all jobs
+- Resolved from `go.work` via `go-version-file: go.work` — always matches workspace Go version
 
 ### buf Version
 
-- Pinned to version 1.32.0 for consistency
+- Pinned to `1.66.0` for consistency
 
 ### golangci-lint
 
-- Version: v1.61.0
+- Version: `v2.8.0`
 - Config: `.golangci.yml`
 
 ### Commit message policy
@@ -85,8 +85,7 @@ This ensures every push to main and every PR is validated.
 
 ### Services Built
 
-- gateway, auth, user, message, room
-- (forward-looking: media, presence, notification, search, websocket, sidecar)
+- gateway, auth, user, message, room, websocket, sidecar
 
 ## Alternatives Considered
 
