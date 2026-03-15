@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -89,9 +90,16 @@ func (s *authService) Register(ctx context.Context, email, password string) (*re
 		return nil, nil, fmt.Errorf("generate tokens: %w", err)
 	}
 
+	// TODO(outbox): replace with transactional outbox pattern to guarantee delivery.
+	// Right now if NATS is unavailable the event is lost, but registration still succeeds.
+	// The user service must handle the case where a user_registered event arrives late or
+	// not at all (e.g. via a reconciliation job).
 	if err := s.publisher.PublishUserRegistered(ctx, acc.ID, acc.Email); err != nil {
-		// Let's keep it simple and return error if it fails
-		return nil, nil, fmt.Errorf("publish user registered event: %w", err)
+		slog.Error("failed to publish user registered event, event may be lost",
+			"user_id", acc.ID,
+			"email", acc.Email,
+			"error", err,
+		)
 	}
 
 	return acc, tokenPair, nil
@@ -180,7 +188,6 @@ func (s *authService) ValidateToken(ctx context.Context, accessToken string) (uu
 }
 
 func (s *authService) generateTokenPair(ctx context.Context, userID uuid.UUID) (*TokenPair, error) {
-	// Access Token
 	accessTokenClaims := jwt.MapClaims{
 		"sub": userID.String(),
 		"exp": time.Now().Add(s.accessTTL).Unix(),
@@ -192,7 +199,6 @@ func (s *authService) generateTokenPair(ctx context.Context, userID uuid.UUID) (
 		return nil, fmt.Errorf("sign access token: %w", err)
 	}
 
-	// Refresh Token
 	rt := uuid.New().String()
 	if err := s.tokenRepo.SaveRefreshToken(ctx, userID, rt, s.refreshTTL); err != nil {
 		return nil, fmt.Errorf("save refresh token: %w", err)
