@@ -6,15 +6,23 @@ ping: {}
 entryPoints:
   web:
     address: ":80"
-    http:
-      redirections:
-        entryPoint:
-          to: websecure
-          scheme: https
+    # NOTE: HTTP->HTTPS redirect is intentionally disabled for local development.
+    # In production, uncomment the redirections block below and ensure TLS certs
+    # are present in infra/traefik/certs/.
+    #
+    # http:
+    #   redirections:
+    #     entryPoint:
+    #       to: websecure
+    #       scheme: https
+
   websecure:
     address: ":443"
-    http:
-      tls: {}
+    # NOTE: TLS is disabled by default. In production, uncomment below and
+    # configure certs in infra/traefik/dynamic/tls.yml.
+    #
+    # http:
+    #   tls: {}
 
 providers:
   docker:
