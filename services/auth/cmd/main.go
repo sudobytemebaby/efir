@@ -28,16 +28,22 @@ import (
 )
 
 func main() {
-	l := logger.New(logger.Options{
-		Level: logger.LevelInfo,
-	})
-	slog.SetDefault(l)
-
 	cfg, err := config.Load()
 	if err != nil {
 		slog.Error("failed to load config", "error", err)
 		os.Exit(1)
 	}
+
+	logLevel, err := logger.ParseLevel(cfg.LogLevel)
+	if err != nil {
+		slog.Warn("invalid log level in config, falling back to info", "value", cfg.LogLevel)
+		logLevel = logger.LevelInfo
+	}
+
+	l := logger.New(logger.Options{
+		Level: logLevel,
+	})
+	slog.SetDefault(l)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -170,6 +176,13 @@ func main() {
 	defer cancel()
 	if err := healthServer.Shutdown(shutdownCtx); err != nil {
 		slog.Error("failed to shut down health server", "error", err)
+	}
+
+	// Check for second error if there's one
+	select {
+	case err := <-errCh:
+		slog.Error("secondary server error", "error", err)
+	default:
 	}
 
 	slog.Info("service stopped")

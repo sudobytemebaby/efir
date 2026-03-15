@@ -3,6 +3,7 @@ package logger
 import (
 	"bytes"
 	"context"
+	"log/slog"
 	"testing"
 )
 
@@ -46,6 +47,42 @@ func TestFromContextDefault(t *testing.T) {
 
 	if logger == nil {
 		t.Error("expected default logger, got nil")
+	}
+}
+
+func TestParseLevel(t *testing.T) {
+	cases := []struct {
+		input    string
+		expected slog.Level
+		wantErr  bool
+	}{
+		{"debug", LevelDebug, false},
+		{"info", LevelInfo, false},
+		{"warn", LevelWarn, false},
+		{"error", LevelError, false},
+		{"DEBUG", LevelDebug, false}, // case-insensitive
+		{"INFO", LevelInfo, false},
+		{"", LevelInfo, true},
+		{"verbose", LevelInfo, true},
+		{"trace", LevelInfo, true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.input, func(t *testing.T) {
+			level, err := ParseLevel(tc.input)
+			if tc.wantErr {
+				if err == nil {
+					t.Errorf("expected error for input %q, got nil", tc.input)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error for input %q: %v", tc.input, err)
+				}
+				if level != tc.expected {
+					t.Errorf("expected %v, got %v", tc.expected, level)
+				}
+			}
+		})
 	}
 }
 

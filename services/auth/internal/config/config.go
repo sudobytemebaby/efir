@@ -8,6 +8,8 @@ import (
 )
 
 type Config struct {
+	Env         string `env:"ENV"       env-default:"development"`
+	LogLevel    string `env:"LOG_LEVEL" env-default:"info"`
 	GRPCPort    string `env:"GRPC_PORT" env-default:"50051"`
 	PostgresDSN string `env:"POSTGRES_DSN" env-required:"true"`
 	ValkeyAddr  string `env:"VALKEY_ADDR" env-default:"valkey:6379"`
