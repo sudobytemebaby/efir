@@ -2,6 +2,7 @@ package service_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -64,6 +65,33 @@ func TestAuthService_Register(t *testing.T) {
 		assert.Nil(t, tokens)
 
 		accountRepo.AssertExpectations(t)
+	})
+
+	t.Run("nats publish fails but registration succeeds", func(t *testing.T) {
+		accountRepo.On("GetAccountByEmail", ctx, email).
+			Return(nil, repository.ErrAccountNotFound).Once()
+		accountRepo.On("CreateAccount", ctx, email, mock.AnythingOfType("string")).
+			Return(&repository.Account{
+				ID:    userID,
+				Email: email,
+			}, nil).Once()
+		tokenRepo.On("SaveRefreshToken", ctx, userID, mock.AnythingOfType("string"), refreshTTL).
+			Return(nil).Once()
+		publisher.On("PublishUserRegistered", ctx, userID, email).
+			Return(errors.New("nats: connection refused")).Once()
+
+		acc, tokens, err := svc.Register(ctx, email, password)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, acc)
+		assert.Equal(t, userID, acc.ID)
+		assert.NotNil(t, tokens)
+		assert.NotEmpty(t, tokens.AccessToken)
+		assert.NotEmpty(t, tokens.RefreshToken)
+
+		accountRepo.AssertExpectations(t)
+		tokenRepo.AssertExpectations(t)
+		publisher.AssertExpectations(t)
 	})
 }
 
