@@ -126,7 +126,9 @@ func main() {
 		),
 	)
 	authv1.RegisterAuthServiceServer(grpcServer, authHandler)
-	reflection.Register(grpcServer)
+	if cfg.Env == config.EnvDevelopment {
+		reflection.Register(grpcServer)
+	}
 
 	// 6. Healthcheck Server
 	healthHandler := healthcheck.New()

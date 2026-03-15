@@ -8,19 +8,26 @@ import (
 )
 
 type Config struct {
-	Env         string `env:"ENV"       env-default:"development"`
-	LogLevel    string `env:"LOG_LEVEL" env-default:"info"`
-	GRPCPort    string `env:"GRPC_PORT" env-default:"50051"`
-	PostgresDSN string `env:"POSTGRES_DSN" env-required:"true"`
-	ValkeyAddr  string `env:"VALKEY_ADDR" env-default:"valkey:6379"`
-	ValkeyPass  string `env:"VALKEY_PASSWORD"`
-	NATSURL     string `env:"NATS_URL" env-default:"nats://nats:4222"`
-	JWTSecret   string `env:"JWT_SECRET" env-required:"true"`
-	AccessTTL   string `env:"JWT_ACCESS_TTL" env-default:"15m"`
-	RefreshTTL  string `env:"JWT_REFRESH_TTL" env-default:"168h"`
-	NATSUser    string `env:"NATS_USER"`
-	NATSPass    string `env:"NATS_PASSWORD"`
+	Env         Environment `env:"ENV"       env-default:"development"`
+	LogLevel    string      `env:"LOG_LEVEL" env-default:"info"`
+	GRPCPort    string      `env:"GRPC_PORT" env-default:"50051"`
+	PostgresDSN string      `env:"POSTGRES_DSN" env-required:"true"`
+	ValkeyAddr  string      `env:"VALKEY_ADDR" env-default:"valkey:6379"`
+	ValkeyPass  string      `env:"VALKEY_PASSWORD"`
+	NATSURL     string      `env:"NATS_URL" env-default:"nats://nats:4222"`
+	JWTSecret   string      `env:"JWT_SECRET" env-required:"true"`
+	AccessTTL   string      `env:"JWT_ACCESS_TTL" env-default:"15m"`
+	RefreshTTL  string      `env:"JWT_REFRESH_TTL" env-default:"168h"`
+	NATSUser    string      `env:"NATS_USER"`
+	NATSPass    string      `env:"NATS_PASSWORD"`
 }
+
+type Environment string
+
+const (
+	EnvDevelopment Environment = "development"
+	EnvProduction  Environment = "production"
+)
 
 func Load() (*Config, error) {
 	cfg := &Config{}
@@ -30,6 +37,15 @@ func Load() (*Config, error) {
 	}
 
 	return cfg, nil
+}
+
+func (e Environment) Validate() error {
+	switch e {
+	case EnvDevelopment, EnvProduction:
+		return nil
+	default:
+		return fmt.Errorf("invalid environment %q, allowed: development, production", e)
+	}
 }
 
 func (c *Config) ParseAccessTTL() (time.Duration, error) {
