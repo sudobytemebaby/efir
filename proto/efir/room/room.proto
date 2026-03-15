@@ -2,7 +2,15 @@ syntax = "proto3";
 
 package efir.room;
 
+import "google/protobuf/timestamp.proto";
+
 option go_package = "github.com/sudobytemebaby/efir/services/shared/gen/room;roomv1";
+
+enum RoomType {
+  ROOM_TYPE_UNSPECIFIED = 0;
+  ROOM_TYPE_DIRECT = 1;
+  ROOM_TYPE_GROUP = 2;
+}
 
 service RoomService {
   rpc CreateRoom(CreateRoomRequest) returns (CreateRoomResponse);
@@ -17,7 +25,7 @@ service RoomService {
 
 message CreateRoomRequest {
   string name = 1;
-  string type = 2;
+  RoomType type = 2;
   string created_by = 3;
 }
 
@@ -86,8 +94,8 @@ message IsMemberResponse {
 message Room {
   string room_id = 1;
   string name = 2;
-  string type = 3;
+  RoomType type = 3;
   string created_by = 4;
-  string created_at = 5;
-  string updated_at = 6;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
 }

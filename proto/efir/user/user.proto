@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package efir.user;
 
+import "google/protobuf/timestamp.proto";
+
 option go_package = "github.com/sudobytemebaby/efir/services/shared/gen/user;userv1";
 
 service UserService {
@@ -43,6 +45,6 @@ message User {
   string display_name = 3;
   optional string avatar_url = 4;
   optional string bio = 5;
-  string created_at = 6;
-  string updated_at = 7;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
 }

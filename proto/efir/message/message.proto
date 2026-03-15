@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package efir.message;
 
+import "google/protobuf/timestamp.proto";
+
 option go_package = "github.com/sudobytemebaby/efir/services/shared/gen/message;messagev1";
 
 service MessageService {
@@ -55,6 +57,6 @@ message Message {
   string sender_id = 3;
   string content = 4;
   bool is_deleted = 5;
-  string created_at = 6;
-  string updated_at = 7;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
 }
