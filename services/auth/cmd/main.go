@@ -15,6 +15,7 @@ import (
 	"github.com/sudobytemebaby/efir/services/auth/internal/config"
 	"github.com/sudobytemebaby/efir/services/auth/internal/handler"
 	"github.com/sudobytemebaby/efir/services/auth/internal/nats"
+	"github.com/sudobytemebaby/efir/services/auth/internal/ratelimit"
 	"github.com/sudobytemebaby/efir/services/auth/internal/repository"
 	"github.com/sudobytemebaby/efir/services/auth/internal/service"
 	authv1 "github.com/sudobytemebaby/efir/services/shared/gen/auth"
@@ -40,9 +41,7 @@ func main() {
 		logLevel = logger.LevelInfo
 	}
 
-	l := logger.New(logger.Options{
-		Level: logLevel,
-	})
+	l := logger.New(logger.Options{Level: logLevel})
 	slog.SetDefault(l)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -91,7 +90,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	// 4. Initialize layers
+	// 4. Rate limiter
+	rateLimitWindow, err := cfg.ParseRateLimitWindow()
+	if err != nil {
+		slog.Error("invalid rate limit window", "error", err)
+		os.Exit(1)
+	}
+	limiter := ratelimit.NewValkeyLimiter(valkeyClient, cfg.RateLimitRequests, rateLimitWindow)
+
+	// 5. Initialize layers
 	accountRepo := repository.NewAccountRepository(pgPool)
 	tokenRepo := repository.NewTokenRepository(valkeyClient)
 	publisher := nats.NewPublisher(js)
@@ -111,6 +118,7 @@ func main() {
 		accountRepo,
 		tokenRepo,
 		publisher,
+		limiter,
 		cfg.JWTSecret,
 		accessTTL,
 		refreshTTL,
@@ -118,7 +126,7 @@ func main() {
 
 	authHandler := handler.NewAuthHandler(authSvc)
 
-	// 5. gRPC Server
+	// 6. gRPC Server
 	grpcServer := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
 			middleware.RecoveryInterceptor(l),
@@ -130,7 +138,7 @@ func main() {
 		reflection.Register(grpcServer)
 	}
 
-	// 6. Healthcheck Server
+	// 7. Healthcheck Server
 	healthHandler := healthcheck.New()
 	healthHandler.SetReady(true)
 	healthMux := http.NewServeMux()
@@ -141,7 +149,7 @@ func main() {
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
-	// 7. Start servers
+	// 8. Start servers
 	errCh := make(chan error, 2)
 
 	go func() {
@@ -150,7 +158,6 @@ func main() {
 			errCh <- fmt.Errorf("grpc listen: %w", err)
 			return
 		}
-
 		slog.Info("grpc server started", "port", cfg.GRPCPort)
 		if err := grpcServer.Serve(lis); err != nil {
 			errCh <- fmt.Errorf("grpc serve: %w", err)
@@ -164,7 +171,7 @@ func main() {
 		}
 	}()
 
-	// 8. Wait for shutdown
+	// 9. Wait for shutdown
 	select {
 	case err := <-errCh:
 		slog.Error("server error", "error", err)
@@ -180,7 +187,6 @@ func main() {
 		slog.Error("failed to shut down health server", "error", err)
 	}
 
-	// Check for second error if there's one
 	select {
 	case err := <-errCh:
 		slog.Error("secondary server error", "error", err)

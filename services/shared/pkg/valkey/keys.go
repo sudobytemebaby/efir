@@ -1,8 +1,11 @@
-// Package valkey provides constants and helpers for Valkey key naming.
 package valkey
 
 func AuthRefreshKey(token string) string {
 	return "auth:refresh:" + token
+}
+
+func AuthRateLimitKey(action, email string) string {
+	return "auth:ratelimit:" + action + ":" + email
 }
 
 func GatewayRateLimitKey(limitType, value, window string) string {

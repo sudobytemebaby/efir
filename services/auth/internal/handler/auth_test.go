@@ -52,8 +52,6 @@ func TestRegister_EmptyEmail(t *testing.T) {
 	ctx := context.Background()
 
 	_, err := h.Register(ctx, &authv1.RegisterRequest{Email: "", Password: "pass"})
-
-	assert.Error(t, err)
 	assert.Equal(t, codes.InvalidArgument, status.Code(err))
 }
 
@@ -62,8 +60,6 @@ func TestRegister_EmptyPassword(t *testing.T) {
 	ctx := context.Background()
 
 	_, err := h.Register(ctx, &authv1.RegisterRequest{Email: "user@example.com", Password: ""})
-
-	assert.Error(t, err)
 	assert.Equal(t, codes.InvalidArgument, status.Code(err))
 }
 
@@ -74,13 +70,19 @@ func TestRegister_AlreadyExists(t *testing.T) {
 	svc.On("Register", ctx, "user@example.com", "pass123").
 		Return(nil, nil, service.ErrAccountAlreadyExists).Once()
 
-	_, err := h.Register(ctx, &authv1.RegisterRequest{
-		Email:    "user@example.com",
-		Password: "pass123",
-	})
-
-	assert.Error(t, err)
+	_, err := h.Register(ctx, &authv1.RegisterRequest{Email: "user@example.com", Password: "pass123"})
 	assert.Equal(t, codes.AlreadyExists, status.Code(err))
+}
+
+func TestRegister_RateLimitExceeded(t *testing.T) {
+	h, svc := newHandler(t)
+	ctx := context.Background()
+
+	svc.On("Register", ctx, "user@example.com", "pass123").
+		Return(nil, nil, service.ErrRateLimitExceeded).Once()
+
+	_, err := h.Register(ctx, &authv1.RegisterRequest{Email: "user@example.com", Password: "pass123"})
+	assert.Equal(t, codes.Unavailable, status.Code(err))
 }
 
 // --- Login ---
@@ -96,11 +98,7 @@ func TestLogin_Success(t *testing.T) {
 			RefreshToken: "refresh",
 		}, nil).Once()
 
-	resp, err := h.Login(ctx, &authv1.LoginRequest{
-		Email:    "user@example.com",
-		Password: "pass123",
-	})
-
+	resp, err := h.Login(ctx, &authv1.LoginRequest{Email: "user@example.com", Password: "pass123"})
 	assert.NoError(t, err)
 	assert.Equal(t, userID.String(), resp.UserId)
 }
@@ -120,12 +118,19 @@ func TestLogin_InvalidCredentials(t *testing.T) {
 	svc.On("Login", ctx, "user@example.com", "wrongpass").
 		Return(nil, nil, service.ErrInvalidCredentials).Once()
 
-	_, err := h.Login(ctx, &authv1.LoginRequest{
-		Email:    "user@example.com",
-		Password: "wrongpass",
-	})
-
+	_, err := h.Login(ctx, &authv1.LoginRequest{Email: "user@example.com", Password: "wrongpass"})
 	assert.Equal(t, codes.Unauthenticated, status.Code(err))
+}
+
+func TestLogin_RateLimitExceeded(t *testing.T) {
+	h, svc := newHandler(t)
+	ctx := context.Background()
+
+	svc.On("Login", ctx, "user@example.com", "pass123").
+		Return(nil, nil, service.ErrRateLimitExceeded).Once()
+
+	_, err := h.Login(ctx, &authv1.LoginRequest{Email: "user@example.com", Password: "pass123"})
+	assert.Equal(t, codes.Unavailable, status.Code(err))
 }
 
 // --- Logout ---
@@ -158,7 +163,6 @@ func TestRefreshToken_Success(t *testing.T) {
 		Return(&service.TokenPair{AccessToken: "new-access", RefreshToken: "new-refresh"}, nil).Once()
 
 	resp, err := h.RefreshToken(ctx, &authv1.RefreshTokenRequest{RefreshToken: "old-refresh"})
-
 	assert.NoError(t, err)
 	assert.Equal(t, "new-access", resp.AccessToken)
 	assert.Equal(t, "new-refresh", resp.RefreshToken)
@@ -193,7 +197,6 @@ func TestValidateToken_Success(t *testing.T) {
 	svc.On("ValidateToken", ctx, "valid-token").Return(userID, nil).Once()
 
 	resp, err := h.ValidateToken(ctx, &authv1.ValidateTokenRequest{AccessToken: "valid-token"})
-
 	assert.NoError(t, err)
 	assert.Equal(t, userID.String(), resp.UserId)
 }

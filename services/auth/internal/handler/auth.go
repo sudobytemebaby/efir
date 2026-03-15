@@ -25,8 +25,11 @@ func (h *authHandler) Register(ctx context.Context, req *authv1.RegisterRequest)
 
 	acc, tokens, err := h.svc.Register(ctx, req.Email, req.Password)
 	if err != nil {
-		if errors.Is(err, service.ErrAccountAlreadyExists) {
+		switch {
+		case errors.Is(err, service.ErrAccountAlreadyExists):
 			return nil, sharederrors.CodeAlreadyExists.Error("account already exists")
+		case errors.Is(err, service.ErrRateLimitExceeded):
+			return nil, sharederrors.CodeUnavailable.Error("too many requests, please try again later")
 		}
 		return nil, sharederrors.CodeInternal.Wrap(err)
 	}
@@ -45,8 +48,11 @@ func (h *authHandler) Login(ctx context.Context, req *authv1.LoginRequest) (*aut
 
 	acc, tokens, err := h.svc.Login(ctx, req.Email, req.Password)
 	if err != nil {
-		if errors.Is(err, service.ErrInvalidCredentials) {
+		switch {
+		case errors.Is(err, service.ErrInvalidCredentials):
 			return nil, sharederrors.CodeUnauthenticated.Error("invalid credentials")
+		case errors.Is(err, service.ErrRateLimitExceeded):
+			return nil, sharederrors.CodeUnavailable.Error("too many requests, please try again later")
 		}
 		return nil, sharederrors.CodeInternal.Wrap(err)
 	}
