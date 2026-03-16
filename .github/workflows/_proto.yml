@@ -1,0 +1,55 @@
+name: Proto
+
+on:
+  workflow_call:
+    outputs:
+      has-proto:
+        description: Whether proto files were found and generated
+        value: ${{ jobs.generate.outputs.has-proto }}
+
+jobs:
+  lint:
+    name: Proto Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for proto files
+        id: check
+        run: bash .github/scripts/check-proto-files.sh
+
+      - name: Setup buf
+        if: steps.check.outputs.has_proto == 'true'
+        uses: bufbuild/buf-setup-action@v1
+        with:
+          version: "1.66.0"
+          github_token: ${{ github.token }}
+
+      - name: Lint proto files
+        if: steps.check.outputs.has_proto == 'true'
+        run: buf lint
+
+  generate:
+    name: Proto Generate
+    runs-on: ubuntu-latest
+    needs: lint
+    outputs:
+      has-proto: ${{ steps.check.outputs.has_proto }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for proto files
+        id: check
+        run: bash .github/scripts/check-proto-files.sh
+
+      - name: Setup Go + Proto
+        if: steps.check.outputs.has_proto == 'true'
+        uses: ./.github/actions/setup-go-proto
+
+      - name: Upload generated proto files
+        if: steps.check.outputs.has_proto == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: proto-generated
+          path: services/shared/gen/
+          retention-days: 3
