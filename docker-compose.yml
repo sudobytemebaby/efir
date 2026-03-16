@@ -1,7 +1,0 @@
-include:
-  - docker-compose.network.yml
-  - docker-compose.infra.yml
-  - docker-compose.services.yml
-  - docker-compose.sidecar.yml
-  - docker-compose.observability.yml
-  - docker-compose.dev.yml
