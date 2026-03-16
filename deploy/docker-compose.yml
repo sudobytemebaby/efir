@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/compose-spec/compose-spec/master/schema/compose-spec.json
+
+include:
+  - path: deploy/compose/docker-compose.network.yml
+    project_directory: .
+  - path: deploy/compose/docker-compose.infra.yml
+    project_directory: .
+  - path: deploy/compose/docker-compose.services.yml
+    project_directory: .
+  - path: deploy/compose/docker-compose.sidecar.yml
+    project_directory: .
+  - path: deploy/compose/docker-compose.observability.yml
+    project_directory: .
+  - path: deploy/compose/docker-compose.dev.yml
+    project_directory: .

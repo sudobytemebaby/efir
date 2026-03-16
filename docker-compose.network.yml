@@ -1,4 +1,0 @@
-networks:
-  efir-network:
-    name: efir-network
-    driver: bridge
