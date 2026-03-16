@@ -1,178 +1,36 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
 version: "3"
 
+set: [pipefail]
+
+includes:
+  docker: ./tasks/docker.yml
+  go: ./tasks/go.yml
+  proto: ./tasks/proto.yml
+  migrate: ./tasks/migrate.yml
+
 tasks:
+  default:
+    desc: List all available tasks
+    silent: true
+    cmds:
+      - task --list
+
   setup:
-    desc: Initialize project after clone
+    desc: Initialize project after clone (network, env, hooks, tools)
     cmds:
       - docker network create efir-network || true
-      - cp .env.example .env || true
-      - cp docker-compose.dev.example.yml docker-compose.dev.yml || true
+      - cp -n .env.example .env || true
+      - cp -n deploy/compose/docker-compose.dev.example.yml deploy/compose/docker-compose.dev.yml || true
       - git config core.hooksPath .githooks
+      - task: tools
 
   tools:
-    desc: Install required dev tools (run after clone)
+    desc: Install required dev tools (pinned versions)
     cmds:
+      # buf must be installed separately — https://buf.build/docs/installation
       - go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11
       - go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.1
+      - go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.8.0
       - go install github.com/vektra/mockery/v2@v2.53.6
       - go install github.com/pressly/goose/v3/cmd/goose@latest
-
-  up:
-    desc: Start all services
-    cmds:
-      - docker compose up -d
-
-  down:
-    desc: Stop all services
-    cmds:
-      - docker compose down
-
-  restart:
-    desc: Restart a specific service
-    cmds:
-      - |
-        if [ -z "{{.SERVICE}}" ]; then
-          echo "Usage: task restart SERVICE=auth"
-          exit 1
-        fi
-        docker compose restart {{.SERVICE}}
-
-  logs:
-    desc: Show logs for a specific service
-    cmds:
-      - |
-        if [ -z "{{.SERVICE}}" ]; then
-          echo "Usage: task logs SERVICE=auth"
-          exit 1
-        fi
-        docker compose logs -f {{.SERVICE}}
-
-  ps:
-    desc: Show status of all containers
-    cmds:
-      - docker compose ps
-
-  infra:up:
-    desc: Start infrastructure only
-    cmds:
-      - docker compose up -d postgres nats valkey traefik
-
-  infra:down:
-    desc: Stop infrastructure
-    cmds:
-      - docker compose stop postgres nats valkey traefik
-
-  obs:up:
-    desc: Start infrastructure + observability
-    cmds:
-      - docker compose --profile observability up -d postgres nats valkey traefik otel-collector prometheus loki tempo grafana
-
-  obs:down:
-    desc: Stop observability
-    cmds:
-      - docker compose stop otel-collector prometheus loki tempo grafana
-
-  sidecar:up:
-    desc: Start sidecar containers
-    cmds:
-      - docker compose --profile sidecar up -d auth-sidecar user-sidecar room-sidecar message-sidecar
-
-  sidecar:down:
-    desc: Stop sidecar containers
-    cmds:
-      - docker compose stop auth-sidecar user-sidecar room-sidecar message-sidecar
-
-  proto:lint:
-    desc: Lint proto files
-    cmds:
-      - buf lint proto/
-
-  proto:
-    desc: Generate Go code from proto files
-    cmds:
-      - buf generate
-
-  generate:
-    desc: Generate mocks for all services
-    cmds:
-      - |
-        for dir in $(go list -m -f '{{.Dir}}'); do
-          go generate "$dir"/... || exit 1
-        done
-
-  run:
-    desc: Run a service locally
-    cmds:
-      - |
-        if [ -z "{{.SERVICE}}" ]; then
-          echo "Usage: task run SERVICE=auth"
-          exit 1
-        fi
-        go run ./services/{{.SERVICE}}/cmd
-
-  test:
-    desc: Run tests for all services
-    cmds:
-      - |
-        for dir in $(go list -m -f '{{.Dir}}'); do
-          (
-            cd "$dir"
-            go test ./...
-          ) || exit 1
-        done
-
-  lint:
-    desc: Run golangci-lint
-    cmds:
-      - |
-        root=$(git rev-parse --show-toplevel)
-        for dir in $(go list -m -f '{{.Dir}}'); do
-          (
-            cd "$dir"
-            golangci-lint run --config "$root/.golangci.yml" ./...
-          ) || exit 1
-        done
-
-  migrate:up:
-    desc: Apply all pending migrations
-    cmds:
-      - |
-        if [ -n "{{.SERVICE}}" ]; then
-          goose -dir="services/{{.SERVICE}}/migrations" up
-          exit 0
-        fi
-        for dir in services/*/migrations; do
-          [ -d "$dir" ] || continue
-          echo "=== ${dir%/migrations} ==="
-          goose -dir="$dir" up
-        done
-
-  migrate:down:
-    desc: Rollback last migration for a service
-    cmds:
-      - |
-        if [ -z "{{.SERVICE}}" ]; then
-          echo "Usage: task migrate:down SERVICE=auth"
-          exit 1
-        fi
-        goose -dir="services/{{.SERVICE}}/migrations" down
-
-  migrate:create:
-    desc: Create a new migration
-    cmds:
-      - |
-        if [ -z "{{.SERVICE}}" ] || [ -z "{{.NAME}}" ]; then
-          echo "Usage: task migrate:create SERVICE=auth NAME=create_users"
-          exit 1
-        fi
-        goose -dir="services/{{.SERVICE}}/migrations" create "{{.NAME}}" sql
-
-  migrate:status:
-    desc: Show migration status for all services
-    cmds:
-      - |
-        for dir in services/*/migrations; do
-          [ -d "$dir" ] || continue
-          echo "=== ${dir%/migrations} ==="
-          goose -dir="$dir" status || true
-        done
