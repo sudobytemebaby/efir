@@ -15,6 +15,7 @@ import (
 	"github.com/sudobytemebaby/efir/services/auth/internal/config"
 	"github.com/sudobytemebaby/efir/services/auth/internal/handler"
 	"github.com/sudobytemebaby/efir/services/auth/internal/nats"
+	"github.com/sudobytemebaby/efir/services/auth/internal/ratelimit"
 	"github.com/sudobytemebaby/efir/services/auth/internal/repository"
 	"github.com/sudobytemebaby/efir/services/auth/internal/service"
 	authv1 "github.com/sudobytemebaby/efir/services/shared/gen/auth"
@@ -28,16 +29,20 @@ import (
 )
 
 func main() {
-	l := logger.New(logger.Options{
-		Level: logger.LevelInfo,
-	})
-	slog.SetDefault(l)
-
 	cfg, err := config.Load()
 	if err != nil {
 		slog.Error("failed to load config", "error", err)
 		os.Exit(1)
 	}
+
+	logLevel, err := logger.ParseLevel(cfg.LogLevel)
+	if err != nil {
+		slog.Warn("invalid log level in config, falling back to info", "value", cfg.LogLevel)
+		logLevel = logger.LevelInfo
+	}
+
+	l := logger.New(logger.Options{Level: logLevel})
+	slog.SetDefault(l)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -85,7 +90,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	// 4. Initialize layers
+	// 4. Rate limiter
+	rateLimitWindow, err := cfg.ParseRateLimitWindow()
+	if err != nil {
+		slog.Error("invalid rate limit window", "error", err)
+		os.Exit(1)
+	}
+	limiter := ratelimit.NewValkeyLimiter(valkeyClient, cfg.RateLimitRequests, rateLimitWindow)
+
+	// 5. Initialize layers
 	accountRepo := repository.NewAccountRepository(pgPool)
 	tokenRepo := repository.NewTokenRepository(valkeyClient)
 	publisher := nats.NewPublisher(js)
@@ -105,14 +118,20 @@ func main() {
 		accountRepo,
 		tokenRepo,
 		publisher,
+		limiter,
 		cfg.JWTSecret,
 		accessTTL,
 		refreshTTL,
 	)
 
-	authHandler := handler.NewAuthHandler(authSvc)
+	// 6. Handler
+	authHandler, err := handler.NewAuthHandler(authSvc)
+	if err != nil {
+		slog.Error("failed to create auth handler", "error", err)
+		os.Exit(1)
+	}
 
-	// 5. gRPC Server
+	// 7. gRPC Server
 	grpcServer := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
 			middleware.RecoveryInterceptor(l),
@@ -120,9 +139,11 @@ func main() {
 		),
 	)
 	authv1.RegisterAuthServiceServer(grpcServer, authHandler)
-	reflection.Register(grpcServer)
+	if cfg.Env == config.EnvDevelopment {
+		reflection.Register(grpcServer)
+	}
 
-	// 6. Healthcheck Server
+	// 8. Healthcheck Server
 	healthHandler := healthcheck.New()
 	healthHandler.SetReady(true)
 	healthMux := http.NewServeMux()
@@ -133,7 +154,7 @@ func main() {
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
-	// 7. Start servers
+	// 9. Start servers
 	errCh := make(chan error, 2)
 
 	go func() {
@@ -142,7 +163,6 @@ func main() {
 			errCh <- fmt.Errorf("grpc listen: %w", err)
 			return
 		}
-
 		slog.Info("grpc server started", "port", cfg.GRPCPort)
 		if err := grpcServer.Serve(lis); err != nil {
 			errCh <- fmt.Errorf("grpc serve: %w", err)
@@ -156,7 +176,7 @@ func main() {
 		}
 	}()
 
-	// 8. Wait for shutdown
+	// 10. Wait for shutdown
 	select {
 	case err := <-errCh:
 		slog.Error("server error", "error", err)
@@ -170,6 +190,12 @@ func main() {
 	defer cancel()
 	if err := healthServer.Shutdown(shutdownCtx); err != nil {
 		slog.Error("failed to shut down health server", "error", err)
+	}
+
+	select {
+	case err := <-errCh:
+		slog.Error("secondary server error", "error", err)
+	default:
 	}
 
 	slog.Info("service stopped")

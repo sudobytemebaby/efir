@@ -9,6 +9,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/sudobytemebaby/efir/services/auth/internal/ratelimit"
 	"github.com/sudobytemebaby/efir/services/auth/internal/repository"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -18,6 +19,7 @@ var (
 	ErrInvalidCredentials   = errors.New("invalid credentials")
 	ErrInvalidToken         = errors.New("invalid token")
 	ErrExpiredToken         = errors.New("expired token")
+	ErrRateLimitExceeded    = errors.New("rate limit exceeded")
 )
 
 type TokenPair struct {
@@ -43,6 +45,7 @@ type authService struct {
 	accountRepo repository.AccountRepository
 	tokenRepo   repository.TokenRepository
 	publisher   Publisher
+	limiter     ratelimit.Limiter
 	jwtSecret   []byte
 	accessTTL   time.Duration
 	refreshTTL  time.Duration
@@ -52,6 +55,7 @@ func NewAuthService(
 	accountRepo repository.AccountRepository,
 	tokenRepo repository.TokenRepository,
 	publisher Publisher,
+	limiter ratelimit.Limiter,
 	jwtSecret string,
 	accessTTL time.Duration,
 	refreshTTL time.Duration,
@@ -60,6 +64,7 @@ func NewAuthService(
 		accountRepo: accountRepo,
 		tokenRepo:   tokenRepo,
 		publisher:   publisher,
+		limiter:     limiter,
 		jwtSecret:   []byte(jwtSecret),
 		accessTTL:   accessTTL,
 		refreshTTL:  refreshTTL,
@@ -67,6 +72,14 @@ func NewAuthService(
 }
 
 func (s *authService) Register(ctx context.Context, email, password string) (*repository.Account, *TokenPair, error) {
+	if err := s.limiter.Allow(ctx, ratelimit.ActionRegister, email); err != nil {
+		var rateLimitErr *ratelimit.ErrRateLimitExceeded
+		if errors.As(err, &rateLimitErr) {
+			return nil, nil, ErrRateLimitExceeded
+		}
+		return nil, nil, fmt.Errorf("rate limit check: %w", err)
+	}
+
 	existing, err := s.accountRepo.GetAccountByEmail(ctx, email)
 	if err != nil && !errors.Is(err, repository.ErrAccountNotFound) {
 		return nil, nil, fmt.Errorf("check existing account: %w", err)
@@ -106,6 +119,14 @@ func (s *authService) Register(ctx context.Context, email, password string) (*re
 }
 
 func (s *authService) Login(ctx context.Context, email, password string) (*repository.Account, *TokenPair, error) {
+	if err := s.limiter.Allow(ctx, ratelimit.ActionLogin, email); err != nil {
+		var rateLimitErr *ratelimit.ErrRateLimitExceeded
+		if errors.As(err, &rateLimitErr) {
+			return nil, nil, ErrRateLimitExceeded
+		}
+		return nil, nil, fmt.Errorf("rate limit check: %w", err)
+	}
+
 	acc, err := s.accountRepo.GetAccountByEmail(ctx, email)
 	if err != nil {
 		if errors.Is(err, repository.ErrAccountNotFound) {
@@ -143,7 +164,6 @@ func (s *authService) RefreshToken(ctx context.Context, refreshToken string) (*T
 		return nil, fmt.Errorf("get user id by refresh token: %w", err)
 	}
 
-	// Delete old token (rotation)
 	if err := s.tokenRepo.DeleteRefreshToken(ctx, refreshToken); err != nil {
 		return nil, fmt.Errorf("delete old refresh token: %w", err)
 	}

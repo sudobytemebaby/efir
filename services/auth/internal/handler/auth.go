@@ -4,29 +4,46 @@ import (
 	"context"
 	"errors"
 
+	"buf.build/go/protovalidate"
 	"github.com/sudobytemebaby/efir/services/auth/internal/service"
 	authv1 "github.com/sudobytemebaby/efir/services/shared/gen/auth"
 	sharederrors "github.com/sudobytemebaby/efir/services/shared/pkg/errors"
+	"google.golang.org/protobuf/proto"
 )
 
 type authHandler struct {
 	authv1.UnimplementedAuthServiceServer
-	svc service.AuthService
+	svc       service.AuthService
+	validator protovalidate.Validator
 }
 
-func NewAuthHandler(svc service.AuthService) authv1.AuthServiceServer {
-	return &authHandler{svc: svc}
+func NewAuthHandler(svc service.AuthService) (authv1.AuthServiceServer, error) {
+	v, err := protovalidate.New()
+	if err != nil {
+		return nil, err
+	}
+	return &authHandler{svc: svc, validator: v}, nil
+}
+
+func (h *authHandler) validate(msg proto.Message) error {
+	if err := h.validator.Validate(msg); err != nil {
+		return sharederrors.CodeInvalidArgument.Error(err.Error())
+	}
+	return nil
 }
 
 func (h *authHandler) Register(ctx context.Context, req *authv1.RegisterRequest) (*authv1.RegisterResponse, error) {
-	if req.Email == "" || req.Password == "" {
-		return nil, sharederrors.CodeInvalidArgument.Error("email and password are required")
+	if err := h.validate(req); err != nil {
+		return nil, err
 	}
 
 	acc, tokens, err := h.svc.Register(ctx, req.Email, req.Password)
 	if err != nil {
-		if errors.Is(err, service.ErrAccountAlreadyExists) {
+		switch {
+		case errors.Is(err, service.ErrAccountAlreadyExists):
 			return nil, sharederrors.CodeAlreadyExists.Error("account already exists")
+		case errors.Is(err, service.ErrRateLimitExceeded):
+			return nil, sharederrors.CodeUnavailable.Error("too many requests, please try again later")
 		}
 		return nil, sharederrors.CodeInternal.Wrap(err)
 	}
@@ -39,14 +56,17 @@ func (h *authHandler) Register(ctx context.Context, req *authv1.RegisterRequest)
 }
 
 func (h *authHandler) Login(ctx context.Context, req *authv1.LoginRequest) (*authv1.LoginResponse, error) {
-	if req.Email == "" || req.Password == "" {
-		return nil, sharederrors.CodeInvalidArgument.Error("email and password are required")
+	if err := h.validate(req); err != nil {
+		return nil, err
 	}
 
 	acc, tokens, err := h.svc.Login(ctx, req.Email, req.Password)
 	if err != nil {
-		if errors.Is(err, service.ErrInvalidCredentials) {
+		switch {
+		case errors.Is(err, service.ErrInvalidCredentials):
 			return nil, sharederrors.CodeUnauthenticated.Error("invalid credentials")
+		case errors.Is(err, service.ErrRateLimitExceeded):
+			return nil, sharederrors.CodeUnavailable.Error("too many requests, please try again later")
 		}
 		return nil, sharederrors.CodeInternal.Wrap(err)
 	}
@@ -59,8 +79,8 @@ func (h *authHandler) Login(ctx context.Context, req *authv1.LoginRequest) (*aut
 }
 
 func (h *authHandler) Logout(ctx context.Context, req *authv1.LogoutRequest) (*authv1.LogoutResponse, error) {
-	if req.RefreshToken == "" {
-		return nil, sharederrors.CodeInvalidArgument.Error("refresh token is required")
+	if err := h.validate(req); err != nil {
+		return nil, err
 	}
 
 	if err := h.svc.Logout(ctx, req.RefreshToken); err != nil {
@@ -71,8 +91,8 @@ func (h *authHandler) Logout(ctx context.Context, req *authv1.LogoutRequest) (*a
 }
 
 func (h *authHandler) RefreshToken(ctx context.Context, req *authv1.RefreshTokenRequest) (*authv1.RefreshTokenResponse, error) {
-	if req.RefreshToken == "" {
-		return nil, sharederrors.CodeInvalidArgument.Error("refresh token is required")
+	if err := h.validate(req); err != nil {
+		return nil, err
 	}
 
 	tokens, err := h.svc.RefreshToken(ctx, req.RefreshToken)
@@ -90,8 +110,8 @@ func (h *authHandler) RefreshToken(ctx context.Context, req *authv1.RefreshToken
 }
 
 func (h *authHandler) ValidateToken(ctx context.Context, req *authv1.ValidateTokenRequest) (*authv1.ValidateTokenResponse, error) {
-	if req.AccessToken == "" {
-		return nil, sharederrors.CodeInvalidArgument.Error("access token is required")
+	if err := h.validate(req); err != nil {
+		return nil, err
 	}
 
 	userID, err := h.svc.ValidateToken(ctx, req.AccessToken)

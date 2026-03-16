@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package efir.auth;
 
+import "buf/validate/validate.proto";
+
 option go_package = "github.com/sudobytemebaby/efir/services/shared/gen/auth;authv1";
 
 service AuthService {
@@ -13,8 +15,14 @@ service AuthService {
 }
 
 message RegisterRequest {
-  string email = 1;
-  string password = 2;
+  string email = 1 [
+    (buf.validate.field).string.email = true,
+    (buf.validate.field).string.max_len = 255
+  ];
+  string password = 2 [
+    (buf.validate.field).string.min_len = 8,
+    (buf.validate.field).string.max_len = 72
+  ];
 }
 
 message RegisterResponse {
@@ -24,8 +32,14 @@ message RegisterResponse {
 }
 
 message LoginRequest {
-  string email = 1;
-  string password = 2;
+  string email = 1 [
+    (buf.validate.field).string.email = true,
+    (buf.validate.field).string.max_len = 255
+  ];
+  string password = 2 [
+    (buf.validate.field).string.min_len = 8,
+    (buf.validate.field).string.max_len = 72
+  ];
 }
 
 message LoginResponse {
@@ -35,13 +49,17 @@ message LoginResponse {
 }
 
 message LogoutRequest {
-  string refresh_token = 1;
+  string refresh_token = 1 [
+    (buf.validate.field).string.min_len = 1
+  ];
 }
 
 message LogoutResponse {}
 
 message RefreshTokenRequest {
-  string refresh_token = 1;
+  string refresh_token = 1 [
+    (buf.validate.field).string.min_len = 1
+  ];
 }
 
 message RefreshTokenResponse {
@@ -50,7 +68,9 @@ message RefreshTokenResponse {
 }
 
 message ValidateTokenRequest {
-  string access_token = 1;
+  string access_token = 1 [
+    (buf.validate.field).string.min_len = 1
+  ];
 }
 
 message ValidateTokenResponse {
