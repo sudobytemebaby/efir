@@ -62,13 +62,13 @@ jobs:
             Taskfile.yml
             buf.gen.yaml
             buf.yaml
-            docker-compose.yml
+            deploy/docker-compose.yml
             deploy/compose/docker-compose.dev.example.yml
-            docker-compose.infra.yml
-            docker-compose.network.yml
-            docker-compose.observability.yml
-            docker-compose.services.yml
-            docker-compose.sidecar.yml
+            deploy/compose/docker-compose.infra.yml
+            deploy/compose/docker-compose.network.yml
+            deploy/compose/docker-compose.observability.yml
+            deploy/compose/docker-compose.services.yml
+            deploy/compose/docker-compose.sidecar.yml
             docs/git-workflow.md
             docs/adr/001-monorepo.md
             docs/adr/002-sidecar-pep.md
