@@ -124,9 +124,14 @@ func main() {
 		refreshTTL,
 	)
 
-	authHandler := handler.NewAuthHandler(authSvc)
+	// 6. Handler
+	authHandler, err := handler.NewAuthHandler(authSvc)
+	if err != nil {
+		slog.Error("failed to create auth handler", "error", err)
+		os.Exit(1)
+	}
 
-	// 6. gRPC Server
+	// 7. gRPC Server
 	grpcServer := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
 			middleware.RecoveryInterceptor(l),
@@ -138,7 +143,7 @@ func main() {
 		reflection.Register(grpcServer)
 	}
 
-	// 7. Healthcheck Server
+	// 8. Healthcheck Server
 	healthHandler := healthcheck.New()
 	healthHandler.SetReady(true)
 	healthMux := http.NewServeMux()
@@ -149,7 +154,7 @@ func main() {
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
-	// 8. Start servers
+	// 9. Start servers
 	errCh := make(chan error, 2)
 
 	go func() {
@@ -171,7 +176,7 @@ func main() {
 		}
 	}()
 
-	// 9. Wait for shutdown
+	// 10. Wait for shutdown
 	select {
 	case err := <-errCh:
 		slog.Error("server error", "error", err)
