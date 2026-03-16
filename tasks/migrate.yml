@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+version: "3"
+
+set: [pipefail]
+
+tasks:
+  up:
+    desc: "Apply migrations  (all services, or: task migrate:up SERVICE=auth)"
+    cmds:
+      - |
+        if [ -n "{{.SERVICE}}" ]; then
+          goose -dir="services/{{.SERVICE}}/migrations" up
+        else
+          for dir in services/*/migrations; do
+            [ -d "$dir" ] || continue
+            echo "=== ${dir%/migrations} ==="
+            goose -dir="$dir" up
+          done
+        fi
+
+  down:
+    desc: "Rollback last migration  (usage: task migrate:down SERVICE=auth)"
+    requires:
+      vars: [SERVICE]
+    cmds:
+      - goose -dir="services/{{.SERVICE}}/migrations" down
+
+  create:
+    desc: "Create a new migration  (usage: task migrate:create SERVICE=auth NAME=create_users)"
+    requires:
+      vars: [SERVICE, NAME]
+    cmds:
+      - goose -dir="services/{{.SERVICE}}/migrations" create "{{.NAME}}" sql
+
+  status:
+    desc: Show migration status for all services
+    cmds:
+      - |
+        for dir in services/*/migrations; do
+          [ -d "$dir" ] || continue
+          echo "=== ${dir%/migrations} ==="
+          goose -dir="$dir" status || true
+        done

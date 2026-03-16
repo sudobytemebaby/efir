@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+version: "3"
+
+set: [pipefail]
+
+tasks:
+  up:
+    desc: Start all services
+    cmds:
+      - docker compose up -d
+
+  down:
+    desc: Stop all services
+    cmds:
+      - docker compose down
+
+  ps:
+    desc: Show status of all containers
+    cmds:
+      - docker compose ps
+
+  logs:
+    desc: "Tail logs for a service  (usage: task docker:logs SERVICE=auth)"
+    requires:
+      vars: [SERVICE]
+    cmds:
+      - docker compose logs -f {{.SERVICE}}
+
+  restart:
+    desc: "Restart a service  (usage: task docker:restart SERVICE=auth)"
+    requires:
+      vars: [SERVICE]
+    cmds:
+      - docker compose restart {{.SERVICE}}
+
+  infra:up:
+    desc: Start infrastructure only (postgres, nats, valkey, traefik)
+    cmds:
+      - docker compose up -d postgres nats valkey traefik
+
+  infra:down:
+    desc: Stop infrastructure
+    cmds:
+      - docker compose stop postgres nats valkey traefik
+
+  obs:up:
+    desc: Start infrastructure + observability stack
+    cmds:
+      - docker compose --profile observability up -d postgres nats valkey traefik otel-collector prometheus loki tempo grafana
+
+  obs:down:
+    desc: Stop observability stack
+    cmds:
+      - docker compose stop otel-collector prometheus loki tempo grafana
+
+  sidecar:up:
+    desc: Start sidecar containers
+    cmds:
+      - docker compose --profile sidecar up -d auth-sidecar user-sidecar room-sidecar message-sidecar
+
+  sidecar:down:
+    desc: Stop sidecar containers
+    cmds:
+      - docker compose stop auth-sidecar user-sidecar room-sidecar message-sidecar
