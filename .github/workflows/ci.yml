@@ -63,7 +63,7 @@ jobs:
             buf.gen.yaml
             buf.yaml
             docker-compose.yml
-            docker-compose.dev.example.yml
+            deploy/compose/docker-compose.dev.example.yml
             docker-compose.infra.yml
             docker-compose.network.yml
             docker-compose.observability.yml
