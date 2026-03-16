@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+version: "3"
+
+set: [pipefail]
+
+vars:
+  GO_WORKSPACE_DIRS:
+    sh: go list -m -f '{{.Dir}}'
+
+tasks:
+  test:
+    desc: Run tests for all workspace modules
+    cmds:
+      - for: { var: GO_WORKSPACE_DIRS }
+        task: _test_module
+        vars:
+          DIR: "{{.ITEM}}"
+
+  lint:
+    desc: Run golangci-lint across all workspace modules
+    vars:
+      ROOT:
+        sh: git rev-parse --show-toplevel
+    cmds:
+      - for: { var: GO_WORKSPACE_DIRS }
+        task: _lint_module
+        vars:
+          DIR: "{{.ITEM}}"
+          ROOT: "{{.ROOT}}"
+
+  generate:
+    desc: Generate mocks for all workspace modules
+    cmds:
+      - for: { var: GO_WORKSPACE_DIRS }
+        cmd: go generate {{.ITEM}}/...
+
+  run:
+    desc: "Run a service locally  (usage: task go:run SERVICE=auth)"
+    requires:
+      vars: [SERVICE]
+    cmds:
+      - go run ./services/{{.SERVICE}}/cmd
+
+  # ---------------------------------------------------------------------------
+  # Internal helpers
+  # ---------------------------------------------------------------------------
+
+  _test_module:
+    internal: true
+    dir: "{{.DIR}}"
+    cmds:
+      - go test ./...
+
+  _lint_module:
+    internal: true
+    dir: "{{.DIR}}"
+    cmds:
+      - golangci-lint run --config "{{.ROOT}}/.golangci.yml" ./...
