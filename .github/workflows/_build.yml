@@ -1,0 +1,23 @@
+name: Build
+
+on:
+  workflow_call:
+
+jobs:
+  build:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for Dockerfiles
+        id: check
+        run: bash .github/scripts/check-dockerfiles.sh
+
+      - name: Setup Go + Proto
+        if: steps.check.outputs.has_dockerfiles == 'true'
+        uses: ./.github/actions/setup-go-proto
+
+      - name: Build all service images
+        if: steps.check.outputs.has_dockerfiles == 'true'
+        run: bash .github/scripts/build-docker-images.sh
