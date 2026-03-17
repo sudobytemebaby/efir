@@ -88,13 +88,16 @@ go-task setup
 
 ### Migrations — `migrate:`
 
-| Task                                                    | Description                             |
-| ------------------------------------------------------- | --------------------------------------- |
-| `go-task migrate:up`                                    | Apply migrations for all services       |
-| `go-task migrate:up SERVICE=auth`                       | Apply migrations for a specific service |
-| `go-task migrate:down SERVICE=auth`                     | Roll back last migration for a service  |
-| `go-task migrate:create SERVICE=auth NAME=create_users` | Create a new migration file             |
-| `go-task migrate:status`                                | Show migration status for all services  |
+Migrations use [goose](https://github.com/pressly/goose) and are stored in each service's `migrations/` directory. Migration scripts are located in `tasks/scripts/`.
+
+| Task                                            | Description                             |
+| ----------------------------------------------- | --------------------------------------- |
+| `go-task migrate:up`                            | Apply migrations for all services       |
+| `go-task migrate:up SERVICE=auth`               | Apply migrations for a specific service |
+| `go-task migrate:down SERVICE=auth`             | Roll back last migration for a service  |
+| `go-task migrate:create SERVICE=user NAME=init` | Create a new migration file             |
+| `go-task migrate:status`                        | Show migration status for all services  |
+| `go-task migrate:status SERVICE=user`           | Show migration status for a service     |
 
 ---
 
