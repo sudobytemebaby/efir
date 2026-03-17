@@ -70,6 +70,37 @@ func TestCreateRoom(t *testing.T) {
 		assert.Nil(t, room)
 		mockRepo.AssertExpectations(t)
 	})
+
+	t.Run("direct room success", func(t *testing.T) {
+		mockRepo := mocks.NewRoomRepository(t)
+		mockPublisher := roommocks.NewPublisher(t)
+		svc := NewRoomService(mockRepo, mockPublisher)
+
+		ctx := context.Background()
+		roomID := uuid.New()
+		userID := uuid.New()
+		participantID := uuid.New()
+
+		expectedRoom := &repository.Room{
+			ID:        roomID,
+			Name:      "Direct Room",
+			Type:      repository.RoomTypeDirect,
+			CreatedBy: userID,
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		}
+
+		mockRepo.On("GetDirectRoomByUsers", ctx, userID, participantID).Return(nil, repository.ErrRoomNotFound).Once()
+		mockRepo.On("CreateRoom", ctx, "Direct Room", repository.RoomTypeDirect, userID).Return(expectedRoom, nil).Once()
+		mockRepo.On("AddMember", ctx, roomID, userID, repository.MemberRoleOwner).Return(&repository.RoomMember{}, nil).Once()
+		mockRepo.On("AddMember", ctx, roomID, participantID, repository.MemberRoleMember).Return(&repository.RoomMember{}, nil).Once()
+
+		room, err := svc.CreateRoom(ctx, "Direct Room", repository.RoomTypeDirect, userID, participantID)
+
+		require.NoError(t, err)
+		assert.Equal(t, expectedRoom, room)
+		mockRepo.AssertExpectations(t)
+	})
 }
 
 func TestGetRoom(t *testing.T) {

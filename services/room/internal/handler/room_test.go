@@ -1,4 +1,4 @@
-package handler
+package handler_test
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/sudobytemebaby/efir/services/room/internal/handler"
 	"github.com/sudobytemebaby/efir/services/room/internal/repository"
 	"github.com/sudobytemebaby/efir/services/room/internal/service"
 	roommocks "github.com/sudobytemebaby/efir/services/room/internal/service/mocks"
@@ -19,7 +20,7 @@ import (
 func TestCreateRoom(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mockSvc := roommocks.NewRoomService(t)
-		h, err := NewRoomHandler(mockSvc)
+		h, err := handler.NewRoomHandler(mockSvc)
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -51,7 +52,7 @@ func TestCreateRoom(t *testing.T) {
 
 	t.Run("invalid created_by", func(t *testing.T) {
 		mockSvc := roommocks.NewRoomService(t)
-		h, err := NewRoomHandler(mockSvc)
+		h, err := handler.NewRoomHandler(mockSvc)
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -69,7 +70,7 @@ func TestCreateRoom(t *testing.T) {
 
 	t.Run("direct room already exists", func(t *testing.T) {
 		mockSvc := roommocks.NewRoomService(t)
-		h, err := NewRoomHandler(mockSvc)
+		h, err := handler.NewRoomHandler(mockSvc)
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -94,7 +95,7 @@ func TestCreateRoom(t *testing.T) {
 func TestGetRoom(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mockSvc := roommocks.NewRoomService(t)
-		h, err := NewRoomHandler(mockSvc)
+		h, err := handler.NewRoomHandler(mockSvc)
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -120,7 +121,7 @@ func TestGetRoom(t *testing.T) {
 
 	t.Run("not found", func(t *testing.T) {
 		mockSvc := roommocks.NewRoomService(t)
-		h, err := NewRoomHandler(mockSvc)
+		h, err := handler.NewRoomHandler(mockSvc)
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -139,7 +140,7 @@ func TestGetRoom(t *testing.T) {
 func TestUpdateRoom(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mockSvc := roommocks.NewRoomService(t)
-		h, err := NewRoomHandler(mockSvc)
+		h, err := handler.NewRoomHandler(mockSvc)
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -171,7 +172,7 @@ func TestUpdateRoom(t *testing.T) {
 
 	t.Run("not owner", func(t *testing.T) {
 		mockSvc := roommocks.NewRoomService(t)
-		h, err := NewRoomHandler(mockSvc)
+		h, err := handler.NewRoomHandler(mockSvc)
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -196,7 +197,7 @@ func TestUpdateRoom(t *testing.T) {
 func TestDeleteRoom(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mockSvc := roommocks.NewRoomService(t)
-		h, err := NewRoomHandler(mockSvc)
+		h, err := handler.NewRoomHandler(mockSvc)
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -218,7 +219,7 @@ func TestDeleteRoom(t *testing.T) {
 func TestAddMember(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mockSvc := roommocks.NewRoomService(t)
-		h, err := NewRoomHandler(mockSvc)
+		h, err := handler.NewRoomHandler(mockSvc)
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -240,7 +241,7 @@ func TestAddMember(t *testing.T) {
 
 	t.Run("not member", func(t *testing.T) {
 		mockSvc := roommocks.NewRoomService(t)
-		h, err := NewRoomHandler(mockSvc)
+		h, err := handler.NewRoomHandler(mockSvc)
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -265,7 +266,7 @@ func TestAddMember(t *testing.T) {
 func TestGetRoomMembers(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mockSvc := roommocks.NewRoomService(t)
-		h, err := NewRoomHandler(mockSvc)
+		h, err := handler.NewRoomHandler(mockSvc)
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -289,7 +290,7 @@ func TestGetRoomMembers(t *testing.T) {
 func TestIsMember(t *testing.T) {
 	t.Run("is member", func(t *testing.T) {
 		mockSvc := roommocks.NewRoomService(t)
-		h, err := NewRoomHandler(mockSvc)
+		h, err := handler.NewRoomHandler(mockSvc)
 		require.NoError(t, err)
 
 		ctx := context.Background()

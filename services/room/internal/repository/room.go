@@ -12,10 +12,11 @@ import (
 )
 
 var (
-	ErrRoomNotFound      = errors.New("room not found")
-	ErrRoomAlreadyExists = errors.New("room already exists")
-	ErrMemberNotFound    = errors.New("member not found")
-	ErrDirectRoomExists  = errors.New("direct room already exists between these users")
+	ErrRoomNotFound        = errors.New("room not found")
+	ErrRoomAlreadyExists   = errors.New("room already exists")
+	ErrMemberNotFound      = errors.New("member not found")
+	ErrMemberAlreadyExists = errors.New("member already exists")
+	ErrDirectRoomExists    = errors.New("direct room already exists between these users")
 )
 
 type RoomType string
@@ -158,7 +159,7 @@ func (r *pgRoomRepository) AddMember(ctx context.Context, roomID, userID uuid.UU
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrMemberNotFound
+			return nil, ErrMemberAlreadyExists
 		}
 		return nil, fmt.Errorf("add member: %w", err)
 	}

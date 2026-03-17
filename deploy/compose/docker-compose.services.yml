@@ -30,6 +30,7 @@ services:
       - .env
     environment:
       - GRPC_PORT=${USER_GRPC_PORT}
+      - POSTGRES_DSN=${POSTGRES_USER_DSN}
     depends_on:
       postgres:
         condition: service_healthy

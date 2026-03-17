@@ -62,12 +62,16 @@ func (s *roomService) CreateRoom(ctx context.Context, name string, roomType repo
 	}
 
 	if _, err := s.roomRepo.AddMember(ctx, room.ID, createdBy, repository.MemberRoleOwner); err != nil {
-		return nil, fmt.Errorf("add owner as member: %w", err)
+		if !errors.Is(err, repository.ErrMemberAlreadyExists) {
+			return nil, fmt.Errorf("add owner as member: %w", err)
+		}
 	}
 
 	if roomType == repository.RoomTypeDirect && participantID != uuid.Nil {
 		if _, err := s.roomRepo.AddMember(ctx, room.ID, participantID, repository.MemberRoleMember); err != nil {
-			return nil, fmt.Errorf("add participant as member: %w", err)
+			if !errors.Is(err, repository.ErrMemberAlreadyExists) {
+				return nil, fmt.Errorf("add participant as member: %w", err)
+			}
 		}
 	}
 
@@ -171,6 +175,7 @@ func (s *roomService) AddMember(ctx context.Context, roomID, userID, requesterID
 	return nil
 }
 
+// TODO: Add support for members to leave rooms themselves (not just owner removing them).
 func (s *roomService) RemoveMember(ctx context.Context, roomID, userID, requesterID uuid.UUID) error {
 	room, err := s.roomRepo.GetRoomByID(ctx, roomID)
 	if err != nil {
