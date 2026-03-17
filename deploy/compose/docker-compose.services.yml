@@ -30,6 +30,7 @@ services:
       - .env
     environment:
       - GRPC_PORT=${USER_GRPC_PORT}
+      - POSTGRES_DSN=${POSTGRES_USER_DSN}
     depends_on:
       postgres:
         condition: service_healthy
@@ -45,6 +46,9 @@ services:
     container_name: efir-room
     env_file:
       - .env
+    environment:
+      - GRPC_PORT=${ROOM_GRPC_PORT}
+      - POSTGRES_DSN=${POSTGRES_ROOM_DSN}
     depends_on:
       postgres:
         condition: service_healthy
