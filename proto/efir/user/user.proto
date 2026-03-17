@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package efir.user;
 
+import "buf/validate/validate.proto";
 import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/sudobytemebaby/efir/services/shared/gen/user;userv1";
@@ -13,7 +14,9 @@ service UserService {
 }
 
 message GetUserRequest {
-  string user_id = 1;
+  string user_id = 1 [
+    (buf.validate.field).string.min_len = 1
+  ];
 }
 
 message GetUserResponse {
@@ -21,7 +24,9 @@ message GetUserResponse {
 }
 
 message GetUsersByIdsRequest {
-  repeated string user_ids = 1;
+  repeated string user_ids = 1 [
+    (buf.validate.field).repeated.min_items = 1
+  ];
 }
 
 message GetUsersByIdsResponse {
@@ -29,7 +34,9 @@ message GetUsersByIdsResponse {
 }
 
 message UpdateUserRequest {
-  string user_id = 1;
+  string user_id = 1 [
+    (buf.validate.field).string.min_len = 1
+  ];
   optional string display_name = 2;
   optional string avatar_url = 3;
   optional string bio = 4;
