@@ -45,12 +45,25 @@ func (h *roomHandler) CreateRoom(ctx context.Context, req *roomv1.CreateRoomRequ
 		return nil, sharederrors.CodeInvalidArgument.Error("invalid created_by")
 	}
 
-	roomType := repository.RoomType(req.Type.String())
-	if roomType != repository.RoomTypeDirect && roomType != repository.RoomTypeGroup {
+	var participantID uuid.UUID
+	if req.ParticipantId != "" {
+		participantID, err = uuid.Parse(req.ParticipantId)
+		if err != nil {
+			return nil, sharederrors.CodeInvalidArgument.Error("invalid participant_id")
+		}
+	}
+
+	var roomType repository.RoomType
+	switch req.Type {
+	case roomv1.RoomType_ROOM_TYPE_DIRECT:
+		roomType = repository.RoomTypeDirect
+	case roomv1.RoomType_ROOM_TYPE_GROUP:
+		roomType = repository.RoomTypeGroup
+	default:
 		roomType = repository.RoomTypeGroup
 	}
 
-	room, err := h.svc.CreateRoom(ctx, req.Name, roomType, createdBy)
+	room, err := h.svc.CreateRoom(ctx, req.Name, roomType, createdBy, participantID)
 	if err != nil {
 		if errors.Is(err, service.ErrDirectRoomExists) {
 			return nil, sharederrors.CodeAlreadyExists.Error("direct room already exists between these users")
@@ -175,8 +188,8 @@ func (h *roomHandler) AddMember(ctx context.Context, req *roomv1.AddMemberReques
 		if errors.Is(err, service.ErrRoomNotFound) {
 			return nil, sharederrors.CodeNotFound.Error("room not found")
 		}
-		if errors.Is(err, service.ErrNotOwner) {
-			return nil, sharederrors.CodePermissionDenied.Error("only room members can add new members")
+		if errors.Is(err, service.ErrNotMember) {
+			return nil, sharederrors.CodePermissionDenied.Error("must be a room member to add new members")
 		}
 		return nil, sharederrors.CodeInternal.Wrap(err)
 	}
@@ -278,9 +291,20 @@ func mapRoomToProto(room *repository.Room) *roomv1.Room {
 	return &roomv1.Room{
 		RoomId:    room.ID.String(),
 		Name:      room.Name,
-		Type:      roomv1.RoomType(roomv1.RoomType_value["ROOM_TYPE_"+string(room.Type)]),
+		Type:      mapRoomTypeToProto(room.Type),
 		CreatedBy: room.CreatedBy.String(),
 		CreatedAt: timestamppb.New(room.CreatedAt),
 		UpdatedAt: timestamppb.New(room.UpdatedAt),
+	}
+}
+
+func mapRoomTypeToProto(t repository.RoomType) roomv1.RoomType {
+	switch t {
+	case repository.RoomTypeDirect:
+		return roomv1.RoomType_ROOM_TYPE_DIRECT
+	case repository.RoomTypeGroup:
+		return roomv1.RoomType_ROOM_TYPE_GROUP
+	default:
+		return roomv1.RoomType_ROOM_TYPE_UNSPECIFIED
 	}
 }

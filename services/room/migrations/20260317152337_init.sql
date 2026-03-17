@@ -32,26 +32,16 @@ CREATE TABLE IF NOT EXISTS room_members (
 -- +goose StatementEnd
 
 -- +goose Up
--- +goose StatementBegin
 CREATE INDEX IF NOT EXISTS idx_room_members_user_id ON room_members(user_id);
--- +goose StatementEnd
 
 -- +goose Down
--- +goose StatementBegin
 DROP TABLE IF EXISTS room_members;
--- +goose StatementEnd
 
 -- +goose Down
--- +goose StatementBegin
 DROP TABLE IF EXISTS rooms;
--- +goose StatementEnd
 
 -- +goose Down
--- +goose StatementBegin
 DROP TYPE IF EXISTS member_role;
--- +goose StatementEnd
 
 -- +goose Down
--- +goose StatementBegin
 DROP TYPE IF EXISTS room_type;
--- +goose StatementEnd

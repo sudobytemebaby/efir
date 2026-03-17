@@ -36,7 +36,7 @@ func TestCreateRoom(t *testing.T) {
 		mockRepo.On("CreateRoom", ctx, "Test Room", repository.RoomTypeGroup, userID).Return(expectedRoom, nil).Once()
 		mockRepo.On("AddMember", ctx, roomID, userID, repository.MemberRoleOwner).Return(&repository.RoomMember{}, nil).Once()
 
-		room, err := svc.CreateRoom(ctx, "Test Room", repository.RoomTypeGroup, userID)
+		room, err := svc.CreateRoom(ctx, "Test Room", repository.RoomTypeGroup, userID, uuid.Nil)
 
 		require.NoError(t, err)
 		assert.Equal(t, expectedRoom, room)
@@ -50,6 +50,7 @@ func TestCreateRoom(t *testing.T) {
 
 		ctx := context.Background()
 		userID := uuid.New()
+		participantID := uuid.New()
 		existingRoomID := uuid.New()
 
 		existingRoom := &repository.Room{
@@ -61,9 +62,9 @@ func TestCreateRoom(t *testing.T) {
 			UpdatedAt: time.Now(),
 		}
 
-		mockRepo.On("GetDirectRoomByUsers", ctx, userID, userID).Return(existingRoom, nil).Once()
+		mockRepo.On("GetDirectRoomByUsers", ctx, userID, participantID).Return(existingRoom, nil).Once()
 
-		room, err := svc.CreateRoom(ctx, "New Room", repository.RoomTypeDirect, userID)
+		room, err := svc.CreateRoom(ctx, "New Room", repository.RoomTypeDirect, userID, participantID)
 
 		require.ErrorIs(t, err, ErrDirectRoomExists)
 		assert.Nil(t, room)

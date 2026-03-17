@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package efir.room;
 
+import "buf/validate/validate.proto";
 import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/sudobytemebaby/efir/services/shared/gen/room;roomv1";
@@ -24,9 +25,10 @@ service RoomService {
 }
 
 message CreateRoomRequest {
-  string name = 1;
+  string name = 1 [(buf.validate.field).string.min_len = 1];
   RoomType type = 2;
-  string created_by = 3;
+  string created_by = 3 [(buf.validate.field).string.min_len = 1];
+  string participant_id = 4;
 }
 
 message CreateRoomResponse {
@@ -34,7 +36,7 @@ message CreateRoomResponse {
 }
 
 message GetRoomRequest {
-  string room_id = 1;
+  string room_id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
 message GetRoomResponse {
@@ -42,8 +44,8 @@ message GetRoomResponse {
 }
 
 message UpdateRoomRequest {
-  string room_id = 1;
-  string requester_id = 2;
+  string room_id = 1 [(buf.validate.field).string.min_len = 1];
+  string requester_id = 2 [(buf.validate.field).string.min_len = 1];
   optional string name = 3;
 }
 
@@ -52,30 +54,30 @@ message UpdateRoomResponse {
 }
 
 message DeleteRoomRequest {
-  string room_id = 1;
-  string requester_id = 2;
+  string room_id = 1 [(buf.validate.field).string.min_len = 1];
+  string requester_id = 2 [(buf.validate.field).string.min_len = 1];
 }
 
 message DeleteRoomResponse {}
 
 message AddMemberRequest {
-  string room_id = 1;
-  string user_id = 2;
-  string requester_id = 3;
+  string room_id = 1 [(buf.validate.field).string.min_len = 1];
+  string user_id = 2 [(buf.validate.field).string.min_len = 1];
+  string requester_id = 3 [(buf.validate.field).string.min_len = 1];
 }
 
 message AddMemberResponse {}
 
 message RemoveMemberRequest {
-  string room_id = 1;
-  string user_id = 2;
-  string requester_id = 3;
+  string room_id = 1 [(buf.validate.field).string.min_len = 1];
+  string user_id = 2 [(buf.validate.field).string.min_len = 1];
+  string requester_id = 3 [(buf.validate.field).string.min_len = 1];
 }
 
 message RemoveMemberResponse {}
 
 message GetRoomMembersRequest {
-  string room_id = 1;
+  string room_id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
 message GetRoomMembersResponse {
@@ -83,8 +85,8 @@ message GetRoomMembersResponse {
 }
 
 message IsMemberRequest {
-  string room_id = 1;
-  string user_id = 2;
+  string room_id = 1 [(buf.validate.field).string.min_len = 1];
+  string user_id = 2 [(buf.validate.field).string.min_len = 1];
 }
 
 message IsMemberResponse {
