@@ -9,19 +9,15 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
--- +goose StatementEnd
 
--- +goose Up
--- +goose StatementBegin
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
--- +goose StatementEnd
-
--- +goose Up
--- +goose StatementBegin
 CREATE INDEX IF NOT EXISTS idx_users_display_name ON users(display_name);
 -- +goose StatementEnd
 
 -- +goose Down
 -- +goose StatementBegin
+DROP INDEX IF EXISTS idx_users_display_name;
+DROP INDEX IF EXISTS idx_users_username;
+
 DROP TABLE IF EXISTS users;
 -- +goose StatementEnd

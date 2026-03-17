@@ -114,6 +114,20 @@ func TestGetUsersByIds(t *testing.T) {
 		mockSvc.AssertExpectations(t)
 	})
 
+	t.Run("empty list", func(t *testing.T) {
+		mockSvc := mocks.NewUserService(t)
+		h, err := NewUserHandler(mockSvc)
+		require.NoError(t, err)
+
+		ctx := context.Background()
+
+		_, err = h.GetUsersByIds(ctx, &userv1.GetUsersByIdsRequest{UserIds: []string{}})
+
+		require.Error(t, err)
+		assert.Equal(t, codes.InvalidArgument, status.Code(err))
+		mockSvc.AssertExpectations(t)
+	})
+
 	t.Run("invalid user_id", func(t *testing.T) {
 		mockSvc := mocks.NewUserService(t)
 		h, err := NewUserHandler(mockSvc)
