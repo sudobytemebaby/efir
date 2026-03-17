@@ -47,12 +47,21 @@ func TestCreateUser(t *testing.T) {
 		userID := uuid.New()
 		email := "john@example.com"
 
-		mockRepo.On("CreateUser", ctx, userID, "john", "john").Return(nil, repository.ErrUserNotFound).Once()
+		existingUser := &repository.User{
+			ID:          userID,
+			Username:    "john",
+			DisplayName: "john",
+			CreatedAt:   time.Now(),
+			UpdatedAt:   time.Now(),
+		}
+
+		mockRepo.On("CreateUser", ctx, userID, "john", "john").Return(nil, repository.ErrUserAlreadyExists).Once()
+		mockRepo.On("GetUserByID", ctx, userID).Return(existingUser, nil).Once()
 
 		user, err := svc.CreateUser(ctx, userID, email)
 
-		require.ErrorIs(t, err, ErrUserNotFound)
-		assert.Nil(t, user)
+		require.NoError(t, err)
+		assert.Equal(t, existingUser, user)
 		mockRepo.AssertExpectations(t)
 	})
 }

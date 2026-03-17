@@ -34,6 +34,9 @@ func (s *userService) CreateUser(ctx context.Context, userID uuid.UUID, email st
 
 	user, err := s.userRepo.CreateUser(ctx, userID, username, displayName)
 	if err != nil {
+		if errors.Is(err, repository.ErrUserAlreadyExists) {
+			return s.userRepo.GetUserByID(ctx, userID)
+		}
 		if errors.Is(err, repository.ErrUserNotFound) {
 			return nil, ErrUserNotFound
 		}

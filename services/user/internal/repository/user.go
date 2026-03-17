@@ -12,7 +12,8 @@ import (
 )
 
 var (
-	ErrUserNotFound = errors.New("user not found")
+	ErrUserNotFound      = errors.New("user not found")
+	ErrUserAlreadyExists = errors.New("user already exists")
 )
 
 type User struct {
@@ -55,7 +56,7 @@ func (r *pgUserRepository) CreateUser(ctx context.Context, id uuid.UUID, usernam
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrUserNotFound
+			return nil, ErrUserAlreadyExists
 		}
 		return nil, fmt.Errorf("create user: %w", err)
 	}
