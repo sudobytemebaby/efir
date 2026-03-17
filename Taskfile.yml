@@ -3,6 +3,7 @@
 version: "3"
 
 set: [pipefail]
+dotenv: [".env"]
 
 includes:
   docker: ./tasks/docker.yml
