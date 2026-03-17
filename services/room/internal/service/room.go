@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/google/uuid"
 	"github.com/sudobytemebaby/efir/services/room/internal/repository"
@@ -168,7 +169,12 @@ func (s *roomService) AddMember(ctx context.Context, roomID, userID, requesterID
 
 	if s.publisher != nil {
 		if err := s.publisher.PublishMembershipChanged(ctx, roomID, userID, "added", recipientIDs); err != nil {
-			return fmt.Errorf("publish membership changed: %w", err)
+			slog.Error("failed to publish membership changed event, event may be lost",
+				"room_id", roomID,
+				"user_id", userID,
+				"action", "added",
+				"error", err,
+			)
 		}
 	}
 
@@ -208,7 +214,12 @@ func (s *roomService) RemoveMember(ctx context.Context, roomID, userID, requeste
 
 	if s.publisher != nil {
 		if err := s.publisher.PublishMembershipChanged(ctx, roomID, userID, "removed", recipientIDs); err != nil {
-			return fmt.Errorf("publish membership changed: %w", err)
+			slog.Error("failed to publish membership changed event, event may be lost",
+				"room_id", roomID,
+				"user_id", userID,
+				"action", "removed",
+				"error", err,
+			)
 		}
 	}
 
@@ -216,6 +227,7 @@ func (s *roomService) RemoveMember(ctx context.Context, roomID, userID, requeste
 }
 
 func (s *roomService) GetRoomMembers(ctx context.Context, roomID uuid.UUID) ([]repository.RoomMember, error) {
+	// Explicitly check room exists to return a clear error rather than empty slice
 	_, err := s.roomRepo.GetRoomByID(ctx, roomID)
 	if err != nil {
 		if errors.Is(err, repository.ErrRoomNotFound) {
