@@ -45,6 +45,8 @@ services:
     container_name: efir-room
     env_file:
       - .env
+    environment:
+      - GRPC_PORT=${ROOM_GRPC_PORT}
     depends_on:
       postgres:
         condition: service_healthy
