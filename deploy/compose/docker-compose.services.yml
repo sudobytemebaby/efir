@@ -64,6 +64,10 @@ services:
     container_name: efir-message
     env_file:
       - .env
+    environment:
+      - POSTGRES_DSN=${POSTGRES_MESSAGE_DSN}
+      - GRPC_PORT=${MESSAGE_GRPC_PORT}
+      - ROOM_SERVICE_ADDR=${ROOM_SERVICE_ADDR}
     depends_on:
       postgres:
         condition: service_healthy

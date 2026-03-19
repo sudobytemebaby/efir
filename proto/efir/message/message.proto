@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package efir.message;
 
+import "buf/validate/validate.proto";
 import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/sudobytemebaby/efir/services/shared/gen/message;messagev1";
@@ -13,10 +14,169 @@ service MessageService {
   rpc DeleteMessage(DeleteMessageRequest) returns (DeleteMessageResponse);
 }
 
-message SendMessageRequest {
-  string room_id = 1;
+enum MessageType {
+  MESSAGE_TYPE_UNSPECIFIED = 0;
+  MESSAGE_TYPE_TEXT = 1;
+  MESSAGE_TYPE_IMAGE = 2;
+  MESSAGE_TYPE_VIDEO = 3;
+  MESSAGE_TYPE_VIDEO_NOTE = 4;
+  MESSAGE_TYPE_VOICE = 5;
+  MESSAGE_TYPE_AUDIO = 6;
+  MESSAGE_TYPE_FILE = 7;
+  MESSAGE_TYPE_STICKER = 8;
+  MESSAGE_TYPE_EVENT = 9;
+}
+
+message TextContent {
+  string text = 1;
+}
+
+message MediaContent {
+  string file_id = 1;
+  string mime_type = 2;
+  int64 file_size = 3;
+  int32 width = 4;
+  int32 height = 5;
+  optional string thumbnail_id = 6;
+  optional int32 duration_sec = 7;
+}
+
+message FileContent {
+  string file_id = 1;
+  string mime_type = 2;
+  int64 file_size = 3;
+  string file_name = 4;
+  optional int32 duration_sec = 5;
+}
+
+message VoiceContent {
+  string file_id = 1;
+  string mime_type = 2;
+  int64 file_size = 3;
+  int32 duration_sec = 4;
+  optional bytes waveform = 5;
+}
+
+message VideoNoteContent {
+  string file_id = 1;
+  string mime_type = 2;
+  int64 file_size = 3;
+  int32 duration_sec = 4;
+  int32 width = 5;
+  int32 height = 6;
+  optional string thumbnail_id = 7;
+}
+
+message StickerContent {
+  string file_id = 1;
+  string mime_type = 2;
+  optional string emoji = 3;
+  optional string set_name = 4;
+}
+
+message EventContent {
+  string text = 1;
+}
+
+message MessagePreview {
+  string message_id = 1;
   string sender_id = 2;
-  string content = 3;
+  MessageType type = 3;
+  optional string text_preview = 4;
+  optional string file_name = 5;
+  optional string mime_type = 6;
+}
+
+message Message {
+  string message_id = 1;
+  string room_id = 2;
+  string sender_id = 3;
+  MessageType type = 4;
+  bool is_deleted = 5;
+  optional google.protobuf.Timestamp edited_at = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+  optional MessagePreview reply_to = 9;
+  oneof content {
+    TextContent text = 10;
+    MediaContent media = 11;
+    FileContent file = 12;
+    VoiceContent voice = 13;
+    VideoNoteContent video_note = 14;
+    StickerContent sticker = 15;
+    EventContent event = 16;
+  }
+}
+
+message SendTextContent {
+  string text = 1 [(buf.validate.field).string.min_len = 1, (buf.validate.field).string.max_len = 4096];
+}
+
+message SendMediaContent {
+  string file_id = 1 [(buf.validate.field).string.min_len = 1];
+  string mime_type = 2 [(buf.validate.field).string.min_len = 1];
+  int64 file_size = 3 [(buf.validate.field).int64.gt = 0];
+  int32 width = 4 [(buf.validate.field).int32.gt = 0];
+  int32 height = 5 [(buf.validate.field).int32.gt = 0];
+  optional string thumbnail_id = 6;
+  optional int32 duration_sec = 7;
+}
+
+message SendFileContent {
+  string file_id = 1 [(buf.validate.field).string.min_len = 1];
+  string mime_type = 2 [(buf.validate.field).string.min_len = 1];
+  int64 file_size = 3 [(buf.validate.field).int64.gt = 0];
+  string file_name = 4 [(buf.validate.field).string.min_len = 1];
+  optional int32 duration_sec = 5;
+}
+
+message SendVoiceContent {
+  string file_id = 1 [(buf.validate.field).string.min_len = 1];
+  string mime_type = 2 [(buf.validate.field).string.min_len = 1];
+  int64 file_size = 3 [(buf.validate.field).int64.gt = 0];
+  int32 duration_sec = 4 [(buf.validate.field).int32.gt = 0];
+  optional bytes waveform = 5;
+}
+
+message SendVideoNoteContent {
+  string file_id = 1 [(buf.validate.field).string.min_len = 1];
+  string mime_type = 2 [(buf.validate.field).string.min_len = 1];
+  int64 file_size = 3 [(buf.validate.field).int64.gt = 0];
+  int32 duration_sec = 4 [(buf.validate.field).int32.gt = 0];
+  int32 width = 5 [(buf.validate.field).int32.gt = 0];
+  int32 height = 6 [(buf.validate.field).int32.gt = 0];
+  optional string thumbnail_id = 7;
+}
+
+message SendStickerContent {
+  string file_id = 1 [(buf.validate.field).string.min_len = 1];
+  string mime_type = 2 [(buf.validate.field).string.min_len = 1];
+  optional string emoji = 3;
+  optional string set_name = 4;
+}
+
+message SendAudioContent {
+  string file_id = 1 [(buf.validate.field).string.min_len = 1];
+  string mime_type = 2 [(buf.validate.field).string.min_len = 1];
+  int64 file_size = 3 [(buf.validate.field).int64.gt = 0];
+  string file_name = 4 [(buf.validate.field).string.min_len = 1];
+  optional int32 duration_sec = 5;
+}
+
+message SendMessageRequest {
+  string room_id = 1 [(buf.validate.field).string.min_len = 1];
+  string sender_id = 2 [(buf.validate.field).string.min_len = 1];
+  optional string reply_to_id = 3;
+  MessageType type = 4 [(buf.validate.field).enum.defined_only = true, (buf.validate.field).enum.not_in = 0];
+  oneof content {
+    SendTextContent text = 5;
+    SendMediaContent media = 6;
+    SendFileContent file = 7;
+    SendVoiceContent voice = 8;
+    SendVideoNoteContent video_note = 9;
+    SendStickerContent sticker = 10;
+    SendAudioContent audio = 11;
+  }
 }
 
 message SendMessageResponse {
@@ -24,10 +184,10 @@ message SendMessageResponse {
 }
 
 message GetMessagesRequest {
-  string room_id = 1;
-  string requester_id = 2;
+  string room_id = 1 [(buf.validate.field).string.min_len = 1];
+  string requester_id = 2 [(buf.validate.field).string.min_len = 1];
   optional string cursor = 3;
-  int32 limit = 4;
+  int32 limit = 4 [(buf.validate.field).int32.gte = 1, (buf.validate.field).int32.lte = 100];
 }
 
 message GetMessagesResponse {
@@ -36,8 +196,8 @@ message GetMessagesResponse {
 }
 
 message GetMessageByIdRequest {
-  string message_id = 1;
-  string requester_id = 2;
+  string message_id = 1 [(buf.validate.field).string.min_len = 1];
+  string requester_id = 2 [(buf.validate.field).string.min_len = 1];
 }
 
 message GetMessageByIdResponse {
@@ -45,18 +205,8 @@ message GetMessageByIdResponse {
 }
 
 message DeleteMessageRequest {
-  string message_id = 1;
-  string requester_id = 2;
+  string message_id = 1 [(buf.validate.field).string.min_len = 1];
+  string requester_id = 2 [(buf.validate.field).string.min_len = 1];
 }
 
 message DeleteMessageResponse {}
-
-message Message {
-  string message_id = 1;
-  string room_id = 2;
-  string sender_id = 3;
-  string content = 4;
-  bool is_deleted = 5;
-  google.protobuf.Timestamp created_at = 6;
-  google.protobuf.Timestamp updated_at = 7;
-}
