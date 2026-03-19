@@ -168,14 +168,15 @@ message SendMessageRequest {
   string room_id = 1 [(buf.validate.field).string.min_len = 1];
   string sender_id = 2 [(buf.validate.field).string.min_len = 1];
   optional string reply_to_id = 3;
+  MessageType type = 4;
   oneof content {
-    SendTextContent text = 4;
-    SendMediaContent media = 5;
-    SendFileContent file = 6;
-    SendVoiceContent voice = 7;
-    SendVideoNoteContent video_note = 8;
-    SendStickerContent sticker = 9;
-    SendAudioContent audio = 10;
+    SendTextContent text = 5;
+    SendMediaContent media = 6;
+    SendFileContent file = 7;
+    SendVoiceContent voice = 8;
+    SendVideoNoteContent video_note = 9;
+    SendStickerContent sticker = 10;
+    SendAudioContent audio = 11;
   }
 }
 

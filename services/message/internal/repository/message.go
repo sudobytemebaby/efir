@@ -10,7 +10,7 @@ import (
 type MessageType string
 
 const (
-	MessageTypeUnspecified  MessageType = "text"
+	MessageTypeUnspecified  MessageType = ""
 	MessageTypeText         MessageType = "text"
 	MessageTypeImage        MessageType = "image"
 	MessageTypeVideo        MessageType = "video"

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -11,9 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-var (
-	ErrMessageNotFound = errors.New("message not found")
-)
+var ErrMessageNotFound = errors.New("message not found")
 
 func marshalContent(content MessageContent) ([]byte, error) {
 	switch c := content.(type) {
@@ -96,56 +95,41 @@ func NewMessageRepository(pool *pgxpool.Pool) MessageRepository {
 func (r *pgMessageRepository) CreateMessage(ctx context.Context, input *CreateMessageInput) (*Message, error) {
 	contentJSON, err := marshalContent(input.Content)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("marshal content: %w", err)
 	}
 
-	var id, replyToID uuid.UUID
-	var replyToIDValid bool
+	const query = `
+        INSERT INTO messages (room_id, sender_id, type, content, reply_to_id)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING id, created_at, updated_at
+    `
 
-	query := `
-		INSERT INTO messages (room_id, sender_id, type, content, reply_to_id)
-		VALUES ($1, $2, $3, $4, $5)
-		RETURNING id, reply_to_id, created_at, updated_at
-	`
-
-	if input.ReplyToID != nil {
-		replyToIDValid = true
-		replyToID = *input.ReplyToID
-	}
+	var (
+		id        uuid.UUID
+		createdAt time.Time
+		updatedAt time.Time
+	)
 
 	err = r.pool.QueryRow(ctx, query,
 		input.RoomID,
 		input.SenderID,
 		input.Type,
 		contentJSON,
-		nilIf(replyToIDValid, replyToID),
-	).Scan(&id, &replyToID, &replyToID, nil, nil)
+		input.ReplyToID, // pgx сам обработает nil *uuid.UUID как SQL NULL
+	).Scan(&id, &createdAt, &updatedAt)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create message: %w", err)
 	}
 
-	msg := &Message{
+	return &Message{
 		ID:        id,
 		RoomID:    input.RoomID,
 		SenderID:  input.SenderID,
 		Type:      input.Type,
 		Content:   input.Content,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-	}
-
-	if replyToIDValid {
-		msg.ReplyTo = &MessagePreview{MessageID: replyToID}
-	}
-
-	return msg, nil
-}
-
-func nilIf(valid bool, v uuid.UUID) interface{} {
-	if valid {
-		return v
-	}
-	return nil
+		CreatedAt: createdAt,
+		UpdatedAt: updatedAt,
+	}, nil
 }
 
 func (r *pgMessageRepository) GetMessagesByRoomID(ctx context.Context, roomID uuid.UUID, cursor *uuid.UUID, limit int) ([]*Message, *uuid.UUID, error) {
@@ -189,11 +173,10 @@ func (r *pgMessageRepository) GetMessagesByRoomID(ctx context.Context, roomID uu
 			deletedAt, editedAt  *time.Time
 			createdAt, updatedAt time.Time
 
-			rmID, rmSenderID   uuid.UUID
-			rmType             *string
-			rmContentJSON      []byte
-			rmDeletedAt        *time.Time
-			rmIDValid, rmValid bool
+			rmID, rmSenderID *uuid.UUID
+			rmType           *string
+			rmContentJSON    []byte
+			rmDeletedAt      *time.Time
 		)
 
 		err := rows.Scan(
@@ -204,9 +187,6 @@ func (r *pgMessageRepository) GetMessagesByRoomID(ctx context.Context, roomID uu
 		if err != nil {
 			return nil, nil, err
 		}
-
-		rmIDValid = rmID != uuid.Nil
-		rmValid = rmIDValid
 
 		content, err := unmarshalContent(MessageType(msgType), contentJSON)
 		if err != nil {
@@ -225,10 +205,10 @@ func (r *pgMessageRepository) GetMessagesByRoomID(ctx context.Context, roomID uu
 			UpdatedAt: updatedAt,
 		}
 
-		if rmValid {
+		if rmID != nil {
 			preview := &MessagePreview{
-				MessageID: rmID,
-				SenderID:  rmSenderID,
+				MessageID: *rmID,
+				SenderID:  *rmSenderID,
 			}
 			if rmType != nil {
 				preview.Type = MessageType(*rmType)
@@ -244,6 +224,14 @@ func (r *pgMessageRepository) GetMessagesByRoomID(ctx context.Context, roomID uu
 						preview.TextPreview = &c.Text
 					case FileContent:
 						preview.FileName = &c.FileName
+						preview.MimeType = &c.MimeType
+					case MediaContent:
+						preview.MimeType = &c.MimeType
+					case VoiceContent:
+						preview.MimeType = &c.MimeType
+					case VideoNoteContent:
+						preview.MimeType = &c.MimeType
+					case StickerContent:
 						preview.MimeType = &c.MimeType
 					}
 				}
@@ -283,11 +271,10 @@ func (r *pgMessageRepository) GetMessageByID(ctx context.Context, messageID uuid
 		deletedAt, editedAt  *time.Time
 		createdAt, updatedAt time.Time
 
-		rmID, rmSenderID uuid.UUID
+		rmID, rmSenderID *uuid.UUID
 		rmType           *string
 		rmContentJSON    []byte
 		rmDeletedAt      *time.Time
-		rmIDValid        bool
 	)
 
 	err := r.pool.QueryRow(ctx, query, messageID).Scan(
@@ -301,8 +288,6 @@ func (r *pgMessageRepository) GetMessageByID(ctx context.Context, messageID uuid
 		}
 		return nil, err
 	}
-
-	rmIDValid = rmID != uuid.Nil
 
 	content, err := unmarshalContent(MessageType(msgType), contentJSON)
 	if err != nil {
@@ -321,10 +306,10 @@ func (r *pgMessageRepository) GetMessageByID(ctx context.Context, messageID uuid
 		UpdatedAt: updatedAt,
 	}
 
-	if rmIDValid {
+	if rmID != nil {
 		preview := &MessagePreview{
-			MessageID: rmID,
-			SenderID:  rmSenderID,
+			MessageID: *rmID,
+			SenderID:  *rmSenderID,
 		}
 		if rmType != nil {
 			preview.Type = MessageType(*rmType)
@@ -340,6 +325,14 @@ func (r *pgMessageRepository) GetMessageByID(ctx context.Context, messageID uuid
 					preview.TextPreview = &c.Text
 				case FileContent:
 					preview.FileName = &c.FileName
+					preview.MimeType = &c.MimeType
+				case MediaContent:
+					preview.MimeType = &c.MimeType
+				case VoiceContent:
+					preview.MimeType = &c.MimeType
+				case VideoNoteContent:
+					preview.MimeType = &c.MimeType
+				case StickerContent:
 					preview.MimeType = &c.MimeType
 				}
 			}

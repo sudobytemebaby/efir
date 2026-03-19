@@ -74,7 +74,7 @@ func (h *messageHandler) SendMessage(ctx context.Context, req *messagev1.SendMes
 		content = repository.TextContent{Text: c.Text.Text}
 	case *messagev1.SendMessageRequest_Media:
 		media := c.Media
-		msgType = repository.MessageTypeImage
+		msgType = mapProtoTypeToMessageType(req.Type)
 		cc := repository.MediaContent{
 			FileID:   media.FileId,
 			MimeType: media.MimeType,
@@ -437,6 +437,33 @@ func mapMessageTypeToProto(t repository.MessageType) messagev1.MessageType {
 		return messagev1.MessageType_MESSAGE_TYPE_EVENT
 	default:
 		return messagev1.MessageType_MESSAGE_TYPE_UNSPECIFIED
+	}
+}
+
+func mapProtoTypeToMessageType(t messagev1.MessageType) repository.MessageType {
+	switch t {
+	case messagev1.MessageType_MESSAGE_TYPE_TEXT:
+		return repository.MessageTypeText
+	case messagev1.MessageType_MESSAGE_TYPE_IMAGE:
+		return repository.MessageTypeImage
+	case messagev1.MessageType_MESSAGE_TYPE_VIDEO:
+		return repository.MessageTypeVideo
+	case messagev1.MessageType_MESSAGE_TYPE_VIDEO_NOTE:
+		return repository.MessageTypeVideoNote
+	case messagev1.MessageType_MESSAGE_TYPE_VOICE:
+		return repository.MessageTypeVoice
+	case messagev1.MessageType_MESSAGE_TYPE_AUDIO:
+		return repository.MessageTypeAudio
+	case messagev1.MessageType_MESSAGE_TYPE_FILE:
+		return repository.MessageTypeFile
+	case messagev1.MessageType_MESSAGE_TYPE_STICKER:
+		return repository.MessageTypeSticker
+	case messagev1.MessageType_MESSAGE_TYPE_VIDEO_STICKER:
+		return repository.MessageTypeVideoSticker
+	case messagev1.MessageType_MESSAGE_TYPE_EVENT:
+		return repository.MessageTypeEvent
+	default:
+		return repository.MessageTypeUnspecified
 	}
 }
 

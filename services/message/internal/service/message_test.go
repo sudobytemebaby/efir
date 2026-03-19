@@ -112,7 +112,7 @@ func TestSendMessage_HappyPath(t *testing.T) {
 		},
 	}
 
-	svc := NewMessageService(repo, &roomClientWrapper{client: roomClient}, publisher)
+	svc := NewMessageService(repo, roomClient, publisher)
 	input := &SendMessageInput{
 		RoomID:   roomID,
 		SenderID: senderID,
@@ -136,7 +136,7 @@ func TestSendMessage_NotMember(t *testing.T) {
 		},
 	}
 
-	svc := NewMessageService(&mockRepository{}, &roomClientWrapper{client: roomClient}, &mockPublisher{})
+	svc := NewMessageService(&mockRepository{}, roomClient, &mockPublisher{})
 	input := &SendMessageInput{
 		RoomID:   roomID,
 		SenderID: senderID,
@@ -165,7 +165,7 @@ func TestSendMessage_InvalidReplyTarget(t *testing.T) {
 		},
 	}
 
-	svc := NewMessageService(repo, &roomClientWrapper{client: roomClient}, &mockPublisher{})
+	svc := NewMessageService(repo, roomClient, &mockPublisher{})
 	input := &SendMessageInput{
 		RoomID:    roomID,
 		SenderID:  senderID,
@@ -199,7 +199,7 @@ func TestSendMessage_ReplyFromDifferentRoom(t *testing.T) {
 		},
 	}
 
-	svc := NewMessageService(repo, &roomClientWrapper{client: roomClient}, &mockPublisher{})
+	svc := NewMessageService(repo, roomClient, &mockPublisher{})
 	input := &SendMessageInput{
 		RoomID:    roomID,
 		SenderID:  senderID,
@@ -247,7 +247,7 @@ func TestSendMessage_NATSFailure_NoError(t *testing.T) {
 		},
 	}
 
-	svc := NewMessageService(repo, &roomClientWrapper{client: roomClient}, publisher)
+	svc := NewMessageService(repo, roomClient, publisher)
 	input := &SendMessageInput{
 		RoomID:   roomID,
 		SenderID: senderID,
@@ -297,7 +297,7 @@ func TestSendMessage_GetRoomMembersFailure_PublishSkipped(t *testing.T) {
 		},
 	}
 
-	svc := NewMessageService(repo, &roomClientWrapper{client: roomClient}, publisher)
+	svc := NewMessageService(repo, roomClient, publisher)
 	input := &SendMessageInput{
 		RoomID:   roomID,
 		SenderID: senderID,
@@ -321,7 +321,7 @@ func TestGetMessages_NotMember(t *testing.T) {
 		},
 	}
 
-	svc := NewMessageService(&mockRepository{}, &roomClientWrapper{client: roomClient}, &mockPublisher{})
+	svc := NewMessageService(&mockRepository{}, roomClient, &mockPublisher{})
 
 	_, _, err := svc.GetMessages(context.Background(), roomID, requesterID, nil, 50)
 	assert.ErrorIs(t, err, ErrNotMember)
@@ -361,16 +361,4 @@ func TestDeleteMessage_NotFound(t *testing.T) {
 
 	err := svc.DeleteMessage(context.Background(), msgID, requesterID)
 	assert.ErrorIs(t, err, ErrMessageNotFound)
-}
-
-type roomClientWrapper struct {
-	client *mockRoomClient
-}
-
-func (w *roomClientWrapper) IsMember(ctx context.Context, roomID, userID uuid.UUID) (bool, error) {
-	return w.client.IsMember(ctx, roomID, userID)
-}
-
-func (w *roomClientWrapper) GetRoomMembers(ctx context.Context, roomID uuid.UUID) ([]uuid.UUID, error) {
-	return w.client.GetRoomMembers(ctx, roomID)
 }
