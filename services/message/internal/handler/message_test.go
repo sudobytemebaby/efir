@@ -93,6 +93,7 @@ func TestSendMessage_ErrorMapping(t *testing.T) {
 	_, err = h.SendMessage(context.Background(), &messagev1.SendMessageRequest{
 		RoomId:   uuid.New().String(),
 		SenderId: uuid.New().String(),
+		Type:     messagev1.MessageType_MESSAGE_TYPE_TEXT,
 		Content: &messagev1.SendMessageRequest_Text{
 			Text: &messagev1.SendTextContent{Text: "Hello"},
 		},
@@ -118,6 +119,7 @@ func TestSendMessage_InvalidReplyTargetMapping(t *testing.T) {
 	_, err = h.SendMessage(context.Background(), &messagev1.SendMessageRequest{
 		RoomId:    uuid.New().String(),
 		SenderId:  uuid.New().String(),
+		Type:      messagev1.MessageType_MESSAGE_TYPE_TEXT,
 		ReplyToId: &replyToID,
 		Content: &messagev1.SendMessageRequest_Text{
 			Text: &messagev1.SendTextContent{Text: "Hello"},

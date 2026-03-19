@@ -70,11 +70,17 @@ func (h *messageHandler) SendMessage(ctx context.Context, req *messagev1.SendMes
 
 	switch c := req.Content.(type) {
 	case *messagev1.SendMessageRequest_Text:
+		if req.Type != messagev1.MessageType_MESSAGE_TYPE_TEXT {
+			return nil, sharederrors.CodeInvalidArgument.Error("type must be TEXT for text content")
+		}
 		msgType = repository.MessageTypeText
 		content = repository.TextContent{Text: c.Text.Text}
 	case *messagev1.SendMessageRequest_Media:
 		media := c.Media
 		msgType = mapProtoTypeToMessageType(req.Type)
+		if msgType == "" || (msgType != repository.MessageTypeImage && msgType != repository.MessageTypeVideo) {
+			return nil, sharederrors.CodeInvalidArgument.Error("type must be IMAGE or VIDEO for media content")
+		}
 		cc := repository.MediaContent{
 			FileID:   media.FileId,
 			MimeType: media.MimeType,
@@ -90,6 +96,9 @@ func (h *messageHandler) SendMessage(ctx context.Context, req *messagev1.SendMes
 		}
 		content = cc
 	case *messagev1.SendMessageRequest_File:
+		if req.Type != messagev1.MessageType_MESSAGE_TYPE_FILE {
+			return nil, sharederrors.CodeInvalidArgument.Error("type must be FILE for file content")
+		}
 		file := c.File
 		msgType = repository.MessageTypeFile
 		cc := repository.FileContent{
@@ -103,6 +112,9 @@ func (h *messageHandler) SendMessage(ctx context.Context, req *messagev1.SendMes
 		}
 		content = cc
 	case *messagev1.SendMessageRequest_Voice:
+		if req.Type != messagev1.MessageType_MESSAGE_TYPE_VOICE {
+			return nil, sharederrors.CodeInvalidArgument.Error("type must be VOICE for voice content")
+		}
 		voice := c.Voice
 		msgType = repository.MessageTypeVoice
 		cc := repository.VoiceContent{
@@ -116,6 +128,9 @@ func (h *messageHandler) SendMessage(ctx context.Context, req *messagev1.SendMes
 		}
 		content = cc
 	case *messagev1.SendMessageRequest_VideoNote:
+		if req.Type != messagev1.MessageType_MESSAGE_TYPE_VIDEO_NOTE {
+			return nil, sharederrors.CodeInvalidArgument.Error("type must be VIDEO_NOTE for video note content")
+		}
 		vn := c.VideoNote
 		msgType = repository.MessageTypeVideoNote
 		cc := repository.VideoNoteContent{
@@ -131,6 +146,9 @@ func (h *messageHandler) SendMessage(ctx context.Context, req *messagev1.SendMes
 		}
 		content = cc
 	case *messagev1.SendMessageRequest_Sticker:
+		if req.Type != messagev1.MessageType_MESSAGE_TYPE_STICKER {
+			return nil, sharederrors.CodeInvalidArgument.Error("type must be STICKER for sticker content")
+		}
 		sticker := c.Sticker
 		msgType = repository.MessageTypeSticker
 		cc := repository.StickerContent{
@@ -145,6 +163,9 @@ func (h *messageHandler) SendMessage(ctx context.Context, req *messagev1.SendMes
 		}
 		content = cc
 	case *messagev1.SendMessageRequest_Audio:
+		if req.Type != messagev1.MessageType_MESSAGE_TYPE_AUDIO {
+			return nil, sharederrors.CodeInvalidArgument.Error("type must be AUDIO for audio content")
+		}
 		audio := c.Audio
 		msgType = repository.MessageTypeAudio
 		cc := repository.FileContent{
@@ -431,8 +452,6 @@ func mapMessageTypeToProto(t repository.MessageType) messagev1.MessageType {
 		return messagev1.MessageType_MESSAGE_TYPE_FILE
 	case repository.MessageTypeSticker:
 		return messagev1.MessageType_MESSAGE_TYPE_STICKER
-	case repository.MessageTypeVideoSticker:
-		return messagev1.MessageType_MESSAGE_TYPE_VIDEO_STICKER
 	case repository.MessageTypeEvent:
 		return messagev1.MessageType_MESSAGE_TYPE_EVENT
 	default:
@@ -458,12 +477,10 @@ func mapProtoTypeToMessageType(t messagev1.MessageType) repository.MessageType {
 		return repository.MessageTypeFile
 	case messagev1.MessageType_MESSAGE_TYPE_STICKER:
 		return repository.MessageTypeSticker
-	case messagev1.MessageType_MESSAGE_TYPE_VIDEO_STICKER:
-		return repository.MessageTypeVideoSticker
 	case messagev1.MessageType_MESSAGE_TYPE_EVENT:
 		return repository.MessageTypeEvent
 	default:
-		return repository.MessageTypeUnspecified
+		return repository.MessageType("")
 	}
 }
 

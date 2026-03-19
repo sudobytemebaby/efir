@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 
 	"github.com/google/uuid"
@@ -65,6 +66,9 @@ func (s *messageService) SendMessage(ctx context.Context, input *SendMessageInpu
 		if err != nil {
 			return nil, ErrInvalidReplyTarget
 		}
+		if original.DeletedAt != nil {
+			return nil, ErrInvalidReplyTarget
+		}
 		if original.RoomID != input.RoomID {
 			return nil, ErrInvalidReplyTarget
 		}
@@ -115,7 +119,10 @@ func (s *messageService) GetMessages(ctx context.Context, roomID, requesterID uu
 func (s *messageService) GetMessageByID(ctx context.Context, messageID, requesterID uuid.UUID) (*repository.Message, error) {
 	msg, err := s.repo.GetMessageByID(ctx, messageID)
 	if err != nil {
-		return nil, ErrMessageNotFound
+		if errors.Is(err, repository.ErrMessageNotFound) {
+			return nil, ErrMessageNotFound
+		}
+		return nil, fmt.Errorf("get message: %w", err)
 	}
 
 	isMember, err := s.roomClient.IsMember(ctx, msg.RoomID, requesterID)
@@ -132,7 +139,10 @@ func (s *messageService) GetMessageByID(ctx context.Context, messageID, requeste
 func (s *messageService) DeleteMessage(ctx context.Context, messageID, requesterID uuid.UUID) error {
 	msg, err := s.repo.GetMessageByID(ctx, messageID)
 	if err != nil {
-		return ErrMessageNotFound
+		if errors.Is(err, repository.ErrMessageNotFound) {
+			return ErrMessageNotFound
+		}
+		return fmt.Errorf("get message: %w", err)
 	}
 
 	if msg.SenderID != requesterID {

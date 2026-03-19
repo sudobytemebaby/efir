@@ -24,8 +24,7 @@ enum MessageType {
   MESSAGE_TYPE_AUDIO = 6;
   MESSAGE_TYPE_FILE = 7;
   MESSAGE_TYPE_STICKER = 8;
-  MESSAGE_TYPE_VIDEO_STICKER = 9;
-  MESSAGE_TYPE_EVENT = 10;
+  MESSAGE_TYPE_EVENT = 9;
 }
 
 message TextContent {
@@ -168,7 +167,7 @@ message SendMessageRequest {
   string room_id = 1 [(buf.validate.field).string.min_len = 1];
   string sender_id = 2 [(buf.validate.field).string.min_len = 1];
   optional string reply_to_id = 3;
-  MessageType type = 4;
+  MessageType type = 4 [(buf.validate.field).enum.defined_only = true, (buf.validate.field).enum.not_in = 0];
   oneof content {
     SendTextContent text = 5;
     SendMediaContent media = 6;

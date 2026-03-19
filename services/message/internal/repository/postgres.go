@@ -67,7 +67,7 @@ func unmarshalContent(msgType MessageType, data []byte) (MessageContent, error) 
 			return nil, err
 		}
 		return c, nil
-	case MessageTypeSticker, MessageTypeVideoSticker:
+	case MessageTypeSticker:
 		var c StickerContent
 		if err := json.Unmarshal(data, &c); err != nil {
 			return nil, err
@@ -166,12 +166,12 @@ func (r *pgMessageRepository) GetMessagesByRoomID(ctx context.Context, roomID uu
 	var messages []*Message
 	for rows.Next() {
 		var (
-			id, roomID, senderID uuid.UUID
-			msgType              string
-			contentJSON          []byte
-			replyToID            *uuid.UUID
-			deletedAt, editedAt  *time.Time
-			createdAt, updatedAt time.Time
+			id, msgRoomID, senderID uuid.UUID
+			msgType                 string
+			contentJSON             []byte
+			replyToID               *uuid.UUID
+			deletedAt, editedAt     *time.Time
+			createdAt, updatedAt    time.Time
 
 			rmID, rmSenderID *uuid.UUID
 			rmType           *string
@@ -180,7 +180,7 @@ func (r *pgMessageRepository) GetMessagesByRoomID(ctx context.Context, roomID uu
 		)
 
 		err := rows.Scan(
-			&id, &roomID, &senderID, &msgType, &contentJSON,
+			&id, &msgRoomID, &senderID, &msgType, &contentJSON,
 			&replyToID, &deletedAt, &editedAt, &createdAt, &updatedAt,
 			&rmID, &rmSenderID, &rmType, &rmContentJSON, &rmDeletedAt,
 		)
@@ -195,7 +195,7 @@ func (r *pgMessageRepository) GetMessagesByRoomID(ctx context.Context, roomID uu
 
 		msg := &Message{
 			ID:        id,
-			RoomID:    roomID,
+			RoomID:    msgRoomID,
 			SenderID:  senderID,
 			Type:      MessageType(msgType),
 			Content:   content,
@@ -233,6 +233,8 @@ func (r *pgMessageRepository) GetMessagesByRoomID(ctx context.Context, roomID uu
 						preview.MimeType = &c.MimeType
 					case StickerContent:
 						preview.MimeType = &c.MimeType
+					case EventContent:
+						preview.TextPreview = &c.Text
 					}
 				}
 				msg.ReplyTo = preview
@@ -240,6 +242,10 @@ func (r *pgMessageRepository) GetMessagesByRoomID(ctx context.Context, roomID uu
 		}
 
 		messages = append(messages, msg)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, nil, fmt.Errorf("iterate messages: %w", err)
 	}
 
 	var nextCursor *uuid.UUID
@@ -334,6 +340,8 @@ func (r *pgMessageRepository) GetMessageByID(ctx context.Context, messageID uuid
 					preview.MimeType = &c.MimeType
 				case StickerContent:
 					preview.MimeType = &c.MimeType
+				case EventContent:
+					preview.TextPreview = &c.Text
 				}
 			}
 			msg.ReplyTo = preview
