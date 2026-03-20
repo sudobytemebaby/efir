@@ -55,7 +55,7 @@ func (h *WebSocketHandler) HandleWS(w http.ResponseWriter, r *http.Request) {
 
 	h.hub.Register(wsConn, userID, initialRoomID)
 
-	go h.readPump(wsConn, userID, initialRoomID)
+	go h.readPump(wsConn, userID)
 }
 
 func (h *WebSocketHandler) validateTicket(ctx context.Context, ticket string) (string, error) {
@@ -68,11 +68,9 @@ func (h *WebSocketHandler) validateTicket(ctx context.Context, ticket string) (s
 	return userID, nil
 }
 
-func (h *WebSocketHandler) readPump(conn *wsConnWrapper, userID, initialRoomID string) {
+func (h *WebSocketHandler) readPump(conn *wsConnWrapper, userID string) {
 	defer func() {
-		if initialRoomID != "" {
-			h.hub.Unregister(conn, initialRoomID)
-		}
+		h.hub.Disconnect(conn)
 		if err := conn.Close(hub.StatusCode(websocket.StatusNormalClosure), "closing"); err != nil {
 			slog.ErrorContext(context.Background(), "failed to close websocket", "error", err)
 		}

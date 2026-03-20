@@ -58,7 +58,7 @@ func TestHub_RegisterUnregister(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
-		hub.Run()
+		hub.Run(ctx)
 	}()
 	defer cancel()
 	_ = ctx
@@ -83,7 +83,7 @@ func TestHub_BroadcastToRoom(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
-		hub.Run()
+		hub.Run(ctx)
 	}()
 	defer cancel()
 	_ = ctx
@@ -113,7 +113,7 @@ func TestHub_BroadcastToRoom_NoConns(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
-		hub.Run()
+		hub.Run(ctx)
 	}()
 	defer cancel()
 	_ = ctx
@@ -133,7 +133,7 @@ func TestHub_MultipleRooms(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
-		hub.Run()
+		hub.Run(ctx)
 	}()
 	defer cancel()
 	_ = ctx
@@ -163,7 +163,7 @@ func TestHub_MultipleConnsSameUser(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
-		hub.Run()
+		hub.Run(ctx)
 	}()
 	defer cancel()
 	_ = ctx
@@ -192,7 +192,7 @@ func TestHub_GetRoomUserCount(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
-		hub.Run()
+		hub.Run(ctx)
 	}()
 	defer cancel()
 	_ = ctx

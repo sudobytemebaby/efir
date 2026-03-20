@@ -59,10 +59,16 @@ func main() {
 	}
 	defer nc.Close()
 
-	wsHub := hub.NewHub()
-	go wsHub.Run()
+	js, err := nats.New(nc)
+	if err != nil {
+		slog.Error("failed to create jetstream", "error", err)
+		os.Exit(1)
+	}
 
-	sub := subscriber.NewSubscriber(wsHub, nc)
+	wsHub := hub.NewHub()
+	go wsHub.Run(ctx)
+
+	sub := subscriber.NewSubscriber(wsHub, js)
 	if err := sub.Start(ctx); err != nil {
 		slog.Error("failed to start subscriber", "error", err)
 		os.Exit(1)

@@ -1,6 +1,7 @@
 package hub
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"sync"
@@ -63,12 +64,14 @@ type Conn interface {
 }
 
 type Hub struct {
-	mu      sync.RWMutex
-	rooms   map[string]map[string][]Conn
-	userIDs map[Conn]string
+	mu        sync.RWMutex
+	rooms     map[string]map[string][]Conn
+	userIDs   map[Conn]string
+	connRooms map[Conn]map[string]struct{}
 
 	register   chan *ConnRegistration
 	unregister chan *ConnUnregistration
+	disconnect chan Conn
 	broadcast  chan *BroadcastMessage
 }
 
@@ -92,20 +95,27 @@ func NewHub() *Hub {
 	return &Hub{
 		rooms:      make(map[string]map[string][]Conn),
 		userIDs:    make(map[Conn]string),
+		connRooms:  make(map[Conn]map[string]struct{}),
 		register:   make(chan *ConnRegistration, 256),
 		unregister: make(chan *ConnUnregistration, 256),
+		disconnect: make(chan Conn, 256),
 		broadcast:  make(chan *BroadcastMessage, 256),
 	}
 }
 
-func (h *Hub) Run() {
+func (h *Hub) Run(ctx context.Context) {
 	for {
 		select {
+		case <-ctx.Done():
+			return
 		case reg := <-h.register:
 			h.addConn(reg.Conn, reg.UserID, reg.RoomID)
 
 		case unreg := <-h.unregister:
 			h.removeConn(unreg.Conn, unreg.RoomID)
+
+		case conn := <-h.disconnect:
+			h.disconnectAll(conn)
 
 		case msg := <-h.broadcast:
 			h.sendToRoom(msg.RoomID, msg.Envelope)
@@ -119,6 +129,10 @@ func (h *Hub) Register(conn Conn, userID, roomID string) {
 
 func (h *Hub) Unregister(conn Conn, roomID string) {
 	h.unregister <- &ConnUnregistration{Conn: conn, RoomID: roomID}
+}
+
+func (h *Hub) Disconnect(conn Conn) {
+	h.disconnect <- conn
 }
 
 func (h *Hub) BroadcastToRoom(roomID string, envelope Envelope) {
@@ -137,6 +151,11 @@ func (h *Hub) addConn(conn Conn, userID, roomID string) {
 
 	userConns := h.rooms[roomID][userID]
 	h.rooms[roomID][userID] = append(userConns, conn)
+
+	if h.connRooms[conn] == nil {
+		h.connRooms[conn] = make(map[string]struct{})
+	}
+	h.connRooms[conn][roomID] = struct{}{}
 }
 
 func (h *Hub) removeConn(conn Conn, roomID string) {
@@ -147,8 +166,6 @@ func (h *Hub) removeConn(conn Conn, roomID string) {
 	if userID == "" {
 		return
 	}
-
-	delete(h.userIDs, conn)
 
 	conns := h.rooms[roomID][userID]
 	for i, c := range conns {
@@ -165,24 +182,62 @@ func (h *Hub) removeConn(conn Conn, roomID string) {
 	if len(h.rooms[roomID]) == 0 {
 		delete(h.rooms, roomID)
 	}
+
+	delete(h.connRooms[conn], roomID)
+	if len(h.connRooms[conn]) == 0 {
+		delete(h.connRooms, conn)
+		delete(h.userIDs, conn)
+	}
+}
+
+func (h *Hub) disconnectAll(conn Conn) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	userID := h.userIDs[conn]
+	if userID == "" {
+		return
+	}
+
+	for roomID := range h.connRooms[conn] {
+		conns := h.rooms[roomID][userID]
+		for i, c := range conns {
+			if c == conn {
+				h.rooms[roomID][userID] = append(conns[:i], conns[i+1:]...)
+				break
+			}
+		}
+		if len(h.rooms[roomID][userID]) == 0 {
+			delete(h.rooms[roomID], userID)
+		}
+		if len(h.rooms[roomID]) == 0 {
+			delete(h.rooms, roomID)
+		}
+	}
+
+	delete(h.connRooms, conn)
+	delete(h.userIDs, conn)
 }
 
 func (h *Hub) sendToRoom(roomID string, envelope Envelope) {
 	h.mu.RLock()
 	room := h.rooms[roomID]
-	h.mu.RUnlock()
-
 	if len(room) == 0 {
+		h.mu.RUnlock()
 		return
 	}
 
+	targets := make([]Conn, 0)
 	for _, conns := range room {
-		for _, conn := range conns {
-			if err := conn.WriteJSON(envelope); err != nil {
-				slog.Error("failed to write to conn", "error", err)
-				if closeErr := conn.Close(StatusAbnormalClosure, "write error"); closeErr != nil {
-					slog.Error("failed to close conn", "error", closeErr)
-				}
+		targets = append(targets, conns...)
+	}
+	h.mu.RUnlock()
+
+	for _, conn := range targets {
+		if err := conn.WriteJSON(envelope); err != nil {
+			slog.Error("failed to write to conn", "error", err)
+			if closeErr := conn.Close(StatusAbnormalClosure, "write error"); closeErr != nil {
+				slog.Error("failed to close conn", "error", closeErr)
 			}
 		}
 	}
