@@ -19,3 +19,7 @@ func WSPubsubChannelKey(channel string) string {
 func PresenceOnlineKey(userID string) string {
 	return "presence:online:" + userID
 }
+
+func GatewayWSTicketKey(ticket string) string {
+	return "gateway:ws:ticket:" + ticket
+}

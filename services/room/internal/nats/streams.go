@@ -8,6 +8,7 @@ import (
 const (
 	StreamRoom              = "ROOM"
 	SubjectMembershipChange = "room.membership.changed"
+	SubjectRoomUpdated      = "room.updated"
 )
 
 func Streams() []sharedjs.StreamConfig {

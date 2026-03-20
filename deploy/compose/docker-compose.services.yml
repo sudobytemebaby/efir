@@ -85,8 +85,12 @@ services:
     container_name: efir-websocket
     env_file:
       - .env
+    environment:
+      - GATEWAY_URL=${GATEWAY_URL:-http://gateway:8080}
     depends_on:
       nats:
+        condition: service_healthy
+      valkey:
         condition: service_healthy
     networks:
       - efir-network
@@ -94,6 +98,7 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.websocket.rule=Host(`ws.localhost`)"
       - "traefik.http.routers.websocket.entrypoints=web"
+      - "traefik.http.routers.websocket.middlewares=ws-forward-auth"
       - "traefik.http.services.websocket.loadbalancer.server.port=8081"
 
   gateway:
@@ -104,14 +109,6 @@ services:
     env_file:
       - .env
     depends_on:
-      auth:
-        condition: service_started
-      user:
-        condition: service_started
-      room:
-        condition: service_started
-      message:
-        condition: service_started
       valkey:
         condition: service_healthy
     networks:

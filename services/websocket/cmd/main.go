@@ -8,34 +8,82 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/sudobytemebaby/efir/services/shared/pkg/logger"
+	"github.com/sudobytemebaby/efir/services/shared/pkg/nats"
+	"github.com/sudobytemebaby/efir/services/websocket/internal/config"
+	"github.com/sudobytemebaby/efir/services/websocket/internal/handler"
+	"github.com/sudobytemebaby/efir/services/websocket/internal/hub"
+	"github.com/sudobytemebaby/efir/services/websocket/internal/subscriber"
+	vk "github.com/valkey-io/valkey-go"
 )
 
 func main() {
-	runPlaceholderServer("websocket", "WEBSOCKET_HTTP_PORT", "8081")
-}
-
-func runPlaceholderServer(serviceName, envKey, fallbackPort string) {
-	port := envOr(envKey, fallbackPort)
-	mux := http.NewServeMux()
-	mux.HandleFunc("/health", okHandler)
-	mux.HandleFunc("/ready", okHandler)
-	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(serviceName + " placeholder"))
-	})
-
-	server := &http.Server{
-		Addr:              ":" + port,
-		Handler:           mux,
-		ReadHeaderTimeout: 5 * time.Second,
+	cfg, err := config.Load()
+	if err != nil {
+		slog.Error("failed to load config", "error", err)
+		os.Exit(1)
 	}
+
+	logLevel, err := logger.ParseLevel(cfg.LogLevel)
+	if err != nil {
+		slog.Warn("invalid log level in config, falling back to info", "value", cfg.LogLevel)
+		logLevel = logger.LevelInfo
+	}
+
+	l := logger.New(logger.Options{Level: logLevel})
+	slog.SetDefault(l)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	valkeyClient, err := vk.NewClient(vk.ClientOption{
+		InitAddress: []string{cfg.ValkeyAddr},
+		Password:    cfg.ValkeyPass,
+	})
+	if err != nil {
+		slog.Error("failed to connect to valkey", "error", err)
+		os.Exit(1)
+	}
+	defer valkeyClient.Close()
+
+	if err := valkeyClient.Do(ctx, valkeyClient.B().Ping().Build()).Error(); err != nil {
+		slog.Error("failed to ping valkey", "error", err)
+		os.Exit(1)
+	}
+
+	nc, err := nats.Connect(cfg.NATSURL, cfg.NATSUser, cfg.NATSPass)
+	if err != nil {
+		slog.Error("failed to connect to nats", "error", err)
+		os.Exit(1)
+	}
+	defer nc.Close()
+
+	wsHub := hub.NewHub()
+	go wsHub.Run()
+
+	sub := subscriber.NewSubscriber(wsHub, nc)
+	if err := sub.Start(ctx); err != nil {
+		slog.Error("failed to start subscriber", "error", err)
+		os.Exit(1)
+	}
+
+	wsHandler := handler.NewWebSocketHandler(wsHub, cfg.GatewayURL, valkeyClient, cfg)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/health", okHandler)
+	mux.HandleFunc("/ready", okHandler)
+	mux.HandleFunc("/ws", wsHandler.HandleWS)
+
+	server := &http.Server{
+		Addr:              ":" + cfg.Port,
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+
 	errCh := make(chan error, 1)
 	go func() {
-		slog.Info("placeholder service started", "service", serviceName, "addr", server.Addr)
+		slog.Info("websocket service started", "addr", server.Addr)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			errCh <- err
 		}
@@ -43,7 +91,7 @@ func runPlaceholderServer(serviceName, envKey, fallbackPort string) {
 
 	select {
 	case err := <-errCh:
-		slog.Error("placeholder service stopped unexpectedly", "service", serviceName, "error", err)
+		slog.Error("websocket service stopped unexpectedly", "error", err)
 		os.Exit(1)
 	case <-ctx.Done():
 	}
@@ -52,20 +100,14 @@ func runPlaceholderServer(serviceName, envKey, fallbackPort string) {
 	defer cancel()
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
-		slog.Error("failed to shut down placeholder service", "service", serviceName, "error", err)
+		slog.Error("failed to shut down websocket service", "error", err)
 		os.Exit(1)
 	}
+
+	slog.Info("websocket service stopped gracefully")
 }
 
 func okHandler(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("ok"))
-}
-
-func envOr(key, fallback string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-
-	return fallback
 }

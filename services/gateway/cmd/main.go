@@ -8,34 +8,74 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/sudobytemebaby/efir/services/gateway/internal/config"
+	"github.com/sudobytemebaby/efir/services/gateway/internal/handler"
+	"github.com/sudobytemebaby/efir/services/shared/pkg/logger"
+	vk "github.com/valkey-io/valkey-go"
 )
 
 func main() {
-	runPlaceholderServer("gateway", "GATEWAY_HTTP_PORT", "8080")
-}
-
-func runPlaceholderServer(serviceName, envKey, fallbackPort string) {
-	port := envOr(envKey, fallbackPort)
-	mux := http.NewServeMux()
-	mux.HandleFunc("/health", okHandler)
-	mux.HandleFunc("/ready", okHandler)
-	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(serviceName + " placeholder"))
-	})
-
-	server := &http.Server{
-		Addr:              ":" + port,
-		Handler:           mux,
-		ReadHeaderTimeout: 5 * time.Second,
+	cfg, err := config.Load()
+	if err != nil {
+		slog.Error("failed to load config", "error", err)
+		os.Exit(1)
 	}
+
+	logLevel, err := logger.ParseLevel(cfg.LogLevel)
+	if err != nil {
+		slog.Warn("invalid log level in config, falling back to info", "value", cfg.LogLevel)
+		logLevel = logger.LevelInfo
+	}
+
+	l := logger.New(logger.Options{Level: logLevel})
+	slog.SetDefault(l)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	valkeyClient, err := vk.NewClient(vk.ClientOption{
+		InitAddress: []string{cfg.ValkeyAddr},
+		Password:    cfg.ValkeyPass,
+	})
+	if err != nil {
+		slog.Error("failed to connect to valkey", "error", err)
+		os.Exit(1)
+	}
+	defer valkeyClient.Close()
+
+	if err := valkeyClient.Do(ctx, valkeyClient.B().Ping().Build()).Error(); err != nil {
+		slog.Error("failed to ping valkey", "error", err)
+		os.Exit(1)
+	}
+
+	ticketTTL, err := cfg.ParseWSTicketTTL()
+	if err != nil {
+		slog.Error("failed to parse ticket TTL", "error", err)
+		os.Exit(1)
+	}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/health", okHandler)
+	mux.HandleFunc("/ready", okHandler)
+
+	wsAuthHandler := handler.NewWSAuthHandler(valkeyClient, ticketTTL)
+	wsAuthHandler.Register(mux)
+
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("gateway"))
+	})
+
+	server := &http.Server{
+		Addr:              ":" + cfg.Port,
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+
 	errCh := make(chan error, 1)
 	go func() {
-		slog.Info("placeholder service started", "service", serviceName, "addr", server.Addr)
+		slog.Info("gateway service started", "addr", server.Addr)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			errCh <- err
 		}
@@ -43,7 +83,7 @@ func runPlaceholderServer(serviceName, envKey, fallbackPort string) {
 
 	select {
 	case err := <-errCh:
-		slog.Error("placeholder service stopped unexpectedly", "service", serviceName, "error", err)
+		slog.Error("gateway service stopped unexpectedly", "error", err)
 		os.Exit(1)
 	case <-ctx.Done():
 	}
@@ -52,20 +92,14 @@ func runPlaceholderServer(serviceName, envKey, fallbackPort string) {
 	defer cancel()
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
-		slog.Error("failed to shut down placeholder service", "service", serviceName, "error", err)
+		slog.Error("failed to shut down gateway service", "error", err)
 		os.Exit(1)
 	}
+
+	slog.Info("gateway service stopped gracefully")
 }
 
 func okHandler(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("ok"))
-}
-
-func envOr(key, fallback string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-
-	return fallback
 }
