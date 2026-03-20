@@ -55,6 +55,10 @@ func (h *WebSocketHandler) HandleWS(w http.ResponseWriter, r *http.Request) {
 
 	h.hub.Register(wsConn, userID, initialRoomID)
 
+	if initialRoomID != "" {
+		h.hub.Register(wsConn, userID, initialRoomID)
+	}
+
 	go h.readPump(wsConn, userID)
 }
 
