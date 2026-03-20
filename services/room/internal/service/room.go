@@ -20,6 +20,7 @@ var (
 //go:generate mockery --name Publisher
 type Publisher interface {
 	PublishMembershipChanged(ctx context.Context, roomID, userID uuid.UUID, action string, recipientIDs []uuid.UUID) error
+	PublishRoomUpdated(ctx context.Context, roomID uuid.UUID, name string, recipientIDs []uuid.UUID) error
 }
 
 //go:generate mockery --name RoomService
@@ -110,6 +111,27 @@ func (s *roomService) UpdateRoom(ctx context.Context, roomID uuid.UUID, requeste
 			return nil, ErrRoomNotFound
 		}
 		return nil, fmt.Errorf("update room: %w", err)
+	}
+
+	members, err := s.roomRepo.GetRoomMembers(ctx, roomID)
+	if err != nil {
+		slog.Error("failed to get room members for room.updated event",
+			"room_id", roomID,
+			"error", err,
+		)
+		return updatedRoom, nil
+	}
+
+	recipientIDs := make([]uuid.UUID, len(members))
+	for i, m := range members {
+		recipientIDs[i] = m.UserID
+	}
+
+	if err := s.publisher.PublishRoomUpdated(ctx, roomID, updatedRoom.Name, recipientIDs); err != nil {
+		slog.Error("failed to publish room updated event, event may be lost",
+			"room_id", roomID,
+			"error", err,
+		)
 	}
 
 	return updatedRoom, nil

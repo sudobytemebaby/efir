@@ -23,6 +23,15 @@ http:
           - "*"
         accessControlMaxAge: 86400
 
+    # Forward auth for WebSocket ticket validation
+    # The Gateway service validates tickets via /auth/validate
+    ws-forward-auth:
+      forwardAuth:
+        address: "http://gateway:8080/auth/validate"
+        trustForwardHeader: true
+        authResponseHeaders:
+          - "X-User-Id"
+
     # Generate: htpasswd -nb admin yourpassword
     dashboard-auth:
       basicAuth:

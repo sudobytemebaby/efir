@@ -178,6 +178,8 @@ func TestUpdateRoom(t *testing.T) {
 
 		mockRepo.On("GetRoomByID", ctx, roomID).Return(room, nil).Once()
 		mockRepo.On("UpdateRoom", ctx, roomID, "New Name").Return(updatedRoom, nil).Once()
+		mockRepo.On("GetRoomMembers", ctx, roomID).Return([]repository.RoomMember{}, nil).Once()
+		mockPublisher.On("PublishRoomUpdated", ctx, roomID, "New Name", []uuid.UUID{}).Return(nil).Once()
 
 		result, err := svc.UpdateRoom(ctx, roomID, requesterID, "New Name")
 
