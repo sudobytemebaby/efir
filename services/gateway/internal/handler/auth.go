@@ -57,7 +57,9 @@ func (h *WSAuthHandler) CreateTicket(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(CreateTicketResponse{Ticket: ticket})
+	if err := json.NewEncoder(w).Encode(CreateTicketResponse{Ticket: ticket}); err != nil {
+		slog.ErrorContext(ctx, "failed to encode response", "error", err)
+	}
 }
 
 func (h *WSAuthHandler) ValidateTicket(w http.ResponseWriter, r *http.Request) {
@@ -86,5 +88,7 @@ func (h *WSAuthHandler) ValidateTicket(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("X-User-Id", userID)
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"user_id": userID})
+	if err := json.NewEncoder(w).Encode(map[string]string{"user_id": userID}); err != nil {
+		slog.ErrorContext(ctx, "failed to encode response", "error", err)
+	}
 }

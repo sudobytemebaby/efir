@@ -42,12 +42,6 @@ func (m *mockConn) getWrites() []Envelope {
 	return m.writes
 }
 
-func (m *mockConn) isClosed() bool {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return m.closed
-}
-
 func TestNewHub(t *testing.T) {
 	hub := NewHub()
 	require.NotNil(t, hub)

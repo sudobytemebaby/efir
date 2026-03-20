@@ -180,7 +180,9 @@ func (h *Hub) sendToRoom(roomID string, envelope Envelope) {
 		for _, conn := range conns {
 			if err := conn.WriteJSON(envelope); err != nil {
 				slog.Error("failed to write to conn", "error", err)
-				conn.Close(StatusAbnormalClosure, "write error")
+				if closeErr := conn.Close(StatusAbnormalClosure, "write error"); closeErr != nil {
+					slog.Error("failed to close conn", "error", closeErr)
+				}
 			}
 		}
 	}

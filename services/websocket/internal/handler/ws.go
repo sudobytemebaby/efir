@@ -50,7 +50,7 @@ func (h *WebSocketHandler) HandleWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	wsConn := &wsConnWrapper{Conn: conn}
+	wsConn := &wsConnWrapper{ws: conn}
 	initialRoomID := r.URL.Query().Get("room_id")
 
 	h.hub.Register(wsConn, userID, initialRoomID)
@@ -73,7 +73,9 @@ func (h *WebSocketHandler) readPump(conn *wsConnWrapper, userID, initialRoomID s
 		if initialRoomID != "" {
 			h.hub.Unregister(conn, initialRoomID)
 		}
-		conn.Close(hub.StatusCode(websocket.StatusNormalClosure), "closing")
+		if err := conn.Close(hub.StatusCode(websocket.StatusNormalClosure), "closing"); err != nil {
+			slog.ErrorContext(context.Background(), "failed to close websocket", "error", err)
+		}
 	}()
 
 	for {
@@ -153,7 +155,11 @@ func (h *WebSocketHandler) sendError(conn *wsConnWrapper, code, message string) 
 }
 
 type wsConnWrapper struct {
-	*websocket.Conn
+	ws *websocket.Conn
+}
+
+func (c *wsConnWrapper) Read(ctx context.Context) (websocket.MessageType, []byte, error) {
+	return c.ws.Read(ctx)
 }
 
 func (c *wsConnWrapper) WriteJSON(v any) error {
@@ -161,9 +167,9 @@ func (c *wsConnWrapper) WriteJSON(v any) error {
 	if err != nil {
 		return err
 	}
-	return c.Conn.Write(context.Background(), websocket.MessageText, data)
+	return c.ws.Write(context.Background(), websocket.MessageText, data)
 }
 
 func (c *wsConnWrapper) Close(code hub.StatusCode, reason string) error {
-	return c.Conn.Close(websocket.StatusCode(code), reason)
+	return c.ws.Close(websocket.StatusCode(code), reason)
 }
