@@ -9,6 +9,15 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+type AuthClientInterface interface {
+	Register(ctx context.Context, email, password string) (*authv1.RegisterResponse, error)
+	Login(ctx context.Context, email, password string) (*authv1.LoginResponse, error)
+	Logout(ctx context.Context, refreshToken string) (*authv1.LogoutResponse, error)
+	RefreshToken(ctx context.Context, refreshToken string) (*authv1.RefreshTokenResponse, error)
+}
+
+var _ AuthClientInterface = (*AuthClient)(nil)
+
 type AuthClient struct {
 	client  authv1.AuthServiceClient
 	timeout time.Duration

@@ -12,10 +12,10 @@ import (
 )
 
 type HTTPHandler struct {
-	authClient *client.AuthClient
+	authClient client.AuthClientInterface
 }
 
-func NewHTTPHandler(authClient *client.AuthClient) *HTTPHandler {
+func NewHTTPHandler(authClient client.AuthClientInterface) *HTTPHandler {
 	return &HTTPHandler{
 		authClient: authClient,
 	}
