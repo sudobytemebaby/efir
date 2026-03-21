@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/sudobytemebaby/efir/services/shared/pkg/valkey"
 	vk "github.com/valkey-io/valkey-go"
@@ -23,9 +24,9 @@ func NewWSAuthHandler(client vk.Client, ticketTTL time.Duration) *WSAuthHandler 
 	}
 }
 
-func (h *WSAuthHandler) Register(mux *http.ServeMux) {
-	mux.HandleFunc("POST /auth/ws-ticket", h.CreateTicket)
-	mux.HandleFunc("GET /auth/validate", h.ValidateTicket)
+func (h *WSAuthHandler) Register(r chi.Router) {
+	r.Post("/auth/ws-ticket", h.CreateTicket)
+	r.Get("/auth/validate", h.ValidateTicket)
 }
 
 type CreateTicketResponse struct {
