@@ -27,9 +27,14 @@ func JWTAuth(jwtSecret string) func(http.Handler) http.Handler {
 
 			tokenString := parts[1]
 
-			token, _, err := jwt.NewParser().ParseUnverified(tokenString, jwt.MapClaims{})
-			if err != nil {
-				http.Error(w, "invalid token", http.StatusUnauthorized)
+			token, err := jwt.ParseWithClaims(tokenString, jwt.MapClaims{}, func(token *jwt.Token) (any, error) {
+				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+					return nil, jwt.ErrSignatureInvalid
+				}
+				return []byte(jwtSecret), nil
+			})
+			if err != nil || !token.Valid {
+				http.Error(w, "invalid or expired token", http.StatusUnauthorized)
 				return
 			}
 
@@ -42,17 +47,6 @@ func JWTAuth(jwtSecret string) func(http.Handler) http.Handler {
 			sub, ok := claims["sub"].(string)
 			if !ok || sub == "" {
 				http.Error(w, "missing sub claim", http.StatusUnauthorized)
-				return
-			}
-
-			token, err = jwt.ParseWithClaims(tokenString, jwt.MapClaims{}, func(token *jwt.Token) (any, error) {
-				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-					return nil, jwt.ErrSignatureInvalid
-				}
-				return []byte(jwtSecret), nil
-			})
-			if err != nil || !token.Valid {
-				http.Error(w, "invalid or expired token", http.StatusUnauthorized)
 				return
 			}
 
