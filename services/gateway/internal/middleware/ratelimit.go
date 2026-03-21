@@ -18,6 +18,10 @@ end
 return current
 `
 
+// IPRateLimiter implements rate limiting by client IP address.
+// The window parameter is included in the key for proper rate limiting per time window.
+// TODO: Consider using sliding window log instead of fixed window with window in key
+// to avoid edge cases when RATE_LIMIT_WINDOW changes.
 func IPRateLimiter(client vk.Client, requests int, window time.Duration) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

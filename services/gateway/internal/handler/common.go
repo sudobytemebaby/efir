@@ -1,10 +1,10 @@
 package handler
 
 import (
-	"github.com/golang/protobuf/ptypes/timestamp"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func timestampToString(ts *timestamp.Timestamp) string {
+func timestampToString(ts *timestamppb.Timestamp) string {
 	if ts == nil {
 		return ""
 	}

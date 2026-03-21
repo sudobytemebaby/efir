@@ -204,6 +204,8 @@ func (h *MessageHandler) sendMessage(w http.ResponseWriter, r *http.Request) {
 			Emoji: req.Sticker.Emoji, SetName: req.Sticker.SetName,
 		}}
 	case messagev1.MessageType_MESSAGE_TYPE_AUDIO:
+		// Audio uses SendAudioContent which has same structure as FileContent.
+		// This is consistent with repository layer in message service.
 		if req.Audio == nil {
 			http.Error(w, "missing audio content", http.StatusBadRequest)
 			return
