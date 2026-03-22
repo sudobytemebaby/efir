@@ -53,8 +53,6 @@ func (h *WebSocketHandler) HandleWS(w http.ResponseWriter, r *http.Request) {
 	wsConn := &wsConnWrapper{ws: conn}
 	initialRoomID := r.URL.Query().Get("room_id")
 
-	h.hub.Register(wsConn, userID, initialRoomID)
-
 	if initialRoomID != "" {
 		h.hub.Register(wsConn, userID, initialRoomID)
 	}

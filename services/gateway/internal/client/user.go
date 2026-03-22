@@ -14,6 +14,7 @@ type User = userv1.User
 type UserClient struct {
 	client  userv1.UserServiceClient
 	timeout time.Duration
+	conn    *grpc.ClientConn
 }
 
 func NewUserClient(addr string, timeout time.Duration) (*UserClient, error) {
@@ -25,7 +26,12 @@ func NewUserClient(addr string, timeout time.Duration) (*UserClient, error) {
 	return &UserClient{
 		client:  userv1.NewUserServiceClient(conn),
 		timeout: timeout,
+		conn:    conn,
 	}, nil
+}
+
+func (c *UserClient) Close() error {
+	return c.conn.Close()
 }
 
 func (c *UserClient) GetUser(ctx context.Context, userID string) (*userv1.GetUserResponse, error) {

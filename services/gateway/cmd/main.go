@@ -70,24 +70,44 @@ func main() {
 		slog.Error("failed to create auth client", "error", err)
 		os.Exit(1)
 	}
+	defer func() {
+		if err := authClient.Close(); err != nil {
+			slog.Warn("failed to close auth client", "error", err)
+		}
+	}()
 
 	userClient, err := client.NewUserClient(cfg.UserServiceAddr, grpcTimeout)
 	if err != nil {
 		slog.Error("failed to create user client", "error", err)
 		os.Exit(1)
 	}
+	defer func() {
+		if err := userClient.Close(); err != nil {
+			slog.Warn("failed to close user client", "error", err)
+		}
+	}()
 
 	roomClient, err := client.NewRoomClient(cfg.RoomServiceAddr, grpcTimeout)
 	if err != nil {
 		slog.Error("failed to create room client", "error", err)
 		os.Exit(1)
 	}
+	defer func() {
+		if err := roomClient.Close(); err != nil {
+			slog.Warn("failed to close room client", "error", err)
+		}
+	}()
 
 	messageClient, err := client.NewMessageClient(cfg.MessageServiceAddr, grpcTimeout)
 	if err != nil {
 		slog.Error("failed to create message client", "error", err)
 		os.Exit(1)
 	}
+	defer func() {
+		if err := messageClient.Close(); err != nil {
+			slog.Warn("failed to close message client", "error", err)
+		}
+	}()
 
 	ticketTTL, err := cfg.ParseWSTicketTTL()
 	if err != nil {

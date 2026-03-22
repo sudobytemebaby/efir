@@ -27,6 +27,7 @@ const (
 type MessageClient struct {
 	client  messagev1.MessageServiceClient
 	timeout time.Duration
+	conn    *grpc.ClientConn
 }
 
 func NewMessageClient(addr string, timeout time.Duration) (*MessageClient, error) {
@@ -38,7 +39,12 @@ func NewMessageClient(addr string, timeout time.Duration) (*MessageClient, error
 	return &MessageClient{
 		client:  messagev1.NewMessageServiceClient(conn),
 		timeout: timeout,
+		conn:    conn,
 	}, nil
+}
+
+func (c *MessageClient) Close() error {
+	return c.conn.Close()
 }
 
 func (c *MessageClient) SendMessage(ctx context.Context, req *messagev1.SendMessageRequest) (*messagev1.SendMessageResponse, error) {

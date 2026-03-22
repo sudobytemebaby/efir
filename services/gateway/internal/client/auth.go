@@ -21,6 +21,11 @@ var _ AuthClientInterface = (*AuthClient)(nil)
 type AuthClient struct {
 	client  authv1.AuthServiceClient
 	timeout time.Duration
+	conn    *grpc.ClientConn
+}
+
+func (c *AuthClient) Close() error {
+	return c.conn.Close()
 }
 
 func NewAuthClient(addr string, timeout time.Duration) (*AuthClient, error) {
@@ -32,6 +37,7 @@ func NewAuthClient(addr string, timeout time.Duration) (*AuthClient, error) {
 	return &AuthClient{
 		client:  authv1.NewAuthServiceClient(conn),
 		timeout: timeout,
+		conn:    conn,
 	}, nil
 }
 
