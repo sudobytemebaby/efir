@@ -164,13 +164,13 @@ func (s *authService) RefreshToken(ctx context.Context, refreshToken string) (*T
 		return nil, fmt.Errorf("get user id by refresh token: %w", err)
 	}
 
-	if err := s.tokenRepo.DeleteRefreshToken(ctx, refreshToken); err != nil {
-		return nil, fmt.Errorf("delete old refresh token: %w", err)
-	}
-
 	tokenPair, err := s.generateTokenPair(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("generate tokens: %w", err)
+	}
+
+	if err := s.tokenRepo.DeleteRefreshToken(ctx, refreshToken); err != nil {
+		return nil, fmt.Errorf("delete old refresh token: %w", err)
 	}
 
 	return tokenPair, nil

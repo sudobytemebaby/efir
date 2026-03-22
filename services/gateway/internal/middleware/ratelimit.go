@@ -10,14 +10,6 @@ import (
 	vk "github.com/valkey-io/valkey-go"
 )
 
-const luaScript = `
-local current = redis.call('INCR', KEYS[1])
-if current == 1 then
-    redis.call('EXPIRE', KEYS[1], ARGV[1])
-end
-return current
-`
-
 // IPRateLimiter implements rate limiting by client IP address.
 // The window parameter is included in the key for proper rate limiting per time window.
 // TODO: Consider using sliding window log instead of fixed window with window in key
@@ -33,7 +25,7 @@ func IPRateLimiter(client vk.Client, requests int, window time.Duration) func(ht
 			ttlSeconds := strconv.Itoa(int(window.Seconds()))
 			key := valkey.GatewayRateLimitKey("ip", ip, ttlSeconds)
 
-			result, err := client.Do(r.Context(), client.B().Eval().Script(luaScript).Numkeys(1).Key(key).Arg(ttlSeconds).Build()).ToInt64()
+			result, err := client.Do(r.Context(), client.B().Eval().Script(valkey.IncrWithExpiryScript).Numkeys(1).Key(key).Arg(ttlSeconds).Build()).ToInt64()
 			if err != nil {
 				http.Error(w, "rate limit check failed", http.StatusInternalServerError)
 				return
@@ -61,7 +53,7 @@ func UserRateLimiter(client vk.Client, requests int, window time.Duration) func(
 			ttlSeconds := strconv.Itoa(int(window.Seconds()))
 			key := valkey.GatewayRateLimitKey("user", userID, ttlSeconds)
 
-			result, err := client.Do(r.Context(), client.B().Eval().Script(luaScript).Numkeys(1).Key(key).Arg(ttlSeconds).Build()).ToInt64()
+			result, err := client.Do(r.Context(), client.B().Eval().Script(valkey.IncrWithExpiryScript).Numkeys(1).Key(key).Arg(ttlSeconds).Build()).ToInt64()
 			if err != nil {
 				http.Error(w, "rate limit check failed", http.StatusInternalServerError)
 				return

@@ -15,6 +15,7 @@ import (
 type RoomClient struct {
 	client  roomv1.RoomServiceClient
 	timeout time.Duration
+	conn    *grpc.ClientConn
 }
 
 func NewRoomClient(addr string, timeout time.Duration) (*RoomClient, error) {
@@ -26,7 +27,12 @@ func NewRoomClient(addr string, timeout time.Duration) (*RoomClient, error) {
 	return &RoomClient{
 		client:  roomv1.NewRoomServiceClient(conn),
 		timeout: timeout,
+		conn:    conn,
 	}, nil
+}
+
+func (c *RoomClient) Close() error {
+	return c.conn.Close()
 }
 
 func (c *RoomClient) IsMember(ctx context.Context, roomID, userID uuid.UUID) (bool, error) {

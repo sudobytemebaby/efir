@@ -86,6 +86,7 @@ func main() {
 		slog.Error("failed to create room client", "error", err)
 		os.Exit(1)
 	}
+	defer roomClient.Close()
 
 	msgRepo := repository.NewMessageRepository(pgPool)
 	publisher := nats.NewPublisher(js)

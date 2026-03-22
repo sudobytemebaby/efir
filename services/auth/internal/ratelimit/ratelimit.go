@@ -3,6 +3,7 @@ package ratelimit
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/sudobytemebaby/efir/services/shared/pkg/valkey"
@@ -49,23 +50,14 @@ func NewValkeyLimiter(client vk.Client, limit int64, window time.Duration) Limit
 
 func (l *valkeyLimiter) Allow(ctx context.Context, action, email string) error {
 	key := valkey.AuthRateLimitKey(action, email)
+	ttlSeconds := strconv.FormatInt(int64(l.window.Seconds()), 10)
 
-	// INCR atomically increments the counter and returns the new value.
-	// On first call the key does not exist — Valkey treats it as 0 and returns 1.
-	count, err := l.client.Do(ctx, l.client.B().Incr().Key(key).Build()).AsInt64()
+	result, err := l.client.Do(ctx, l.client.B().Eval().Script(valkey.IncrWithExpiryScript).Numkeys(1).Key(key).Arg(ttlSeconds).Build()).AsInt64()
 	if err != nil {
-		return fmt.Errorf("rate limit incr: %w", err)
+		return fmt.Errorf("rate limit check: %w", err)
 	}
 
-	// Set TTL only on first increment so the window starts fresh.
-	if count == 1 {
-		err = l.client.Do(ctx, l.client.B().Expire().Key(key).Seconds(int64(l.window.Seconds())).Build()).Error()
-		if err != nil {
-			return fmt.Errorf("rate limit expire: %w", err)
-		}
-	}
-
-	if count > l.limit {
+	if result > l.limit {
 		return &ErrRateLimitExceeded{Action: action, Email: email}
 	}
 
