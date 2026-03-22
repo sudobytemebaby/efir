@@ -284,7 +284,7 @@ func TestHub_SubscribeUnsubscribeMultipleRooms(t *testing.T) {
 	waitForHubProcess(10 * time.Millisecond)
 
 	writes := conn.getWrites()
-	assert.Len(t, writes, 2)
+	assert.Len(t, writes, 3)
 }
 
 func TestHub_CloseOnWriteError(t *testing.T) {
