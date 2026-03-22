@@ -62,8 +62,8 @@ func (m *mockConn) waitForWrite(timeout time.Duration) bool {
 	}
 }
 
-func waitForHubProcess(timeout time.Duration) {
-	time.Sleep(time.Millisecond)
+func waitForHubProcess(d time.Duration) {
+	time.Sleep(d)
 }
 
 func TestNewHub(t *testing.T) {
@@ -279,6 +279,7 @@ func TestHub_SubscribeUnsubscribeMultipleRooms(t *testing.T) {
 
 	hub.BroadcastToRoom("room1", envelope)
 	hub.BroadcastToRoom("room2", envelope)
+	waitForHubProcess(10 * time.Millisecond)
 
 	hub.Disconnect(conn)
 	waitForHubProcess(10 * time.Millisecond)
