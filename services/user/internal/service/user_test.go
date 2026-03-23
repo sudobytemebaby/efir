@@ -35,7 +35,8 @@ func TestCreateUser(t *testing.T) {
 		user, err := svc.CreateUser(ctx, userID, email)
 
 		require.NoError(t, err)
-		assert.Equal(t, expectedUser, user)
+		assert.Equal(t, expectedUser.ID, user.ID)
+		assert.Equal(t, expectedUser.Username, user.Username)
 		mockRepo.AssertExpectations(t)
 	})
 
@@ -61,7 +62,8 @@ func TestCreateUser(t *testing.T) {
 		user, err := svc.CreateUser(ctx, userID, email)
 
 		require.NoError(t, err)
-		assert.Equal(t, existingUser, user)
+		assert.Equal(t, existingUser.ID, user.ID)
+		assert.Equal(t, existingUser.Username, user.Username)
 		mockRepo.AssertExpectations(t)
 	})
 }
@@ -87,7 +89,9 @@ func TestGetUser(t *testing.T) {
 		user, err := svc.GetUser(ctx, userID)
 
 		require.NoError(t, err)
-		assert.Equal(t, expectedUser, user)
+		assert.Equal(t, expectedUser.ID, user.ID)
+		assert.Equal(t, expectedUser.Username, user.Username)
+		assert.Equal(t, expectedUser.DisplayName, user.DisplayName)
 		mockRepo.AssertExpectations(t)
 	})
 
@@ -185,7 +189,10 @@ func TestUpdateUser(t *testing.T) {
 		user, err := svc.UpdateUser(ctx, userID, &displayName, &avatarURL, &bio)
 
 		require.NoError(t, err)
-		assert.Equal(t, expectedUser, user)
+		assert.Equal(t, expectedUser.ID, user.ID)
+		assert.Equal(t, expectedUser.DisplayName, user.DisplayName)
+		assert.Equal(t, expectedUser.AvatarURL, user.AvatarURL)
+		assert.Equal(t, expectedUser.Bio, user.Bio)
 		mockRepo.AssertExpectations(t)
 	})
 

@@ -67,10 +67,10 @@ func (m *mockRoomClient) GetRoomMembers(ctx context.Context, roomID uuid.UUID) (
 }
 
 type mockPublisher struct {
-	PublishMessageCreatedFunc func(ctx context.Context, msg *repository.Message, recipientIDs []uuid.UUID) error
+	PublishMessageCreatedFunc func(ctx context.Context, msg *Message, recipientIDs []uuid.UUID) error
 }
 
-func (m *mockPublisher) PublishMessageCreated(ctx context.Context, msg *repository.Message, recipientIDs []uuid.UUID) error {
+func (m *mockPublisher) PublishMessageCreated(ctx context.Context, msg *Message, recipientIDs []uuid.UUID) error {
 	if m.PublishMessageCreatedFunc != nil {
 		return m.PublishMessageCreatedFunc(ctx, msg, recipientIDs)
 	}
@@ -107,7 +107,7 @@ func TestSendMessage_HappyPath(t *testing.T) {
 	}
 
 	publisher := &mockPublisher{
-		PublishMessageCreatedFunc: func(ctx context.Context, msg *repository.Message, recipientIDs []uuid.UUID) error {
+		PublishMessageCreatedFunc: func(ctx context.Context, msg *Message, recipientIDs []uuid.UUID) error {
 			return nil
 		},
 	}
@@ -116,8 +116,8 @@ func TestSendMessage_HappyPath(t *testing.T) {
 	input := &SendMessageInput{
 		RoomID:   roomID,
 		SenderID: senderID,
-		Type:     repository.MessageTypeText,
-		Content:  repository.TextContent{Text: "Hello"},
+		Type:     MessageTypeText,
+		Content:  TextContent{Text: "Hello"},
 	}
 
 	msg, err := svc.SendMessage(context.Background(), input)
@@ -140,8 +140,8 @@ func TestSendMessage_NotMember(t *testing.T) {
 	input := &SendMessageInput{
 		RoomID:   roomID,
 		SenderID: senderID,
-		Type:     repository.MessageTypeText,
-		Content:  repository.TextContent{Text: "Hello"},
+		Type:     MessageTypeText,
+		Content:  TextContent{Text: "Hello"},
 	}
 
 	_, err := svc.SendMessage(context.Background(), input)
@@ -169,8 +169,8 @@ func TestSendMessage_InvalidReplyTarget(t *testing.T) {
 	input := &SendMessageInput{
 		RoomID:    roomID,
 		SenderID:  senderID,
-		Type:      repository.MessageTypeText,
-		Content:   repository.TextContent{Text: "Hello"},
+		Type:      MessageTypeText,
+		Content:   TextContent{Text: "Hello"},
 		ReplyToID: &replyToID,
 	}
 
@@ -203,8 +203,8 @@ func TestSendMessage_ReplyFromDifferentRoom(t *testing.T) {
 	input := &SendMessageInput{
 		RoomID:    roomID,
 		SenderID:  senderID,
-		Type:      repository.MessageTypeText,
-		Content:   repository.TextContent{Text: "Hello"},
+		Type:      MessageTypeText,
+		Content:   TextContent{Text: "Hello"},
 		ReplyToID: &replyToID,
 	}
 
@@ -242,7 +242,7 @@ func TestSendMessage_NATSFailure_NoError(t *testing.T) {
 	}
 
 	publisher := &mockPublisher{
-		PublishMessageCreatedFunc: func(ctx context.Context, msg *repository.Message, recipientIDs []uuid.UUID) error {
+		PublishMessageCreatedFunc: func(ctx context.Context, msg *Message, recipientIDs []uuid.UUID) error {
 			return errors.New("nats unavailable")
 		},
 	}
@@ -251,8 +251,8 @@ func TestSendMessage_NATSFailure_NoError(t *testing.T) {
 	input := &SendMessageInput{
 		RoomID:   roomID,
 		SenderID: senderID,
-		Type:     repository.MessageTypeText,
-		Content:  repository.TextContent{Text: "Hello"},
+		Type:     MessageTypeText,
+		Content:  TextContent{Text: "Hello"},
 	}
 
 	msg, err := svc.SendMessage(context.Background(), input)
@@ -291,7 +291,7 @@ func TestSendMessage_GetRoomMembersFailure_PublishSkipped(t *testing.T) {
 	}
 
 	publisher := &mockPublisher{
-		PublishMessageCreatedFunc: func(ctx context.Context, msg *repository.Message, recipientIDs []uuid.UUID) error {
+		PublishMessageCreatedFunc: func(ctx context.Context, msg *Message, recipientIDs []uuid.UUID) error {
 			publishCalled = true
 			return nil
 		},
@@ -301,8 +301,8 @@ func TestSendMessage_GetRoomMembersFailure_PublishSkipped(t *testing.T) {
 	input := &SendMessageInput{
 		RoomID:   roomID,
 		SenderID: senderID,
-		Type:     repository.MessageTypeText,
-		Content:  repository.TextContent{Text: "Hello"},
+		Type:     MessageTypeText,
+		Content:  TextContent{Text: "Hello"},
 	}
 
 	msg, err := svc.SendMessage(context.Background(), input)

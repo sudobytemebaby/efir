@@ -8,7 +8,6 @@ import (
 	"github.com/google/uuid"
 	userv1 "github.com/sudobytemebaby/efir/services/shared/gen/user"
 	sharederrors "github.com/sudobytemebaby/efir/services/shared/pkg/errors"
-	"github.com/sudobytemebaby/efir/services/user/internal/repository"
 	"github.com/sudobytemebaby/efir/services/user/internal/service"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -79,7 +78,8 @@ func (h *userHandler) GetUsersByIds(ctx context.Context, req *userv1.GetUsersByI
 
 	var protoUsers []*userv1.User
 	for _, user := range users {
-		protoUsers = append(protoUsers, mapUserToProto(&user))
+		u := user
+		protoUsers = append(protoUsers, mapUserToProto(&u))
 	}
 
 	return &userv1.GetUsersByIdsResponse{
@@ -110,23 +110,13 @@ func (h *userHandler) UpdateUser(ctx context.Context, req *userv1.UpdateUserRequ
 	}, nil
 }
 
-func mapUserToProto(user *repository.User) *userv1.User {
-	var avatarURL *string
-	if user.AvatarURL != nil {
-		avatarURL = user.AvatarURL
-	}
-
-	var bio *string
-	if user.Bio != nil {
-		bio = user.Bio
-	}
-
+func mapUserToProto(user *service.User) *userv1.User {
 	return &userv1.User{
 		UserId:      user.ID.String(),
 		Username:    user.Username,
 		DisplayName: user.DisplayName,
-		AvatarUrl:   avatarURL,
-		Bio:         bio,
+		AvatarUrl:   user.AvatarURL,
+		Bio:         user.Bio,
 		CreatedAt:   timestamppb.New(user.CreatedAt),
 		UpdatedAt:   timestamppb.New(user.UpdatedAt),
 	}

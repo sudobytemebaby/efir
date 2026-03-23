@@ -7,7 +7,6 @@ import (
 
 	"buf.build/go/protovalidate"
 	"github.com/google/uuid"
-	"github.com/sudobytemebaby/efir/services/message/internal/repository"
 	"github.com/sudobytemebaby/efir/services/message/internal/service"
 	messagev1 "github.com/sudobytemebaby/efir/services/shared/gen/message"
 	sharederrors "github.com/sudobytemebaby/efir/services/shared/pkg/errors"
@@ -65,23 +64,23 @@ func (h *messageHandler) SendMessage(ctx context.Context, req *messagev1.SendMes
 		replyToID = &id
 	}
 
-	var msgType repository.MessageType
-	var content repository.MessageContent
+	var msgType service.MessageType
+	var content service.MessageContent
 
 	switch c := req.Content.(type) {
 	case *messagev1.SendMessageRequest_Text:
 		if req.Type != messagev1.MessageType_MESSAGE_TYPE_TEXT {
 			return nil, sharederrors.CodeInvalidArgument.Error("type must be TEXT for text content")
 		}
-		msgType = repository.MessageTypeText
-		content = repository.TextContent{Text: c.Text.Text}
+		msgType = service.MessageTypeText
+		content = service.TextContent{Text: c.Text.Text}
 	case *messagev1.SendMessageRequest_Media:
 		media := c.Media
 		msgType = mapProtoTypeToMessageType(req.Type)
-		if msgType == "" || (msgType != repository.MessageTypeImage && msgType != repository.MessageTypeVideo) {
+		if msgType == "" || (msgType != service.MessageTypeImage && msgType != service.MessageTypeVideo) {
 			return nil, sharederrors.CodeInvalidArgument.Error("type must be IMAGE or VIDEO for media content")
 		}
-		cc := repository.MediaContent{
+		cc := service.MediaContent{
 			FileID:   media.FileId,
 			MimeType: media.MimeType,
 			FileSize: media.FileSize,
@@ -100,8 +99,8 @@ func (h *messageHandler) SendMessage(ctx context.Context, req *messagev1.SendMes
 			return nil, sharederrors.CodeInvalidArgument.Error("type must be FILE for file content")
 		}
 		file := c.File
-		msgType = repository.MessageTypeFile
-		cc := repository.FileContent{
+		msgType = service.MessageTypeFile
+		cc := service.FileContent{
 			FileID:   file.FileId,
 			MimeType: file.MimeType,
 			FileSize: file.FileSize,
@@ -116,8 +115,8 @@ func (h *messageHandler) SendMessage(ctx context.Context, req *messagev1.SendMes
 			return nil, sharederrors.CodeInvalidArgument.Error("type must be VOICE for voice content")
 		}
 		voice := c.Voice
-		msgType = repository.MessageTypeVoice
-		cc := repository.VoiceContent{
+		msgType = service.MessageTypeVoice
+		cc := service.VoiceContent{
 			FileID:      voice.FileId,
 			MimeType:    voice.MimeType,
 			FileSize:    voice.FileSize,
@@ -132,8 +131,8 @@ func (h *messageHandler) SendMessage(ctx context.Context, req *messagev1.SendMes
 			return nil, sharederrors.CodeInvalidArgument.Error("type must be VIDEO_NOTE for video note content")
 		}
 		vn := c.VideoNote
-		msgType = repository.MessageTypeVideoNote
-		cc := repository.VideoNoteContent{
+		msgType = service.MessageTypeVideoNote
+		cc := service.VideoNoteContent{
 			FileID:      vn.FileId,
 			MimeType:    vn.MimeType,
 			FileSize:    vn.FileSize,
@@ -150,8 +149,8 @@ func (h *messageHandler) SendMessage(ctx context.Context, req *messagev1.SendMes
 			return nil, sharederrors.CodeInvalidArgument.Error("type must be STICKER for sticker content")
 		}
 		sticker := c.Sticker
-		msgType = repository.MessageTypeSticker
-		cc := repository.StickerContent{
+		msgType = service.MessageTypeSticker
+		cc := service.StickerContent{
 			FileID:   sticker.FileId,
 			MimeType: sticker.MimeType,
 		}
@@ -167,8 +166,8 @@ func (h *messageHandler) SendMessage(ctx context.Context, req *messagev1.SendMes
 			return nil, sharederrors.CodeInvalidArgument.Error("type must be AUDIO for audio content")
 		}
 		audio := c.Audio
-		msgType = repository.MessageTypeAudio
-		cc := repository.FileContent{
+		msgType = service.MessageTypeAudio
+		cc := service.FileContent{
 			FileID:   audio.FileId,
 			MimeType: audio.MimeType,
 			FileSize: audio.FileSize,
@@ -315,7 +314,7 @@ func (h *messageHandler) DeleteMessage(ctx context.Context, req *messagev1.Delet
 	return &messagev1.DeleteMessageResponse{}, nil
 }
 
-func mapMessageToProto(msg *repository.Message) *messagev1.Message {
+func mapMessageToProto(msg *service.Message) *messagev1.Message {
 	result := &messagev1.Message{
 		MessageId: msg.ID.String(),
 		RoomId:    msg.RoomID.String(),
@@ -339,11 +338,11 @@ func mapMessageToProto(msg *repository.Message) *messagev1.Message {
 	}
 
 	switch c := msg.Content.(type) {
-	case repository.TextContent:
+	case service.TextContent:
 		result.Content = &messagev1.Message_Text{
 			Text: &messagev1.TextContent{Text: c.Text},
 		}
-	case repository.MediaContent:
+	case service.MediaContent:
 		media := &messagev1.MediaContent{
 			FileId:   c.FileID,
 			MimeType: c.MimeType,
@@ -358,7 +357,7 @@ func mapMessageToProto(msg *repository.Message) *messagev1.Message {
 			media.DurationSec = c.DurationSec
 		}
 		result.Content = &messagev1.Message_Media{Media: media}
-	case repository.FileContent:
+	case service.FileContent:
 		file := &messagev1.FileContent{
 			FileId:   c.FileID,
 			MimeType: c.MimeType,
@@ -369,7 +368,7 @@ func mapMessageToProto(msg *repository.Message) *messagev1.Message {
 			file.DurationSec = c.DurationSec
 		}
 		result.Content = &messagev1.Message_File{File: file}
-	case repository.VoiceContent:
+	case service.VoiceContent:
 		voice := &messagev1.VoiceContent{
 			FileId:      c.FileID,
 			MimeType:    c.MimeType,
@@ -380,7 +379,7 @@ func mapMessageToProto(msg *repository.Message) *messagev1.Message {
 			voice.Waveform = c.Waveform
 		}
 		result.Content = &messagev1.Message_Voice{Voice: voice}
-	case repository.VideoNoteContent:
+	case service.VideoNoteContent:
 		vn := &messagev1.VideoNoteContent{
 			FileId:      c.FileID,
 			MimeType:    c.MimeType,
@@ -393,7 +392,7 @@ func mapMessageToProto(msg *repository.Message) *messagev1.Message {
 			vn.ThumbnailId = c.ThumbnailID
 		}
 		result.Content = &messagev1.Message_VideoNote{VideoNote: vn}
-	case repository.StickerContent:
+	case service.StickerContent:
 		sticker := &messagev1.StickerContent{
 			FileId:   c.FileID,
 			MimeType: c.MimeType,
@@ -405,7 +404,7 @@ func mapMessageToProto(msg *repository.Message) *messagev1.Message {
 			sticker.SetName = c.SetName
 		}
 		result.Content = &messagev1.Message_Sticker{Sticker: sticker}
-	case repository.EventContent:
+	case service.EventContent:
 		result.Content = &messagev1.Message_Event{
 			Event: &messagev1.EventContent{Text: c.Text},
 		}
@@ -414,7 +413,7 @@ func mapMessageToProto(msg *repository.Message) *messagev1.Message {
 	return result
 }
 
-func mapPreviewToProto(preview *repository.MessagePreview) *messagev1.MessagePreview {
+func mapPreviewToProto(preview *service.MessagePreview) *messagev1.MessagePreview {
 	result := &messagev1.MessagePreview{
 		MessageId: preview.MessageID.String(),
 		SenderId:  preview.SenderID.String(),
@@ -434,53 +433,53 @@ func mapPreviewToProto(preview *repository.MessagePreview) *messagev1.MessagePre
 	return result
 }
 
-func mapMessageTypeToProto(t repository.MessageType) messagev1.MessageType {
+func mapMessageTypeToProto(t service.MessageType) messagev1.MessageType {
 	switch t {
-	case repository.MessageTypeText:
+	case service.MessageTypeText:
 		return messagev1.MessageType_MESSAGE_TYPE_TEXT
-	case repository.MessageTypeImage:
+	case service.MessageTypeImage:
 		return messagev1.MessageType_MESSAGE_TYPE_IMAGE
-	case repository.MessageTypeVideo:
+	case service.MessageTypeVideo:
 		return messagev1.MessageType_MESSAGE_TYPE_VIDEO
-	case repository.MessageTypeVideoNote:
+	case service.MessageTypeVideoNote:
 		return messagev1.MessageType_MESSAGE_TYPE_VIDEO_NOTE
-	case repository.MessageTypeVoice:
+	case service.MessageTypeVoice:
 		return messagev1.MessageType_MESSAGE_TYPE_VOICE
-	case repository.MessageTypeAudio:
+	case service.MessageTypeAudio:
 		return messagev1.MessageType_MESSAGE_TYPE_AUDIO
-	case repository.MessageTypeFile:
+	case service.MessageTypeFile:
 		return messagev1.MessageType_MESSAGE_TYPE_FILE
-	case repository.MessageTypeSticker:
+	case service.MessageTypeSticker:
 		return messagev1.MessageType_MESSAGE_TYPE_STICKER
-	case repository.MessageTypeEvent:
+	case service.MessageTypeEvent:
 		return messagev1.MessageType_MESSAGE_TYPE_EVENT
 	default:
 		return messagev1.MessageType_MESSAGE_TYPE_UNSPECIFIED
 	}
 }
 
-func mapProtoTypeToMessageType(t messagev1.MessageType) repository.MessageType {
+func mapProtoTypeToMessageType(t messagev1.MessageType) service.MessageType {
 	switch t {
 	case messagev1.MessageType_MESSAGE_TYPE_TEXT:
-		return repository.MessageTypeText
+		return service.MessageTypeText
 	case messagev1.MessageType_MESSAGE_TYPE_IMAGE:
-		return repository.MessageTypeImage
+		return service.MessageTypeImage
 	case messagev1.MessageType_MESSAGE_TYPE_VIDEO:
-		return repository.MessageTypeVideo
+		return service.MessageTypeVideo
 	case messagev1.MessageType_MESSAGE_TYPE_VIDEO_NOTE:
-		return repository.MessageTypeVideoNote
+		return service.MessageTypeVideoNote
 	case messagev1.MessageType_MESSAGE_TYPE_VOICE:
-		return repository.MessageTypeVoice
+		return service.MessageTypeVoice
 	case messagev1.MessageType_MESSAGE_TYPE_AUDIO:
-		return repository.MessageTypeAudio
+		return service.MessageTypeAudio
 	case messagev1.MessageType_MESSAGE_TYPE_FILE:
-		return repository.MessageTypeFile
+		return service.MessageTypeFile
 	case messagev1.MessageType_MESSAGE_TYPE_STICKER:
-		return repository.MessageTypeSticker
+		return service.MessageTypeSticker
 	case messagev1.MessageType_MESSAGE_TYPE_EVENT:
-		return repository.MessageTypeEvent
+		return service.MessageTypeEvent
 	default:
-		return repository.MessageType("")
+		return service.MessageType("")
 	}
 }
 
