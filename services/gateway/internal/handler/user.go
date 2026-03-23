@@ -8,7 +8,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/sudobytemebaby/efir/services/gateway/internal/client"
 	"github.com/sudobytemebaby/efir/services/gateway/internal/middleware"
-	"github.com/sudobytemebaby/efir/services/shared/pkg/errors"
 )
 
 type UserHandler struct {
@@ -63,9 +62,7 @@ func (h *UserHandler) getMe(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.userClient.GetUser(r.Context(), userID)
 	if err != nil {
-		slog.ErrorContext(r.Context(), "failed to get user", "error", err)
-		code := errors.FromError(err)
-		http.Error(w, err.Error(), code.ToHTTPCode())
+		writeError(w, r, err, "failed to get user")
 		return
 	}
 
@@ -84,9 +81,7 @@ func (h *UserHandler) getByID(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.userClient.GetUser(r.Context(), id)
 	if err != nil {
-		slog.ErrorContext(r.Context(), "failed to get user", "error", err)
-		code := errors.FromError(err)
-		http.Error(w, err.Error(), code.ToHTTPCode())
+		writeError(w, r, err, "failed to get user")
 		return
 	}
 
@@ -117,9 +112,7 @@ func (h *UserHandler) updateMe(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.userClient.UpdateUser(r.Context(), userID, req.DisplayName, req.AvatarURL, req.Bio)
 	if err != nil {
-		slog.ErrorContext(r.Context(), "failed to update user", "error", err)
-		code := errors.FromError(err)
-		http.Error(w, err.Error(), code.ToHTTPCode())
+		writeError(w, r, err, "failed to update user")
 		return
 	}
 

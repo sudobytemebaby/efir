@@ -22,7 +22,7 @@ type ErrRateLimitExceeded struct {
 }
 
 func (e *ErrRateLimitExceeded) Error() string {
-	return fmt.Sprintf("rate limit exceeded for %s on %s", e.Action, e.Email)
+	return fmt.Sprintf("rate limit exceeded for %s", e.Action)
 }
 
 // Limiter checks and increments rate limit counters.

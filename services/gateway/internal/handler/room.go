@@ -8,7 +8,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/sudobytemebaby/efir/services/gateway/internal/client"
 	"github.com/sudobytemebaby/efir/services/gateway/internal/middleware"
-	"github.com/sudobytemebaby/efir/services/shared/pkg/errors"
 )
 
 type RoomHandler struct {
@@ -93,9 +92,7 @@ func (h *RoomHandler) createRoom(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.roomClient.CreateRoom(r.Context(), req.Name, roomType, requesterID, req.ParticipantID)
 	if err != nil {
-		slog.ErrorContext(r.Context(), "failed to create room", "error", err)
-		code := errors.FromError(err)
-		http.Error(w, err.Error(), code.ToHTTPCode())
+		writeError(w, r, err, "failed to create room")
 		return
 	}
 
@@ -115,9 +112,7 @@ func (h *RoomHandler) getRoom(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.roomClient.GetRoom(r.Context(), id)
 	if err != nil {
-		slog.ErrorContext(r.Context(), "failed to get room", "error", err)
-		code := errors.FromError(err)
-		http.Error(w, err.Error(), code.ToHTTPCode())
+		writeError(w, r, err, "failed to get room")
 		return
 	}
 
@@ -152,9 +147,7 @@ func (h *RoomHandler) updateRoom(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.roomClient.UpdateRoom(r.Context(), id, requesterID, req.Name)
 	if err != nil {
-		slog.ErrorContext(r.Context(), "failed to update room", "error", err)
-		code := errors.FromError(err)
-		http.Error(w, err.Error(), code.ToHTTPCode())
+		writeError(w, r, err, "failed to update room")
 		return
 	}
 
@@ -179,9 +172,7 @@ func (h *RoomHandler) deleteRoom(w http.ResponseWriter, r *http.Request) {
 
 	_, err := h.roomClient.DeleteRoom(r.Context(), id, requesterID)
 	if err != nil {
-		slog.ErrorContext(r.Context(), "failed to delete room", "error", err)
-		code := errors.FromError(err)
-		http.Error(w, err.Error(), code.ToHTTPCode())
+		writeError(w, r, err, "failed to delete room")
 		return
 	}
 
@@ -213,9 +204,7 @@ func (h *RoomHandler) addMember(w http.ResponseWriter, r *http.Request) {
 
 	_, err := h.roomClient.AddMember(r.Context(), roomID, req.UserID, requesterID)
 	if err != nil {
-		slog.ErrorContext(r.Context(), "failed to add member", "error", err)
-		code := errors.FromError(err)
-		http.Error(w, err.Error(), code.ToHTTPCode())
+		writeError(w, r, err, "failed to add member")
 		return
 	}
 
@@ -243,9 +232,7 @@ func (h *RoomHandler) removeMember(w http.ResponseWriter, r *http.Request) {
 
 	_, err := h.roomClient.RemoveMember(r.Context(), roomID, userID, requesterID)
 	if err != nil {
-		slog.ErrorContext(r.Context(), "failed to remove member", "error", err)
-		code := errors.FromError(err)
-		http.Error(w, err.Error(), code.ToHTTPCode())
+		writeError(w, r, err, "failed to remove member")
 		return
 	}
 

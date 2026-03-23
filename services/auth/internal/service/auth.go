@@ -75,6 +75,10 @@ func (s *authService) Register(ctx context.Context, email, password string) (*re
 	if err := s.limiter.Allow(ctx, ratelimit.ActionRegister, email); err != nil {
 		var rateLimitErr *ratelimit.ErrRateLimitExceeded
 		if errors.As(err, &rateLimitErr) {
+			slog.WarnContext(ctx, "rate limit exceeded",
+				"action", ratelimit.ActionRegister,
+				"email", email,
+			)
 			return nil, nil, ErrRateLimitExceeded
 		}
 		return nil, nil, fmt.Errorf("rate limit check: %w", err)
@@ -109,6 +113,7 @@ func (s *authService) Register(ctx context.Context, email, password string) (*re
 	// not at all (e.g. via a reconciliation job).
 	if err := s.publisher.PublishUserRegistered(ctx, acc.ID, acc.Email); err != nil {
 		slog.Error("failed to publish user registered event, event may be lost",
+			"event_lost", true,
 			"user_id", acc.ID,
 			"email", acc.Email,
 			"error", err,
@@ -122,6 +127,10 @@ func (s *authService) Login(ctx context.Context, email, password string) (*repos
 	if err := s.limiter.Allow(ctx, ratelimit.ActionLogin, email); err != nil {
 		var rateLimitErr *ratelimit.ErrRateLimitExceeded
 		if errors.As(err, &rateLimitErr) {
+			slog.WarnContext(ctx, "rate limit exceeded",
+				"action", ratelimit.ActionLogin,
+				"email", email,
+			)
 			return nil, nil, ErrRateLimitExceeded
 		}
 		return nil, nil, fmt.Errorf("rate limit check: %w", err)
