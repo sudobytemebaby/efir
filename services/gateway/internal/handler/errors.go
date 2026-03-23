@@ -33,8 +33,10 @@ func writeError(w http.ResponseWriter, r *http.Request, err error, msg string) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code.ToHTTPCode())
-	json.NewEncoder(w).Encode(errorResponse{
+	if encodeErr := json.NewEncoder(w).Encode(errorResponse{
 		Error: codeToMessage[code],
 		Code:  string(code),
-	})
+	}); encodeErr != nil {
+		slog.ErrorContext(r.Context(), "failed to encode error response", "error", encodeErr)
+	}
 }
