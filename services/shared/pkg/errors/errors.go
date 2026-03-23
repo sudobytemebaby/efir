@@ -39,11 +39,17 @@ var codeToHTTPCode = map[Code]int{
 }
 
 func (c Code) ToGRPCCode() codes.Code {
-	return codeToGRPCCode[c]
+	if code, ok := codeToGRPCCode[c]; ok {
+		return code
+	}
+	return codes.Internal
 }
 
 func (c Code) ToHTTPCode() int {
-	return codeToHTTPCode[c]
+	if code, ok := codeToHTTPCode[c]; ok {
+		return code
+	}
+	return 500
 }
 
 func (c Code) Error(msg string) error {
@@ -54,32 +60,35 @@ func (c Code) Wrap(err error) error {
 	if err == nil {
 		return nil
 	}
+	if s, ok := status.FromError(err); ok && s.Code() == c.ToGRPCCode() {
+		return err
+	}
 	return status.Error(c.ToGRPCCode(), err.Error())
 }
 
-func FromError(err error) Code {
+func FromError(err error) (Code, bool) {
 	if err == nil {
-		return ""
+		return "", false
 	}
 	s, ok := status.FromError(err)
 	if !ok {
-		return CodeInternal
+		return CodeInternal, true
 	}
 
 	switch s.Code() {
 	case codes.NotFound:
-		return CodeNotFound
+		return CodeNotFound, true
 	case codes.AlreadyExists:
-		return CodeAlreadyExists
+		return CodeAlreadyExists, true
 	case codes.PermissionDenied:
-		return CodePermissionDenied
+		return CodePermissionDenied, true
 	case codes.Unauthenticated:
-		return CodeUnauthenticated
+		return CodeUnauthenticated, true
 	case codes.InvalidArgument:
-		return CodeInvalidArgument
+		return CodeInvalidArgument, true
 	case codes.Unavailable:
-		return CodeUnavailable
+		return CodeUnavailable, true
 	default:
-		return CodeInternal
+		return CodeInternal, true
 	}
 }

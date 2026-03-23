@@ -10,7 +10,6 @@ import (
 	"github.com/sudobytemebaby/efir/services/gateway/internal/client"
 	"github.com/sudobytemebaby/efir/services/gateway/internal/middleware"
 	messagev1 "github.com/sudobytemebaby/efir/services/shared/gen/message"
-	"github.com/sudobytemebaby/efir/services/shared/pkg/errors"
 )
 
 type MessageHandler struct {
@@ -218,9 +217,7 @@ func (h *MessageHandler) sendMessage(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.messageClient.SendMessage(r.Context(), grpcReq)
 	if err != nil {
-		slog.ErrorContext(r.Context(), "failed to send message", "error", err)
-		code := errors.FromError(err)
-		http.Error(w, err.Error(), code.ToHTTPCode())
+		writeError(w, r, err, "failed to send message")
 		return
 	}
 
@@ -425,9 +422,7 @@ func (h *MessageHandler) getMessages(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.messageClient.GetMessages(r.Context(), roomID, requesterID, cursor, limit)
 	if err != nil {
-		slog.ErrorContext(r.Context(), "failed to get messages", "error", err)
-		code := errors.FromError(err)
-		http.Error(w, err.Error(), code.ToHTTPCode())
+		writeError(w, r, err, "failed to get messages")
 		return
 	}
 

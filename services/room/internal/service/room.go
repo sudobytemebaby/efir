@@ -129,6 +129,7 @@ func (s *roomService) UpdateRoom(ctx context.Context, roomID uuid.UUID, requeste
 
 	if err := s.publisher.PublishRoomUpdated(ctx, roomID, updatedRoom.Name, recipientIDs); err != nil {
 		slog.Error("failed to publish room updated event, event may be lost",
+			"event_lost", true,
 			"room_id", roomID,
 			"error", err,
 		)
@@ -192,6 +193,7 @@ func (s *roomService) AddMember(ctx context.Context, roomID, userID, requesterID
 	if s.publisher != nil {
 		if err := s.publisher.PublishMembershipChanged(ctx, roomID, userID, "added", recipientIDs); err != nil {
 			slog.Error("failed to publish membership changed event, event may be lost",
+				"event_lost", true,
 				"room_id", roomID,
 				"user_id", userID,
 				"action", "added",
@@ -237,6 +239,7 @@ func (s *roomService) RemoveMember(ctx context.Context, roomID, userID, requeste
 	if s.publisher != nil {
 		if err := s.publisher.PublishMembershipChanged(ctx, roomID, userID, "removed", recipientIDs); err != nil {
 			slog.Error("failed to publish membership changed event, event may be lost",
+				"event_lost", true,
 				"room_id", roomID,
 				"user_id", userID,
 				"action", "removed",

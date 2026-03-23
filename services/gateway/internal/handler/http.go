@@ -7,8 +7,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/sudobytemebaby/efir/services/gateway/internal/client"
-	"github.com/sudobytemebaby/efir/services/shared/pkg/errors"
-	"google.golang.org/grpc/status"
 )
 
 type HTTPHandler struct {
@@ -48,9 +46,7 @@ func (h *HTTPHandler) register(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.authClient.Register(r.Context(), req.Email, req.Password)
 	if err != nil {
-		slog.ErrorContext(r.Context(), "failed to register", "error", err)
-		code := errors.FromError(err)
-		http.Error(w, err.Error(), code.ToHTTPCode())
+		writeError(w, r, err, "failed to register")
 		return
 	}
 
@@ -73,9 +69,7 @@ func (h *HTTPHandler) login(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.authClient.Login(r.Context(), req.Email, req.Password)
 	if err != nil {
-		slog.ErrorContext(r.Context(), "failed to login", "error", err)
-		code := errors.FromError(err)
-		http.Error(w, err.Error(), code.ToHTTPCode())
+		writeError(w, r, err, "failed to login")
 		return
 	}
 
@@ -102,9 +96,7 @@ func (h *HTTPHandler) logout(w http.ResponseWriter, r *http.Request) {
 
 	_, err := h.authClient.Logout(r.Context(), req.RefreshToken)
 	if err != nil {
-		slog.ErrorContext(r.Context(), "failed to logout", "error", err)
-		code := errors.FromError(err)
-		http.Error(w, err.Error(), code.ToHTTPCode())
+		writeError(w, r, err, "failed to logout")
 		return
 	}
 
@@ -124,13 +116,7 @@ func (h *HTTPHandler) refresh(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.authClient.RefreshToken(r.Context(), req.RefreshToken)
 	if err != nil {
-		slog.ErrorContext(r.Context(), "failed to refresh token", "error", err)
-		st, ok := status.FromError(err)
-		if ok {
-			http.Error(w, st.Message(), errors.FromError(st.Err()).ToHTTPCode())
-		} else {
-			http.Error(w, "failed to refresh token", http.StatusInternalServerError)
-		}
+		writeError(w, r, err, "failed to refresh token")
 		return
 	}
 

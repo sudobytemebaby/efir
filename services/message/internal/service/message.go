@@ -88,12 +88,14 @@ func (s *messageService) SendMessage(ctx context.Context, input *SendMessageInpu
 	recipientIDs, err := s.roomClient.GetRoomMembers(ctx, input.RoomID)
 	if err != nil {
 		slog.Error("failed to get room members for publish",
+			"event_lost", true,
 			"error", err,
 			"room_id", input.RoomID.String(),
 		)
 	} else {
 		if err := s.publisher.PublishMessageCreated(ctx, msg, recipientIDs); err != nil {
 			slog.Error("failed to publish message created event, event may be lost",
+				"event_lost", true,
 				"error", err,
 				"message_id", msg.ID.String(),
 				"room_id", msg.RoomID.String(),
