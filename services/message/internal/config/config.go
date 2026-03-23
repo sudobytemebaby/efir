@@ -31,6 +31,9 @@ func Load() (*Config, error) {
 	if err := cleanenv.ReadEnv(cfg); err != nil {
 		return nil, fmt.Errorf("read env: %w", err)
 	}
+	if err := cfg.Env.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid environment: %w", err)
+	}
 	return cfg, nil
 }
 
