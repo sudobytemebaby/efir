@@ -6,7 +6,7 @@ import (
 	context "context"
 
 	mock "github.com/stretchr/testify/mock"
-	repository "github.com/sudobytemebaby/efir/services/room/internal/repository"
+	service "github.com/sudobytemebaby/efir/services/room/internal/service"
 
 	uuid "github.com/google/uuid"
 )
@@ -35,27 +35,27 @@ func (_m *RoomService) AddMember(ctx context.Context, roomID uuid.UUID, userID u
 }
 
 // CreateRoom provides a mock function with given fields: ctx, name, roomType, createdBy, participantID
-func (_m *RoomService) CreateRoom(ctx context.Context, name string, roomType repository.RoomType, createdBy uuid.UUID, participantID uuid.UUID) (*repository.Room, error) {
+func (_m *RoomService) CreateRoom(ctx context.Context, name string, roomType service.RoomType, createdBy uuid.UUID, participantID uuid.UUID) (*service.Room, error) {
 	ret := _m.Called(ctx, name, roomType, createdBy, participantID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for CreateRoom")
 	}
 
-	var r0 *repository.Room
+	var r0 *service.Room
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, repository.RoomType, uuid.UUID, uuid.UUID) (*repository.Room, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, service.RoomType, uuid.UUID, uuid.UUID) (*service.Room, error)); ok {
 		return rf(ctx, name, roomType, createdBy, participantID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, repository.RoomType, uuid.UUID, uuid.UUID) *repository.Room); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, service.RoomType, uuid.UUID, uuid.UUID) *service.Room); ok {
 		r0 = rf(ctx, name, roomType, createdBy, participantID)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*repository.Room)
+			r0 = ret.Get(0).(*service.Room)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string, repository.RoomType, uuid.UUID, uuid.UUID) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, string, service.RoomType, uuid.UUID, uuid.UUID) error); ok {
 		r1 = rf(ctx, name, roomType, createdBy, participantID)
 	} else {
 		r1 = ret.Error(1)
@@ -83,23 +83,23 @@ func (_m *RoomService) DeleteRoom(ctx context.Context, roomID uuid.UUID, request
 }
 
 // GetRoom provides a mock function with given fields: ctx, roomID
-func (_m *RoomService) GetRoom(ctx context.Context, roomID uuid.UUID) (*repository.Room, error) {
+func (_m *RoomService) GetRoom(ctx context.Context, roomID uuid.UUID) (*service.Room, error) {
 	ret := _m.Called(ctx, roomID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetRoom")
 	}
 
-	var r0 *repository.Room
+	var r0 *service.Room
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) (*repository.Room, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) (*service.Room, error)); ok {
 		return rf(ctx, roomID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) *repository.Room); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) *service.Room); ok {
 		r0 = rf(ctx, roomID)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*repository.Room)
+			r0 = ret.Get(0).(*service.Room)
 		}
 	}
 
@@ -113,23 +113,23 @@ func (_m *RoomService) GetRoom(ctx context.Context, roomID uuid.UUID) (*reposito
 }
 
 // GetRoomMembers provides a mock function with given fields: ctx, roomID
-func (_m *RoomService) GetRoomMembers(ctx context.Context, roomID uuid.UUID) ([]repository.RoomMember, error) {
+func (_m *RoomService) GetRoomMembers(ctx context.Context, roomID uuid.UUID) ([]service.RoomMember, error) {
 	ret := _m.Called(ctx, roomID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetRoomMembers")
 	}
 
-	var r0 []repository.RoomMember
+	var r0 []service.RoomMember
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) ([]repository.RoomMember, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) ([]service.RoomMember, error)); ok {
 		return rf(ctx, roomID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) []repository.RoomMember); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) []service.RoomMember); ok {
 		r0 = rf(ctx, roomID)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]repository.RoomMember)
+			r0 = ret.Get(0).([]service.RoomMember)
 		}
 	}
 
@@ -189,23 +189,23 @@ func (_m *RoomService) RemoveMember(ctx context.Context, roomID uuid.UUID, userI
 }
 
 // UpdateRoom provides a mock function with given fields: ctx, roomID, requesterID, name
-func (_m *RoomService) UpdateRoom(ctx context.Context, roomID uuid.UUID, requesterID uuid.UUID, name string) (*repository.Room, error) {
+func (_m *RoomService) UpdateRoom(ctx context.Context, roomID uuid.UUID, requesterID uuid.UUID, name string) (*service.Room, error) {
 	ret := _m.Called(ctx, roomID, requesterID, name)
 
 	if len(ret) == 0 {
 		panic("no return value specified for UpdateRoom")
 	}
 
-	var r0 *repository.Room
+	var r0 *service.Room
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, uuid.UUID, string) (*repository.Room, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, uuid.UUID, string) (*service.Room, error)); ok {
 		return rf(ctx, roomID, requesterID, name)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, uuid.UUID, string) *repository.Room); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, uuid.UUID, string) *service.Room); ok {
 		r0 = rf(ctx, roomID, requesterID, name)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*repository.Room)
+			r0 = ret.Get(0).(*service.Room)
 		}
 	}
 

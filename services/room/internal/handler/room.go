@@ -6,7 +6,6 @@ import (
 
 	"buf.build/go/protovalidate"
 	"github.com/google/uuid"
-	"github.com/sudobytemebaby/efir/services/room/internal/repository"
 	"github.com/sudobytemebaby/efir/services/room/internal/service"
 	roomv1 "github.com/sudobytemebaby/efir/services/shared/gen/room"
 	sharederrors "github.com/sudobytemebaby/efir/services/shared/pkg/errors"
@@ -53,14 +52,14 @@ func (h *roomHandler) CreateRoom(ctx context.Context, req *roomv1.CreateRoomRequ
 		}
 	}
 
-	var roomType repository.RoomType
+	var roomType service.RoomType
 	switch req.Type {
 	case roomv1.RoomType_ROOM_TYPE_DIRECT:
-		roomType = repository.RoomTypeDirect
+		roomType = service.RoomTypeDirect
 	case roomv1.RoomType_ROOM_TYPE_GROUP:
-		roomType = repository.RoomTypeGroup
+		roomType = service.RoomTypeGroup
 	default:
-		roomType = repository.RoomTypeGroup
+		roomType = service.RoomTypeGroup
 	}
 
 	room, err := h.svc.CreateRoom(ctx, req.Name, roomType, createdBy, participantID)
@@ -225,7 +224,7 @@ func (h *roomHandler) RemoveMember(ctx context.Context, req *roomv1.RemoveMember
 		if errors.Is(err, service.ErrNotOwner) {
 			return nil, sharederrors.CodePermissionDenied.Error("only owner can remove members")
 		}
-		if errors.Is(err, repository.ErrMemberNotFound) {
+		if errors.Is(err, service.ErrMemberNotFound) {
 			return nil, sharederrors.CodeNotFound.Error("member not found")
 		}
 		return nil, sharederrors.CodeInternal.Wrap(err)
@@ -287,7 +286,7 @@ func (h *roomHandler) IsMember(ctx context.Context, req *roomv1.IsMemberRequest)
 	}, nil
 }
 
-func mapRoomToProto(room *repository.Room) *roomv1.Room {
+func mapRoomToProto(room *service.Room) *roomv1.Room {
 	return &roomv1.Room{
 		RoomId:    room.ID.String(),
 		Name:      room.Name,
@@ -298,11 +297,11 @@ func mapRoomToProto(room *repository.Room) *roomv1.Room {
 	}
 }
 
-func mapRoomTypeToProto(t repository.RoomType) roomv1.RoomType {
+func mapRoomTypeToProto(t service.RoomType) roomv1.RoomType {
 	switch t {
-	case repository.RoomTypeDirect:
+	case service.RoomTypeDirect:
 		return roomv1.RoomType_ROOM_TYPE_DIRECT
-	case repository.RoomTypeGroup:
+	case service.RoomTypeGroup:
 		return roomv1.RoomType_ROOM_TYPE_GROUP
 	default:
 		return roomv1.RoomType_ROOM_TYPE_UNSPECIFIED

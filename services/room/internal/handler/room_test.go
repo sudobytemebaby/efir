@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/sudobytemebaby/efir/services/room/internal/handler"
-	"github.com/sudobytemebaby/efir/services/room/internal/repository"
 	"github.com/sudobytemebaby/efir/services/room/internal/service"
 	roommocks "github.com/sudobytemebaby/efir/services/room/internal/service/mocks"
 	roomv1 "github.com/sudobytemebaby/efir/services/shared/gen/room"
@@ -27,16 +26,16 @@ func TestCreateRoom(t *testing.T) {
 		roomID := uuid.New()
 		userID := uuid.New()
 
-		expectedRoom := &repository.Room{
+		expectedRoom := &service.Room{
 			ID:        roomID,
 			Name:      "Test Room",
-			Type:      repository.RoomTypeGroup,
+			Type:      service.RoomTypeGroup,
 			CreatedBy: userID,
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
 		}
 
-		mockSvc.On("CreateRoom", ctx, "Test Room", repository.RoomTypeGroup, userID, uuid.Nil).Return(expectedRoom, nil).Once()
+		mockSvc.On("CreateRoom", ctx, "Test Room", service.RoomTypeGroup, userID, uuid.Nil).Return(expectedRoom, nil).Once()
 
 		resp, err := h.CreateRoom(ctx, &roomv1.CreateRoomRequest{
 			Name:      "Test Room",
@@ -77,7 +76,7 @@ func TestCreateRoom(t *testing.T) {
 		userID := uuid.New()
 		participantID := uuid.New()
 
-		mockSvc.On("CreateRoom", ctx, "Test", repository.RoomTypeDirect, userID, participantID).Return(nil, service.ErrDirectRoomExists).Once()
+		mockSvc.On("CreateRoom", ctx, "Test", service.RoomTypeDirect, userID, participantID).Return(nil, service.ErrDirectRoomExists).Once()
 
 		_, err = h.CreateRoom(ctx, &roomv1.CreateRoomRequest{
 			Name:          "Test",
@@ -101,10 +100,10 @@ func TestGetRoom(t *testing.T) {
 		ctx := context.Background()
 		roomID := uuid.New()
 
-		expectedRoom := &repository.Room{
+		expectedRoom := &service.Room{
 			ID:        roomID,
 			Name:      "Test Room",
-			Type:      repository.RoomTypeGroup,
+			Type:      service.RoomTypeGroup,
 			CreatedBy: uuid.New(),
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
@@ -148,10 +147,10 @@ func TestUpdateRoom(t *testing.T) {
 		requesterID := uuid.New()
 		name := "Updated Name"
 
-		expectedRoom := &repository.Room{
+		expectedRoom := &service.Room{
 			ID:        roomID,
 			Name:      name,
-			Type:      repository.RoomTypeGroup,
+			Type:      service.RoomTypeGroup,
 			CreatedBy: requesterID,
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
@@ -272,9 +271,9 @@ func TestGetRoomMembers(t *testing.T) {
 		ctx := context.Background()
 		roomID := uuid.New()
 
-		members := []repository.RoomMember{
-			{RoomID: roomID, UserID: uuid.New(), Role: repository.MemberRoleOwner, JoinedAt: time.Now()},
-			{RoomID: roomID, UserID: uuid.New(), Role: repository.MemberRoleMember, JoinedAt: time.Now()},
+		members := []service.RoomMember{
+			{RoomID: roomID, UserID: uuid.New(), Role: service.MemberRoleOwner, JoinedAt: time.Now()},
+			{RoomID: roomID, UserID: uuid.New(), Role: service.MemberRoleMember, JoinedAt: time.Now()},
 		}
 
 		mockSvc.On("GetRoomMembers", ctx, roomID).Return(members, nil).Once()

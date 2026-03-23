@@ -10,21 +10,35 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/sudobytemebaby/efir/services/room/internal/repository"
-	"github.com/sudobytemebaby/efir/services/room/internal/repository/mocks"
-	roommocks "github.com/sudobytemebaby/efir/services/room/internal/service/mocks"
+	repomocks "github.com/sudobytemebaby/efir/services/room/internal/repository/mocks"
 )
+
+// mockPublisher is a local implementation to avoid import cycle with service/mocks.
+type mockPublisher struct {
+	mock.Mock
+}
+
+func (m *mockPublisher) PublishMembershipChanged(ctx context.Context, roomID, userID uuid.UUID, action string, recipientIDs []uuid.UUID) error {
+	args := m.Called(ctx, roomID, userID, action, recipientIDs)
+	return args.Error(0)
+}
+
+func (m *mockPublisher) PublishRoomUpdated(ctx context.Context, roomID uuid.UUID, name string, recipientIDs []uuid.UUID) error {
+	args := m.Called(ctx, roomID, name, recipientIDs)
+	return args.Error(0)
+}
 
 func TestCreateRoom(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		mockRepo := mocks.NewRoomRepository(t)
-		mockPublisher := roommocks.NewPublisher(t)
-		svc := NewRoomService(mockRepo, mockPublisher)
+		mockRepo := repomocks.NewRoomRepository(t)
+		pub := &mockPublisher{}
+		svc := NewRoomService(mockRepo, pub)
 
 		ctx := context.Background()
 		roomID := uuid.New()
 		userID := uuid.New()
 
-		expectedRoom := &repository.Room{
+		repoRoom := &repository.Room{
 			ID:        roomID,
 			Name:      "Test Room",
 			Type:      repository.RoomTypeGroup,
@@ -33,20 +47,22 @@ func TestCreateRoom(t *testing.T) {
 			UpdatedAt: time.Now(),
 		}
 
-		mockRepo.On("CreateRoom", ctx, "Test Room", repository.RoomTypeGroup, userID).Return(expectedRoom, nil).Once()
+		mockRepo.On("CreateRoom", ctx, "Test Room", repository.RoomTypeGroup, userID).Return(repoRoom, nil).Once()
 		mockRepo.On("AddMember", ctx, roomID, userID, repository.MemberRoleOwner).Return(&repository.RoomMember{}, nil).Once()
 
-		room, err := svc.CreateRoom(ctx, "Test Room", repository.RoomTypeGroup, userID, uuid.Nil)
+		room, err := svc.CreateRoom(ctx, "Test Room", RoomTypeGroup, userID, uuid.Nil)
 
 		require.NoError(t, err)
-		assert.Equal(t, expectedRoom, room)
+		assert.Equal(t, roomID, room.ID)
+		assert.Equal(t, "Test Room", room.Name)
+		assert.Equal(t, RoomTypeGroup, room.Type)
 		mockRepo.AssertExpectations(t)
 	})
 
 	t.Run("direct room already exists", func(t *testing.T) {
-		mockRepo := mocks.NewRoomRepository(t)
-		mockPublisher := roommocks.NewPublisher(t)
-		svc := NewRoomService(mockRepo, mockPublisher)
+		mockRepo := repomocks.NewRoomRepository(t)
+		pub := &mockPublisher{}
+		svc := NewRoomService(mockRepo, pub)
 
 		ctx := context.Background()
 		userID := uuid.New()
@@ -64,7 +80,7 @@ func TestCreateRoom(t *testing.T) {
 
 		mockRepo.On("GetDirectRoomByUsers", ctx, userID, participantID).Return(existingRoom, nil).Once()
 
-		room, err := svc.CreateRoom(ctx, "New Room", repository.RoomTypeDirect, userID, participantID)
+		room, err := svc.CreateRoom(ctx, "New Room", RoomTypeDirect, userID, participantID)
 
 		require.ErrorIs(t, err, ErrDirectRoomExists)
 		assert.Nil(t, room)
@@ -72,16 +88,16 @@ func TestCreateRoom(t *testing.T) {
 	})
 
 	t.Run("direct room success", func(t *testing.T) {
-		mockRepo := mocks.NewRoomRepository(t)
-		mockPublisher := roommocks.NewPublisher(t)
-		svc := NewRoomService(mockRepo, mockPublisher)
+		mockRepo := repomocks.NewRoomRepository(t)
+		pub := &mockPublisher{}
+		svc := NewRoomService(mockRepo, pub)
 
 		ctx := context.Background()
 		roomID := uuid.New()
 		userID := uuid.New()
 		participantID := uuid.New()
 
-		expectedRoom := &repository.Room{
+		repoRoom := &repository.Room{
 			ID:        roomID,
 			Name:      "Direct Room",
 			Type:      repository.RoomTypeDirect,
@@ -91,28 +107,29 @@ func TestCreateRoom(t *testing.T) {
 		}
 
 		mockRepo.On("GetDirectRoomByUsers", ctx, userID, participantID).Return(nil, repository.ErrRoomNotFound).Once()
-		mockRepo.On("CreateRoom", ctx, "Direct Room", repository.RoomTypeDirect, userID).Return(expectedRoom, nil).Once()
+		mockRepo.On("CreateRoom", ctx, "Direct Room", repository.RoomTypeDirect, userID).Return(repoRoom, nil).Once()
 		mockRepo.On("AddMember", ctx, roomID, userID, repository.MemberRoleOwner).Return(&repository.RoomMember{}, nil).Once()
 		mockRepo.On("AddMember", ctx, roomID, participantID, repository.MemberRoleMember).Return(&repository.RoomMember{}, nil).Once()
 
-		room, err := svc.CreateRoom(ctx, "Direct Room", repository.RoomTypeDirect, userID, participantID)
+		room, err := svc.CreateRoom(ctx, "Direct Room", RoomTypeDirect, userID, participantID)
 
 		require.NoError(t, err)
-		assert.Equal(t, expectedRoom, room)
+		assert.Equal(t, roomID, room.ID)
+		assert.Equal(t, RoomTypeDirect, room.Type)
 		mockRepo.AssertExpectations(t)
 	})
 }
 
 func TestGetRoom(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		mockRepo := mocks.NewRoomRepository(t)
-		mockPublisher := roommocks.NewPublisher(t)
-		svc := NewRoomService(mockRepo, mockPublisher)
+		mockRepo := repomocks.NewRoomRepository(t)
+		pub := &mockPublisher{}
+		svc := NewRoomService(mockRepo, pub)
 
 		ctx := context.Background()
 		roomID := uuid.New()
 
-		expectedRoom := &repository.Room{
+		repoRoom := &repository.Room{
 			ID:        roomID,
 			Name:      "Test Room",
 			Type:      repository.RoomTypeGroup,
@@ -121,19 +138,20 @@ func TestGetRoom(t *testing.T) {
 			UpdatedAt: time.Now(),
 		}
 
-		mockRepo.On("GetRoomByID", ctx, roomID).Return(expectedRoom, nil).Once()
+		mockRepo.On("GetRoomByID", ctx, roomID).Return(repoRoom, nil).Once()
 
 		room, err := svc.GetRoom(ctx, roomID)
 
 		require.NoError(t, err)
-		assert.Equal(t, expectedRoom, room)
+		assert.Equal(t, roomID, room.ID)
+		assert.Equal(t, "Test Room", room.Name)
 		mockRepo.AssertExpectations(t)
 	})
 
 	t.Run("not found", func(t *testing.T) {
-		mockRepo := mocks.NewRoomRepository(t)
-		mockPublisher := roommocks.NewPublisher(t)
-		svc := NewRoomService(mockRepo, mockPublisher)
+		mockRepo := repomocks.NewRoomRepository(t)
+		pub := &mockPublisher{}
+		svc := NewRoomService(mockRepo, pub)
 
 		ctx := context.Background()
 		roomID := uuid.New()
@@ -150,9 +168,9 @@ func TestGetRoom(t *testing.T) {
 
 func TestUpdateRoom(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		mockRepo := mocks.NewRoomRepository(t)
-		mockPublisher := roommocks.NewPublisher(t)
-		svc := NewRoomService(mockRepo, mockPublisher)
+		mockRepo := repomocks.NewRoomRepository(t)
+		pub := &mockPublisher{}
+		svc := NewRoomService(mockRepo, pub)
 
 		ctx := context.Background()
 		roomID := uuid.New()
@@ -179,19 +197,20 @@ func TestUpdateRoom(t *testing.T) {
 		mockRepo.On("GetRoomByID", ctx, roomID).Return(room, nil).Once()
 		mockRepo.On("UpdateRoom", ctx, roomID, "New Name").Return(updatedRoom, nil).Once()
 		mockRepo.On("GetRoomMembers", ctx, roomID).Return([]repository.RoomMember{}, nil).Once()
-		mockPublisher.On("PublishRoomUpdated", ctx, roomID, "New Name", []uuid.UUID{}).Return(nil).Once()
+		pub.On("PublishRoomUpdated", ctx, roomID, "New Name", []uuid.UUID{}).Return(nil).Once()
 
 		result, err := svc.UpdateRoom(ctx, roomID, requesterID, "New Name")
 
 		require.NoError(t, err)
 		assert.Equal(t, "New Name", result.Name)
 		mockRepo.AssertExpectations(t)
+		pub.AssertExpectations(t)
 	})
 
 	t.Run("not owner", func(t *testing.T) {
-		mockRepo := mocks.NewRoomRepository(t)
-		mockPublisher := roommocks.NewPublisher(t)
-		svc := NewRoomService(mockRepo, mockPublisher)
+		mockRepo := repomocks.NewRoomRepository(t)
+		pub := &mockPublisher{}
+		svc := NewRoomService(mockRepo, pub)
 
 		ctx := context.Background()
 		roomID := uuid.New()
@@ -218,9 +237,9 @@ func TestUpdateRoom(t *testing.T) {
 
 func TestDeleteRoom(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		mockRepo := mocks.NewRoomRepository(t)
-		mockPublisher := roommocks.NewPublisher(t)
-		svc := NewRoomService(mockRepo, mockPublisher)
+		mockRepo := repomocks.NewRoomRepository(t)
+		pub := &mockPublisher{}
+		svc := NewRoomService(mockRepo, pub)
 
 		ctx := context.Background()
 		roomID := uuid.New()
@@ -245,9 +264,9 @@ func TestDeleteRoom(t *testing.T) {
 	})
 
 	t.Run("not owner", func(t *testing.T) {
-		mockRepo := mocks.NewRoomRepository(t)
-		mockPublisher := roommocks.NewPublisher(t)
-		svc := NewRoomService(mockRepo, mockPublisher)
+		mockRepo := repomocks.NewRoomRepository(t)
+		pub := &mockPublisher{}
+		svc := NewRoomService(mockRepo, pub)
 
 		ctx := context.Background()
 		roomID := uuid.New()
@@ -274,9 +293,9 @@ func TestDeleteRoom(t *testing.T) {
 
 func TestAddMember(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		mockRepo := mocks.NewRoomRepository(t)
-		mockPublisher := roommocks.NewPublisher(t)
-		svc := NewRoomService(mockRepo, mockPublisher)
+		mockRepo := repomocks.NewRoomRepository(t)
+		pub := &mockPublisher{}
+		svc := NewRoomService(mockRepo, pub)
 
 		ctx := context.Background()
 		roomID := uuid.New()
@@ -301,21 +320,21 @@ func TestAddMember(t *testing.T) {
 		mockRepo.On("IsMember", ctx, roomID, requesterID).Return(true, nil).Once()
 		mockRepo.On("AddMember", ctx, roomID, userID, repository.MemberRoleMember).Return(&repository.RoomMember{}, nil).Once()
 		mockRepo.On("GetRoomMembers", ctx, roomID).Return(members, nil).Once()
-		mockPublisher.On("PublishMembershipChanged", ctx, roomID, userID, "added", mock.Anything).Return(nil).Once()
+		pub.On("PublishMembershipChanged", ctx, roomID, userID, "added", mock.Anything).Return(nil).Once()
 
 		err := svc.AddMember(ctx, roomID, userID, requesterID)
 
 		require.NoError(t, err)
 		mockRepo.AssertExpectations(t)
-		mockPublisher.AssertExpectations(t)
+		pub.AssertExpectations(t)
 	})
 }
 
 func TestRemoveMember(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		mockRepo := mocks.NewRoomRepository(t)
-		mockPublisher := roommocks.NewPublisher(t)
-		svc := NewRoomService(mockRepo, mockPublisher)
+		mockRepo := repomocks.NewRoomRepository(t)
+		pub := &mockPublisher{}
+		svc := NewRoomService(mockRepo, pub)
 
 		ctx := context.Background()
 		roomID := uuid.New()
@@ -338,21 +357,21 @@ func TestRemoveMember(t *testing.T) {
 		mockRepo.On("GetRoomByID", ctx, roomID).Return(room, nil).Once()
 		mockRepo.On("RemoveMember", ctx, roomID, userID).Return(nil).Once()
 		mockRepo.On("GetRoomMembers", ctx, roomID).Return(members, nil).Once()
-		mockPublisher.On("PublishMembershipChanged", ctx, roomID, userID, "removed", mock.Anything).Return(nil).Once()
+		pub.On("PublishMembershipChanged", ctx, roomID, userID, "removed", mock.Anything).Return(nil).Once()
 
 		err := svc.RemoveMember(ctx, roomID, userID, requesterID)
 
 		require.NoError(t, err)
 		mockRepo.AssertExpectations(t)
-		mockPublisher.AssertExpectations(t)
+		pub.AssertExpectations(t)
 	})
 }
 
 func TestGetRoomMembers(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		mockRepo := mocks.NewRoomRepository(t)
-		mockPublisher := roommocks.NewPublisher(t)
-		svc := NewRoomService(mockRepo, mockPublisher)
+		mockRepo := repomocks.NewRoomRepository(t)
+		pub := &mockPublisher{}
+		svc := NewRoomService(mockRepo, pub)
 
 		ctx := context.Background()
 		roomID := uuid.New()
@@ -375,9 +394,9 @@ func TestGetRoomMembers(t *testing.T) {
 
 func TestIsMember(t *testing.T) {
 	t.Run("is member", func(t *testing.T) {
-		mockRepo := mocks.NewRoomRepository(t)
-		mockPublisher := roommocks.NewPublisher(t)
-		svc := NewRoomService(mockRepo, mockPublisher)
+		mockRepo := repomocks.NewRoomRepository(t)
+		pub := &mockPublisher{}
+		svc := NewRoomService(mockRepo, pub)
 
 		ctx := context.Background()
 		roomID := uuid.New()
@@ -393,9 +412,9 @@ func TestIsMember(t *testing.T) {
 	})
 
 	t.Run("not member", func(t *testing.T) {
-		mockRepo := mocks.NewRoomRepository(t)
-		mockPublisher := roommocks.NewPublisher(t)
-		svc := NewRoomService(mockRepo, mockPublisher)
+		mockRepo := repomocks.NewRoomRepository(t)
+		pub := &mockPublisher{}
+		svc := NewRoomService(mockRepo, pub)
 
 		ctx := context.Background()
 		roomID := uuid.New()

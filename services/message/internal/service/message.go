@@ -7,7 +7,6 @@ import (
 	"log/slog"
 
 	"github.com/google/uuid"
-	"github.com/sudobytemebaby/efir/services/message/internal/nats"
 	"github.com/sudobytemebaby/efir/services/message/internal/repository"
 )
 
@@ -18,18 +17,15 @@ var (
 	ErrInvalidReplyTarget = errors.New("reply target not found or belongs to a different room")
 )
 
-type SendMessageInput struct {
-	RoomID    uuid.UUID
-	SenderID  uuid.UUID
-	Type      repository.MessageType
-	Content   repository.MessageContent
-	ReplyToID *uuid.UUID
+//go:generate mockery --name Publisher
+type Publisher interface {
+	PublishMessageCreated(ctx context.Context, msg *Message, recipientIDs []uuid.UUID) error
 }
 
 type MessageService interface {
-	SendMessage(ctx context.Context, input *SendMessageInput) (*repository.Message, error)
-	GetMessages(ctx context.Context, roomID, requesterID uuid.UUID, cursor *uuid.UUID, limit int) ([]*repository.Message, *uuid.UUID, error)
-	GetMessageByID(ctx context.Context, messageID, requesterID uuid.UUID) (*repository.Message, error)
+	SendMessage(ctx context.Context, input *SendMessageInput) (*Message, error)
+	GetMessages(ctx context.Context, roomID, requesterID uuid.UUID, cursor *uuid.UUID, limit int) ([]*Message, *uuid.UUID, error)
+	GetMessageByID(ctx context.Context, messageID, requesterID uuid.UUID) (*Message, error)
 	DeleteMessage(ctx context.Context, messageID, requesterID uuid.UUID) error
 }
 
@@ -41,10 +37,10 @@ type RoomClient interface {
 type messageService struct {
 	repo       repository.MessageRepository
 	roomClient RoomClient
-	publisher  nats.Publisher
+	publisher  Publisher
 }
 
-func NewMessageService(repo repository.MessageRepository, roomClient RoomClient, publisher nats.Publisher) MessageService {
+func NewMessageService(repo repository.MessageRepository, roomClient RoomClient, publisher Publisher) MessageService {
 	return &messageService{
 		repo:       repo,
 		roomClient: roomClient,
@@ -52,7 +48,7 @@ func NewMessageService(repo repository.MessageRepository, roomClient RoomClient,
 	}
 }
 
-func (s *messageService) SendMessage(ctx context.Context, input *SendMessageInput) (*repository.Message, error) {
+func (s *messageService) SendMessage(ctx context.Context, input *SendMessageInput) (*Message, error) {
 	isMember, err := s.roomClient.IsMember(ctx, input.RoomID, input.SenderID)
 	if err != nil {
 		return nil, err
@@ -77,13 +73,15 @@ func (s *messageService) SendMessage(ctx context.Context, input *SendMessageInpu
 	msg, err := s.repo.CreateMessage(ctx, &repository.CreateMessageInput{
 		RoomID:    input.RoomID,
 		SenderID:  input.SenderID,
-		Type:      input.Type,
-		Content:   input.Content,
+		Type:      repository.MessageType(input.Type),
+		Content:   toRepoContent(input.Content),
 		ReplyToID: input.ReplyToID,
 	})
 	if err != nil {
 		return nil, err
 	}
+
+	domainMsg := toMessage(msg)
 
 	recipientIDs, err := s.roomClient.GetRoomMembers(ctx, input.RoomID)
 	if err != nil {
@@ -93,20 +91,20 @@ func (s *messageService) SendMessage(ctx context.Context, input *SendMessageInpu
 			"room_id", input.RoomID.String(),
 		)
 	} else {
-		if err := s.publisher.PublishMessageCreated(ctx, msg, recipientIDs); err != nil {
+		if err := s.publisher.PublishMessageCreated(ctx, domainMsg, recipientIDs); err != nil {
 			slog.Error("failed to publish message created event, event may be lost",
 				"event_lost", true,
 				"error", err,
-				"message_id", msg.ID.String(),
-				"room_id", msg.RoomID.String(),
+				"message_id", domainMsg.ID.String(),
+				"room_id", domainMsg.RoomID.String(),
 			)
 		}
 	}
 
-	return msg, nil
+	return domainMsg, nil
 }
 
-func (s *messageService) GetMessages(ctx context.Context, roomID, requesterID uuid.UUID, cursor *uuid.UUID, limit int) ([]*repository.Message, *uuid.UUID, error) {
+func (s *messageService) GetMessages(ctx context.Context, roomID, requesterID uuid.UUID, cursor *uuid.UUID, limit int) ([]*Message, *uuid.UUID, error) {
 	isMember, err := s.roomClient.IsMember(ctx, roomID, requesterID)
 	if err != nil {
 		return nil, nil, err
@@ -115,10 +113,20 @@ func (s *messageService) GetMessages(ctx context.Context, roomID, requesterID uu
 		return nil, nil, ErrNotMember
 	}
 
-	return s.repo.GetMessagesByRoomID(ctx, roomID, cursor, limit)
+	repoMsgs, nextCursor, err := s.repo.GetMessagesByRoomID(ctx, roomID, cursor, limit)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	msgs := make([]*Message, len(repoMsgs))
+	for i, m := range repoMsgs {
+		msgs[i] = toMessage(m)
+	}
+
+	return msgs, nextCursor, nil
 }
 
-func (s *messageService) GetMessageByID(ctx context.Context, messageID, requesterID uuid.UUID) (*repository.Message, error) {
+func (s *messageService) GetMessageByID(ctx context.Context, messageID, requesterID uuid.UUID) (*Message, error) {
 	msg, err := s.repo.GetMessageByID(ctx, messageID)
 	if err != nil {
 		if errors.Is(err, repository.ErrMessageNotFound) {
@@ -135,7 +143,7 @@ func (s *messageService) GetMessageByID(ctx context.Context, messageID, requeste
 		return nil, ErrNotMember
 	}
 
-	return msg, nil
+	return toMessage(msg), nil
 }
 
 func (s *messageService) DeleteMessage(ctx context.Context, messageID, requesterID uuid.UUID) error {

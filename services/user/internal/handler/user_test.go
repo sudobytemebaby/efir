@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	userv1 "github.com/sudobytemebaby/efir/services/shared/gen/user"
-	"github.com/sudobytemebaby/efir/services/user/internal/repository"
 	"github.com/sudobytemebaby/efir/services/user/internal/service"
 	"github.com/sudobytemebaby/efir/services/user/internal/service/mocks"
 	"google.golang.org/grpc/codes"
@@ -26,7 +25,7 @@ func TestGetUser(t *testing.T) {
 		ctx := context.Background()
 		userID := uuid.New()
 
-		expectedUser := &repository.User{
+		expectedUser := &service.User{
 			ID:          userID,
 			Username:    "john",
 			DisplayName: "John Doe",
@@ -86,7 +85,7 @@ func TestGetUsersByIds(t *testing.T) {
 		userID1 := uuid.New()
 		userID2 := uuid.New()
 
-		expectedUsers := []repository.User{
+		expectedUsers := []service.User{
 			{
 				ID:          userID1,
 				Username:    "john",
@@ -157,7 +156,7 @@ func TestUpdateUser(t *testing.T) {
 		avatarURL := "https://example.com/avatar.png"
 		bio := "Hello world"
 
-		expectedUser := &repository.User{
+		expectedUser := &service.User{
 			ID:          userID,
 			Username:    "john",
 			DisplayName: displayName,
@@ -231,7 +230,7 @@ func TestMapUserToProto(t *testing.T) {
 	bio := "Hello world"
 	now := time.Now()
 
-	user := &repository.User{
+	user := &service.User{
 		ID:          uuid.New(),
 		Username:    "john",
 		DisplayName: "John Doe",

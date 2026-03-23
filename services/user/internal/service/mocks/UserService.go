@@ -6,7 +6,7 @@ import (
 	context "context"
 
 	mock "github.com/stretchr/testify/mock"
-	repository "github.com/sudobytemebaby/efir/services/user/internal/repository"
+	service "github.com/sudobytemebaby/efir/services/user/internal/service"
 
 	uuid "github.com/google/uuid"
 )
@@ -17,23 +17,23 @@ type UserService struct {
 }
 
 // CreateUser provides a mock function with given fields: ctx, userID, email
-func (_m *UserService) CreateUser(ctx context.Context, userID uuid.UUID, email string) (*repository.User, error) {
+func (_m *UserService) CreateUser(ctx context.Context, userID uuid.UUID, email string) (*service.User, error) {
 	ret := _m.Called(ctx, userID, email)
 
 	if len(ret) == 0 {
 		panic("no return value specified for CreateUser")
 	}
 
-	var r0 *repository.User
+	var r0 *service.User
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, string) (*repository.User, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, string) (*service.User, error)); ok {
 		return rf(ctx, userID, email)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, string) *repository.User); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, string) *service.User); ok {
 		r0 = rf(ctx, userID, email)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*repository.User)
+			r0 = ret.Get(0).(*service.User)
 		}
 	}
 
@@ -47,23 +47,23 @@ func (_m *UserService) CreateUser(ctx context.Context, userID uuid.UUID, email s
 }
 
 // GetUser provides a mock function with given fields: ctx, userID
-func (_m *UserService) GetUser(ctx context.Context, userID uuid.UUID) (*repository.User, error) {
+func (_m *UserService) GetUser(ctx context.Context, userID uuid.UUID) (*service.User, error) {
 	ret := _m.Called(ctx, userID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetUser")
 	}
 
-	var r0 *repository.User
+	var r0 *service.User
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) (*repository.User, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) (*service.User, error)); ok {
 		return rf(ctx, userID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) *repository.User); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) *service.User); ok {
 		r0 = rf(ctx, userID)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*repository.User)
+			r0 = ret.Get(0).(*service.User)
 		}
 	}
 
@@ -77,23 +77,23 @@ func (_m *UserService) GetUser(ctx context.Context, userID uuid.UUID) (*reposito
 }
 
 // GetUsers provides a mock function with given fields: ctx, userIDs
-func (_m *UserService) GetUsers(ctx context.Context, userIDs []uuid.UUID) ([]repository.User, error) {
+func (_m *UserService) GetUsers(ctx context.Context, userIDs []uuid.UUID) ([]service.User, error) {
 	ret := _m.Called(ctx, userIDs)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetUsers")
 	}
 
-	var r0 []repository.User
+	var r0 []service.User
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, []uuid.UUID) ([]repository.User, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []uuid.UUID) ([]service.User, error)); ok {
 		return rf(ctx, userIDs)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, []uuid.UUID) []repository.User); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []uuid.UUID) []service.User); ok {
 		r0 = rf(ctx, userIDs)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]repository.User)
+			r0 = ret.Get(0).([]service.User)
 		}
 	}
 
@@ -107,23 +107,23 @@ func (_m *UserService) GetUsers(ctx context.Context, userIDs []uuid.UUID) ([]rep
 }
 
 // UpdateUser provides a mock function with given fields: ctx, userID, displayName, avatarURL, bio
-func (_m *UserService) UpdateUser(ctx context.Context, userID uuid.UUID, displayName *string, avatarURL *string, bio *string) (*repository.User, error) {
+func (_m *UserService) UpdateUser(ctx context.Context, userID uuid.UUID, displayName *string, avatarURL *string, bio *string) (*service.User, error) {
 	ret := _m.Called(ctx, userID, displayName, avatarURL, bio)
 
 	if len(ret) == 0 {
 		panic("no return value specified for UpdateUser")
 	}
 
-	var r0 *repository.User
+	var r0 *service.User
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, *string, *string, *string) (*repository.User, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, *string, *string, *string) (*service.User, error)); ok {
 		return rf(ctx, userID, displayName, avatarURL, bio)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, *string, *string, *string) *repository.User); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, *string, *string, *string) *service.User); ok {
 		r0 = rf(ctx, userID, displayName, avatarURL, bio)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*repository.User)
+			r0 = ret.Get(0).(*service.User)
 		}
 	}
 

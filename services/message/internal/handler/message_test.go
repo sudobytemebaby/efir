@@ -8,7 +8,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/sudobytemebaby/efir/services/message/internal/repository"
 	"github.com/sudobytemebaby/efir/services/message/internal/service"
 	messagev1 "github.com/sudobytemebaby/efir/services/shared/gen/message"
 	"google.golang.org/grpc/codes"
@@ -16,27 +15,27 @@ import (
 )
 
 type mockMessageService struct {
-	SendMessageFunc    func(ctx context.Context, input *service.SendMessageInput) (*repository.Message, error)
-	GetMessagesFunc    func(ctx context.Context, roomID, requesterID uuid.UUID, cursor *uuid.UUID, limit int) ([]*repository.Message, *uuid.UUID, error)
-	GetMessageByIDFunc func(ctx context.Context, messageID, requesterID uuid.UUID) (*repository.Message, error)
+	SendMessageFunc    func(ctx context.Context, input *service.SendMessageInput) (*service.Message, error)
+	GetMessagesFunc    func(ctx context.Context, roomID, requesterID uuid.UUID, cursor *uuid.UUID, limit int) ([]*service.Message, *uuid.UUID, error)
+	GetMessageByIDFunc func(ctx context.Context, messageID, requesterID uuid.UUID) (*service.Message, error)
 	DeleteMessageFunc  func(ctx context.Context, messageID, requesterID uuid.UUID) error
 }
 
-func (m *mockMessageService) SendMessage(ctx context.Context, input *service.SendMessageInput) (*repository.Message, error) {
+func (m *mockMessageService) SendMessage(ctx context.Context, input *service.SendMessageInput) (*service.Message, error) {
 	if m.SendMessageFunc != nil {
 		return m.SendMessageFunc(ctx, input)
 	}
 	return nil, nil
 }
 
-func (m *mockMessageService) GetMessages(ctx context.Context, roomID, requesterID uuid.UUID, cursor *uuid.UUID, limit int) ([]*repository.Message, *uuid.UUID, error) {
+func (m *mockMessageService) GetMessages(ctx context.Context, roomID, requesterID uuid.UUID, cursor *uuid.UUID, limit int) ([]*service.Message, *uuid.UUID, error) {
 	if m.GetMessagesFunc != nil {
 		return m.GetMessagesFunc(ctx, roomID, requesterID, cursor, limit)
 	}
 	return nil, nil, nil
 }
 
-func (m *mockMessageService) GetMessageByID(ctx context.Context, messageID, requesterID uuid.UUID) (*repository.Message, error) {
+func (m *mockMessageService) GetMessageByID(ctx context.Context, messageID, requesterID uuid.UUID) (*service.Message, error) {
 	if m.GetMessageByIDFunc != nil {
 		return m.GetMessageByIDFunc(ctx, messageID, requesterID)
 	}
@@ -82,7 +81,7 @@ func TestSendMessage_EmptyContent(t *testing.T) {
 
 func TestSendMessage_ErrorMapping(t *testing.T) {
 	svc := &mockMessageService{
-		SendMessageFunc: func(ctx context.Context, input *service.SendMessageInput) (*repository.Message, error) {
+		SendMessageFunc: func(ctx context.Context, input *service.SendMessageInput) (*service.Message, error) {
 			return nil, service.ErrNotMember
 		},
 	}
@@ -107,7 +106,7 @@ func TestSendMessage_ErrorMapping(t *testing.T) {
 
 func TestSendMessage_InvalidReplyTargetMapping(t *testing.T) {
 	svc := &mockMessageService{
-		SendMessageFunc: func(ctx context.Context, input *service.SendMessageInput) (*repository.Message, error) {
+		SendMessageFunc: func(ctx context.Context, input *service.SendMessageInput) (*service.Message, error) {
 			return nil, service.ErrInvalidReplyTarget
 		},
 	}
@@ -192,11 +191,11 @@ func TestDeleteMessage_ErrorMapping_NotFound(t *testing.T) {
 
 func TestMapMessageToProto_DeletedMessage(t *testing.T) {
 	now := time.Now()
-	msg := &repository.Message{
+	msg := &service.Message{
 		ID:        uuid.New(),
 		RoomID:    uuid.New(),
 		SenderID:  uuid.New(),
-		Type:      repository.MessageTypeText,
+		Type:      service.MessageTypeText,
 		DeletedAt: &now,
 		CreatedAt: now,
 		UpdatedAt: now,
@@ -209,19 +208,19 @@ func TestMapMessageToProto_DeletedMessage(t *testing.T) {
 func TestMapMessageToProto_WithReplyTo(t *testing.T) {
 	now := time.Now()
 	replyToID := uuid.New()
-	preview := &repository.MessagePreview{
+	preview := &service.MessagePreview{
 		MessageID:   replyToID,
 		SenderID:    uuid.New(),
-		Type:        repository.MessageTypeText,
+		Type:        service.MessageTypeText,
 		TextPreview: strPtr("Original message"),
 	}
 
-	msg := &repository.Message{
+	msg := &service.Message{
 		ID:        uuid.New(),
 		RoomID:    uuid.New(),
 		SenderID:  uuid.New(),
-		Type:      repository.MessageTypeText,
-		Content:   repository.TextContent{Text: "Reply"},
+		Type:      service.MessageTypeText,
+		Content:   service.TextContent{Text: "Reply"},
 		ReplyTo:   preview,
 		CreatedAt: now,
 		UpdatedAt: now,
@@ -235,10 +234,10 @@ func TestMapMessageToProto_WithReplyTo(t *testing.T) {
 }
 
 func TestMapPreviewToProto(t *testing.T) {
-	preview := &repository.MessagePreview{
+	preview := &service.MessagePreview{
 		MessageID:   uuid.New(),
 		SenderID:    uuid.New(),
-		Type:        repository.MessageTypeText,
+		Type:        service.MessageTypeText,
 		TextPreview: strPtr("Preview text"),
 		FileName:    strPtr("file.pdf"),
 		MimeType:    strPtr("application/pdf"),

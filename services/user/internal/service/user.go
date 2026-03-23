@@ -14,10 +14,10 @@ var ErrUserNotFound = errors.New("user not found")
 
 //go:generate mockery --name UserService
 type UserService interface {
-	CreateUser(ctx context.Context, userID uuid.UUID, email string) (*repository.User, error)
-	GetUser(ctx context.Context, userID uuid.UUID) (*repository.User, error)
-	GetUsers(ctx context.Context, userIDs []uuid.UUID) ([]repository.User, error)
-	UpdateUser(ctx context.Context, userID uuid.UUID, displayName, avatarURL, bio *string) (*repository.User, error)
+	CreateUser(ctx context.Context, userID uuid.UUID, email string) (*User, error)
+	GetUser(ctx context.Context, userID uuid.UUID) (*User, error)
+	GetUsers(ctx context.Context, userIDs []uuid.UUID) ([]User, error)
+	UpdateUser(ctx context.Context, userID uuid.UUID, displayName, avatarURL, bio *string) (*User, error)
 }
 
 type userService struct {
@@ -28,14 +28,18 @@ func NewUserService(userRepo repository.UserRepository) UserService {
 	return &userService{userRepo: userRepo}
 }
 
-func (s *userService) CreateUser(ctx context.Context, userID uuid.UUID, email string) (*repository.User, error) {
+func (s *userService) CreateUser(ctx context.Context, userID uuid.UUID, email string) (*User, error) {
 	username := generateUsernameFromEmail(email)
 	displayName := username
 
 	user, err := s.userRepo.CreateUser(ctx, userID, username, displayName)
 	if err != nil {
 		if errors.Is(err, repository.ErrUserAlreadyExists) {
-			return s.userRepo.GetUserByID(ctx, userID)
+			existing, err := s.userRepo.GetUserByID(ctx, userID)
+			if err != nil {
+				return nil, fmt.Errorf("get existing user: %w", err)
+			}
+			return toUser(existing), nil
 		}
 		if errors.Is(err, repository.ErrUserNotFound) {
 			return nil, ErrUserNotFound
@@ -43,10 +47,10 @@ func (s *userService) CreateUser(ctx context.Context, userID uuid.UUID, email st
 		return nil, fmt.Errorf("create user: %w", err)
 	}
 
-	return user, nil
+	return toUser(user), nil
 }
 
-func (s *userService) GetUser(ctx context.Context, userID uuid.UUID) (*repository.User, error) {
+func (s *userService) GetUser(ctx context.Context, userID uuid.UUID) (*User, error) {
 	user, err := s.userRepo.GetUserByID(ctx, userID)
 	if err != nil {
 		if errors.Is(err, repository.ErrUserNotFound) {
@@ -55,19 +59,24 @@ func (s *userService) GetUser(ctx context.Context, userID uuid.UUID) (*repositor
 		return nil, fmt.Errorf("get user: %w", err)
 	}
 
-	return user, nil
+	return toUser(user), nil
 }
 
-func (s *userService) GetUsers(ctx context.Context, userIDs []uuid.UUID) ([]repository.User, error) {
+func (s *userService) GetUsers(ctx context.Context, userIDs []uuid.UUID) ([]User, error) {
 	users, err := s.userRepo.GetUsersByIDs(ctx, userIDs)
 	if err != nil {
 		return nil, fmt.Errorf("get users: %w", err)
 	}
 
-	return users, nil
+	result := make([]User, len(users))
+	for i, u := range users {
+		result[i] = *toUser(&u)
+	}
+
+	return result, nil
 }
 
-func (s *userService) UpdateUser(ctx context.Context, userID uuid.UUID, displayName, avatarURL, bio *string) (*repository.User, error) {
+func (s *userService) UpdateUser(ctx context.Context, userID uuid.UUID, displayName, avatarURL, bio *string) (*User, error) {
 	user, err := s.userRepo.UpdateUser(ctx, userID, displayName, avatarURL, bio)
 	if err != nil {
 		if errors.Is(err, repository.ErrUserNotFound) {
@@ -76,7 +85,7 @@ func (s *userService) UpdateUser(ctx context.Context, userID uuid.UUID, displayN
 		return nil, fmt.Errorf("update user: %w", err)
 	}
 
-	return user, nil
+	return toUser(user), nil
 }
 
 func generateUsernameFromEmail(email string) string {
