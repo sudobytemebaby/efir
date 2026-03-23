@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
-	"sync"
 )
 
 const (
@@ -64,7 +63,6 @@ type Conn interface {
 }
 
 type Hub struct {
-	mu        sync.RWMutex
 	rooms     map[string]map[string][]Conn
 	userIDs   map[Conn]string
 	connRooms map[Conn]map[string]struct{}
@@ -73,6 +71,7 @@ type Hub struct {
 	unregister chan *ConnUnregistration
 	disconnect chan Conn
 	broadcast  chan *BroadcastMessage
+	roomCount  chan *RoomCountRequest
 }
 
 type ConnRegistration struct {
@@ -91,6 +90,11 @@ type BroadcastMessage struct {
 	Envelope Envelope
 }
 
+type RoomCountRequest struct {
+	RoomID  string
+	CountCh chan int
+}
+
 func NewHub() *Hub {
 	return &Hub{
 		rooms:      make(map[string]map[string][]Conn),
@@ -100,6 +104,7 @@ func NewHub() *Hub {
 		unregister: make(chan *ConnUnregistration, 256),
 		disconnect: make(chan Conn, 256),
 		broadcast:  make(chan *BroadcastMessage, 256),
+		roomCount:  make(chan *RoomCountRequest, 256),
 	}
 }
 
@@ -119,6 +124,10 @@ func (h *Hub) Run(ctx context.Context) {
 
 		case msg := <-h.broadcast:
 			h.sendToRoom(msg.RoomID, msg.Envelope)
+
+		case req := <-h.roomCount:
+			count := h.getRoomUserCount(req.RoomID)
+			req.CountCh <- count
 		}
 	}
 }
@@ -139,10 +148,13 @@ func (h *Hub) BroadcastToRoom(roomID string, envelope Envelope) {
 	h.broadcast <- &BroadcastMessage{RoomID: roomID, Envelope: envelope}
 }
 
-func (h *Hub) addConn(conn Conn, userID, roomID string) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
+func (h *Hub) GetRoomUserCount(roomID string) int {
+	countCh := make(chan int, 1)
+	h.roomCount <- &RoomCountRequest{RoomID: roomID, CountCh: countCh}
+	return <-countCh
+}
 
+func (h *Hub) addConn(conn Conn, userID, roomID string) {
 	h.userIDs[conn] = userID
 
 	if h.rooms[roomID] == nil {
@@ -159,9 +171,6 @@ func (h *Hub) addConn(conn Conn, userID, roomID string) {
 }
 
 func (h *Hub) removeConn(conn Conn, roomID string) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
 	userID := h.userIDs[conn]
 	if userID == "" {
 		return
@@ -191,9 +200,6 @@ func (h *Hub) removeConn(conn Conn, roomID string) {
 }
 
 func (h *Hub) disconnectAll(conn Conn) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
 	userID := h.userIDs[conn]
 	if userID == "" {
 		return
@@ -220,10 +226,8 @@ func (h *Hub) disconnectAll(conn Conn) {
 }
 
 func (h *Hub) sendToRoom(roomID string, envelope Envelope) {
-	h.mu.RLock()
 	room := h.rooms[roomID]
 	if len(room) == 0 {
-		h.mu.RUnlock()
 		return
 	}
 
@@ -231,7 +235,6 @@ func (h *Hub) sendToRoom(roomID string, envelope Envelope) {
 	for _, conns := range room {
 		targets = append(targets, conns...)
 	}
-	h.mu.RUnlock()
 
 	for _, conn := range targets {
 		if err := conn.WriteJSON(envelope); err != nil {
@@ -243,10 +246,7 @@ func (h *Hub) sendToRoom(roomID string, envelope Envelope) {
 	}
 }
 
-func (h *Hub) GetRoomUserCount(roomID string) int {
-	h.mu.RLock()
-	defer h.mu.RUnlock()
-
+func (h *Hub) getRoomUserCount(roomID string) int {
 	if room := h.rooms[roomID]; room != nil {
 		return len(room)
 	}
