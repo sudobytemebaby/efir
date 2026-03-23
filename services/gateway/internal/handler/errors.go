@@ -23,7 +23,7 @@ var codeToMessage = map[errors.Code]string{
 	errors.CodeInternal:         "internal server error",
 }
 
-func writeError(w http.ResponseWriter, r *http.Request, err error, msg string) {
+func WriteError(w http.ResponseWriter, r *http.Request, err error, msg string) {
 	slog.ErrorContext(r.Context(), msg, "error", err)
 
 	code, ok := errors.FromError(err)

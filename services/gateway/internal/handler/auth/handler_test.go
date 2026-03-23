@@ -1,4 +1,4 @@
-package handler
+package auth
 
 import (
 	"bytes"
@@ -53,22 +53,22 @@ func (m *mockAuthClient) RefreshToken(ctx context.Context, refreshToken string) 
 	return nil, errors.New("not implemented")
 }
 
-type testHTTPHandler struct {
-	*HTTPHandler
+type testHandler struct {
+	*Handler
 	mockClient *mockAuthClient
 }
 
-func newTestHTTPHandler() *testHTTPHandler {
+func newTestHandler() *testHandler {
 	mockClient := &mockAuthClient{}
-	h := &HTTPHandler{authClient: mockClient}
-	return &testHTTPHandler{
-		HTTPHandler: h,
-		mockClient:  mockClient,
+	h := &Handler{authClient: mockClient}
+	return &testHandler{
+		Handler:    h,
+		mockClient: mockClient,
 	}
 }
 
-func TestHTTPHandler_Register_Success(t *testing.T) {
-	h := newTestHTTPHandler()
+func TestHandler_Register_Success(t *testing.T) {
+	h := newTestHandler()
 	r := chi.NewRouter()
 	h.Register(r)
 
@@ -98,8 +98,8 @@ func TestHTTPHandler_Register_Success(t *testing.T) {
 	assert.Equal(t, "refresh-token", resp.RefreshToken)
 }
 
-func TestHTTPHandler_Register_InvalidBody(t *testing.T) {
-	h := newTestHTTPHandler()
+func TestHandler_Register_InvalidBody(t *testing.T) {
+	h := newTestHandler()
 	r := chi.NewRouter()
 	h.Register(r)
 
@@ -113,8 +113,8 @@ func TestHTTPHandler_Register_InvalidBody(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
-func TestHTTPHandler_Register_GrpcError(t *testing.T) {
-	h := newTestHTTPHandler()
+func TestHandler_Register_GrpcError(t *testing.T) {
+	h := newTestHandler()
 	r := chi.NewRouter()
 	h.Register(r)
 
@@ -132,8 +132,8 @@ func TestHTTPHandler_Register_GrpcError(t *testing.T) {
 	assert.Equal(t, http.StatusConflict, w.Code)
 }
 
-func TestHTTPHandler_Login_Success(t *testing.T) {
-	h := newTestHTTPHandler()
+func TestHandler_Login_Success(t *testing.T) {
+	h := newTestHandler()
 	r := chi.NewRouter()
 	h.Register(r)
 
@@ -163,8 +163,8 @@ func TestHTTPHandler_Login_Success(t *testing.T) {
 	assert.Equal(t, "refresh-token", resp.RefreshToken)
 }
 
-func TestHTTPHandler_Login_InvalidCredentials(t *testing.T) {
-	h := newTestHTTPHandler()
+func TestHandler_Login_InvalidCredentials(t *testing.T) {
+	h := newTestHandler()
 	r := chi.NewRouter()
 	h.Register(r)
 
@@ -182,8 +182,8 @@ func TestHTTPHandler_Login_InvalidCredentials(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
-func TestHTTPHandler_Logout_Success(t *testing.T) {
-	h := newTestHTTPHandler()
+func TestHandler_Logout_Success(t *testing.T) {
+	h := newTestHandler()
 	r := chi.NewRouter()
 	h.Register(r)
 
@@ -201,8 +201,8 @@ func TestHTTPHandler_Logout_Success(t *testing.T) {
 	assert.Equal(t, http.StatusNoContent, w.Code)
 }
 
-func TestHTTPHandler_Refresh_Success(t *testing.T) {
-	h := newTestHTTPHandler()
+func TestHandler_Refresh_Success(t *testing.T) {
+	h := newTestHandler()
 	r := chi.NewRouter()
 	h.Register(r)
 
@@ -230,8 +230,8 @@ func TestHTTPHandler_Refresh_Success(t *testing.T) {
 	assert.Empty(t, resp.UserID)
 }
 
-func TestHTTPHandler_Refresh_ExpiredToken(t *testing.T) {
-	h := newTestHTTPHandler()
+func TestHandler_Refresh_ExpiredToken(t *testing.T) {
+	h := newTestHandler()
 	r := chi.NewRouter()
 	h.Register(r)
 

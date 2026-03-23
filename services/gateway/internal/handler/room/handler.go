@@ -1,4 +1,4 @@
-package handler
+package room
 
 import (
 	"encoding/json"
@@ -7,41 +7,27 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/sudobytemebaby/efir/services/gateway/internal/client"
+	"github.com/sudobytemebaby/efir/services/gateway/internal/handler"
 	"github.com/sudobytemebaby/efir/services/gateway/internal/middleware"
 )
 
-type RoomHandler struct {
+type Handler struct {
 	roomClient *client.RoomClient
 }
 
-func NewRoomHandler(roomClient *client.RoomClient) *RoomHandler {
-	return &RoomHandler{
+func NewHandler(roomClient *client.RoomClient) *Handler {
+	return &Handler{
 		roomClient: roomClient,
 	}
 }
 
-func (h *RoomHandler) Register(r chi.Router) {
+func (h *Handler) Register(r chi.Router) {
 	r.Post("/rooms", h.createRoom)
 	r.Get("/rooms/{id}", h.getRoom)
 	r.Patch("/rooms/{id}", h.updateRoom)
 	r.Delete("/rooms/{id}", h.deleteRoom)
 	r.Post("/rooms/{id}/members", h.addMember)
 	r.Delete("/rooms/{id}/members/{userId}", h.removeMember)
-}
-
-type createRoomRequest struct {
-	Name          string `json:"name"`
-	Type          string `json:"type"`
-	ParticipantID string `json:"participant_id,omitempty"`
-}
-
-type roomResponse struct {
-	RoomID    string `json:"room_id"`
-	Name      string `json:"name"`
-	Type      string `json:"type"`
-	CreatedBy string `json:"created_by"`
-	CreatedAt string `json:"created_at"`
-	UpdatedAt string `json:"updated_at"`
 }
 
 func roomTypeToString(rt client.RoomType) string {
@@ -61,12 +47,12 @@ func roomToResponse(room *client.Room) roomResponse {
 		Name:      room.Name,
 		Type:      roomTypeToString(room.Type),
 		CreatedBy: room.CreatedBy,
-		CreatedAt: timestampToString(room.CreatedAt),
-		UpdatedAt: timestampToString(room.UpdatedAt),
+		CreatedAt: handler.TimestampToString(room.CreatedAt),
+		UpdatedAt: handler.TimestampToString(room.UpdatedAt),
 	}
 }
 
-func (h *RoomHandler) createRoom(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) createRoom(w http.ResponseWriter, r *http.Request) {
 	requesterID, ok := middleware.GetUserID(r.Context())
 	if !ok {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
@@ -92,7 +78,7 @@ func (h *RoomHandler) createRoom(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.roomClient.CreateRoom(r.Context(), req.Name, roomType, requesterID, req.ParticipantID)
 	if err != nil {
-		writeError(w, r, err, "failed to create room")
+		handler.WriteError(w, r, err, "failed to create room")
 		return
 	}
 
@@ -103,7 +89,7 @@ func (h *RoomHandler) createRoom(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *RoomHandler) getRoom(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) getRoom(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if id == "" {
 		http.Error(w, "missing room id", http.StatusBadRequest)
@@ -112,7 +98,7 @@ func (h *RoomHandler) getRoom(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.roomClient.GetRoom(r.Context(), id)
 	if err != nil {
-		writeError(w, r, err, "failed to get room")
+		handler.WriteError(w, r, err, "failed to get room")
 		return
 	}
 
@@ -122,11 +108,7 @@ func (h *RoomHandler) getRoom(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-type updateRoomRequest struct {
-	Name *string `json:"name,omitempty"`
-}
-
-func (h *RoomHandler) updateRoom(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) updateRoom(w http.ResponseWriter, r *http.Request) {
 	requesterID, ok := middleware.GetUserID(r.Context())
 	if !ok {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
@@ -147,7 +129,7 @@ func (h *RoomHandler) updateRoom(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.roomClient.UpdateRoom(r.Context(), id, requesterID, req.Name)
 	if err != nil {
-		writeError(w, r, err, "failed to update room")
+		handler.WriteError(w, r, err, "failed to update room")
 		return
 	}
 
@@ -157,7 +139,7 @@ func (h *RoomHandler) updateRoom(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *RoomHandler) deleteRoom(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) deleteRoom(w http.ResponseWriter, r *http.Request) {
 	requesterID, ok := middleware.GetUserID(r.Context())
 	if !ok {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
@@ -172,18 +154,14 @@ func (h *RoomHandler) deleteRoom(w http.ResponseWriter, r *http.Request) {
 
 	_, err := h.roomClient.DeleteRoom(r.Context(), id, requesterID)
 	if err != nil {
-		writeError(w, r, err, "failed to delete room")
+		handler.WriteError(w, r, err, "failed to delete room")
 		return
 	}
 
 	w.WriteHeader(http.StatusNoContent)
 }
 
-type memberRequest struct {
-	UserID string `json:"user_id"`
-}
-
-func (h *RoomHandler) addMember(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) addMember(w http.ResponseWriter, r *http.Request) {
 	requesterID, ok := middleware.GetUserID(r.Context())
 	if !ok {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
@@ -204,14 +182,14 @@ func (h *RoomHandler) addMember(w http.ResponseWriter, r *http.Request) {
 
 	_, err := h.roomClient.AddMember(r.Context(), roomID, req.UserID, requesterID)
 	if err != nil {
-		writeError(w, r, err, "failed to add member")
+		handler.WriteError(w, r, err, "failed to add member")
 		return
 	}
 
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (h *RoomHandler) removeMember(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) removeMember(w http.ResponseWriter, r *http.Request) {
 	requesterID, ok := middleware.GetUserID(r.Context())
 	if !ok {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
@@ -232,7 +210,7 @@ func (h *RoomHandler) removeMember(w http.ResponseWriter, r *http.Request) {
 
 	_, err := h.roomClient.RemoveMember(r.Context(), roomID, userID, requesterID)
 	if err != nil {
-		writeError(w, r, err, "failed to remove member")
+		handler.WriteError(w, r, err, "failed to remove member")
 		return
 	}
 

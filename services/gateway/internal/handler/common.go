@@ -4,7 +4,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func timestampToString(ts *timestamppb.Timestamp) string {
+func TimestampToString(ts *timestamppb.Timestamp) string {
 	if ts == nil {
 		return ""
 	}
