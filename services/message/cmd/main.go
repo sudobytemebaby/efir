@@ -75,13 +75,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	roomCallTimeout, err := cfg.ParseRoomCallTimeout()
-	if err != nil {
-		slog.Error("failed to parse room call timeout", "error", err)
-		os.Exit(1)
-	}
-
-	roomClient, err := client.NewRoomClient(cfg.RoomServiceAddr, roomCallTimeout)
+	roomClient, err := client.NewRoomClient(cfg.RoomServiceAddr, cfg.RoomCallTimeout)
 	if err != nil {
 		slog.Error("failed to create room client", "error", err)
 		os.Exit(1)

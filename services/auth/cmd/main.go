@@ -91,28 +91,12 @@ func main() {
 	}
 
 	// 4. Rate limiter
-	rateLimitWindow, err := cfg.ParseRateLimitWindow()
-	if err != nil {
-		slog.Error("invalid rate limit window", "error", err)
-		os.Exit(1)
-	}
-	limiter := ratelimit.NewValkeyLimiter(valkeyClient, cfg.RateLimitRequests, rateLimitWindow)
+	limiter := ratelimit.NewValkeyLimiter(valkeyClient, cfg.RateLimitRequests, cfg.RateLimitWindow)
 
 	// 5. Initialize layers
 	accountRepo := repository.NewAccountRepository(pgPool)
 	tokenRepo := repository.NewTokenRepository(valkeyClient)
 	publisher := nats.NewPublisher(js)
-
-	accessTTL, err := cfg.ParseAccessTTL()
-	if err != nil {
-		slog.Error("invalid access ttl", "error", err)
-		os.Exit(1)
-	}
-	refreshTTL, err := cfg.ParseRefreshTTL()
-	if err != nil {
-		slog.Error("invalid refresh ttl", "error", err)
-		os.Exit(1)
-	}
 
 	authSvc := service.NewAuthService(
 		accountRepo,
@@ -120,8 +104,8 @@ func main() {
 		publisher,
 		limiter,
 		cfg.JWTSecret,
-		accessTTL,
-		refreshTTL,
+		cfg.AccessTTL,
+		cfg.RefreshTTL,
 	)
 
 	// 6. Handler
