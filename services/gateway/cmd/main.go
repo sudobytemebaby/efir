@@ -12,7 +12,11 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/sudobytemebaby/efir/services/gateway/internal/client"
 	"github.com/sudobytemebaby/efir/services/gateway/internal/config"
-	"github.com/sudobytemebaby/efir/services/gateway/internal/handler"
+	"github.com/sudobytemebaby/efir/services/gateway/internal/handler/auth"
+	"github.com/sudobytemebaby/efir/services/gateway/internal/handler/message"
+	"github.com/sudobytemebaby/efir/services/gateway/internal/handler/room"
+	"github.com/sudobytemebaby/efir/services/gateway/internal/handler/user"
+	"github.com/sudobytemebaby/efir/services/gateway/internal/handler/wsauth"
 	"github.com/sudobytemebaby/efir/services/gateway/internal/middleware"
 	"github.com/sudobytemebaby/efir/services/shared/pkg/healthcheck"
 	"github.com/sudobytemebaby/efir/services/shared/pkg/logger"
@@ -103,17 +107,17 @@ func run(ctx context.Context) error {
 
 	healthHandler := healthcheck.New()
 
-	httpHandler := handler.NewHTTPHandler(authClient)
-	userHandler := handler.NewUserHandler(userClient)
-	roomHandler := handler.NewRoomHandler(roomClient)
-	messageHandler := handler.NewMessageHandler(messageClient)
-	wsAuthHandler := handler.NewWSAuthHandler(valkeyClient, cfg.WSTicketTTL)
+	authHandler := auth.NewHandler(authClient)
+	userHandler := user.NewHandler(userClient)
+	roomHandler := room.NewHandler(roomClient)
+	messageHandler := message.NewHandler(messageClient)
+	wsAuthHandler := wsauth.NewHandler(valkeyClient, cfg.WSTicketTTL)
 
 	r := chi.NewRouter()
 
 	r.Group(func(r chi.Router) {
 		r.Use(ipRateLimiter)
-		httpHandler.Register(r)
+		authHandler.Register(r)
 	})
 
 	r.Group(func(r chi.Router) {

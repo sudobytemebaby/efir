@@ -1,4 +1,4 @@
-package handler
+package wsauth
 
 import (
 	"encoding/json"
@@ -12,28 +12,28 @@ import (
 	vk "github.com/valkey-io/valkey-go"
 )
 
-type WSAuthHandler struct {
+type Handler struct {
 	client    vk.Client
 	ticketTTL time.Duration
 }
 
-func NewWSAuthHandler(client vk.Client, ticketTTL time.Duration) *WSAuthHandler {
-	return &WSAuthHandler{
+func NewHandler(client vk.Client, ticketTTL time.Duration) *Handler {
+	return &Handler{
 		client:    client,
 		ticketTTL: ticketTTL,
 	}
 }
 
-func (h *WSAuthHandler) Register(r chi.Router) {
+func (h *Handler) Register(r chi.Router) {
 	r.Post("/auth/ws-ticket", h.CreateTicket)
 	r.Get("/auth/validate", h.ValidateTicket)
 }
 
-type CreateTicketResponse struct {
+type createTicketResponse struct {
 	Ticket string `json:"ticket"`
 }
 
-func (h *WSAuthHandler) CreateTicket(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) CreateTicket(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	userID := r.Header.Get("X-User-Id")
@@ -58,12 +58,12 @@ func (h *WSAuthHandler) CreateTicket(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(CreateTicketResponse{Ticket: ticket}); err != nil {
+	if err := json.NewEncoder(w).Encode(createTicketResponse{Ticket: ticket}); err != nil {
 		slog.ErrorContext(ctx, "failed to encode response", "error", err)
 	}
 }
 
-func (h *WSAuthHandler) ValidateTicket(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) ValidateTicket(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	ticket := r.Header.Get("X-Ws-Ticket")
