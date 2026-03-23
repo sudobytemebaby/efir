@@ -19,10 +19,19 @@ import (
 )
 
 func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	if err := run(ctx); err != nil {
+		slog.Error("service error", "error", err)
+		os.Exit(1)
+	}
+}
+
+func run(ctx context.Context) error {
 	cfg, err := config.Load()
 	if err != nil {
-		slog.Error("failed to load config", "error", err)
-		os.Exit(1)
+		return err
 	}
 
 	logLevel, err := logger.ParseLevel(cfg.LogLevel)
@@ -34,35 +43,28 @@ func main() {
 	l := logger.New(logger.Options{Level: logLevel})
 	slog.SetDefault(l)
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-
 	valkeyClient, err := vk.NewClient(vk.ClientOption{
 		InitAddress: []string{cfg.ValkeyAddr},
 		Password:    cfg.ValkeyPass,
 	})
 	if err != nil {
-		slog.Error("failed to connect to valkey", "error", err)
-		os.Exit(1)
+		return err
 	}
 	defer valkeyClient.Close()
 
 	if err := valkeyClient.Do(ctx, valkeyClient.B().Ping().Build()).Error(); err != nil {
-		slog.Error("failed to ping valkey", "error", err)
-		os.Exit(1)
+		return err
 	}
 
 	nc, err := nats.Connect(cfg.NATSURL, cfg.NATSUser, cfg.NATSPass)
 	if err != nil {
-		slog.Error("failed to connect to nats", "error", err)
-		os.Exit(1)
+		return err
 	}
 	defer nc.Close()
 
 	js, err := nats.New(nc)
 	if err != nil {
-		slog.Error("failed to create jetstream", "error", err)
-		os.Exit(1)
+		return err
 	}
 
 	wsHub := hub.NewHub()
@@ -70,8 +72,7 @@ func main() {
 
 	sub := subscriber.NewSubscriber(wsHub, js)
 	if err := sub.Start(ctx); err != nil {
-		slog.Error("failed to start subscriber", "error", err)
-		os.Exit(1)
+		return err
 	}
 
 	wsHandler := handler.NewWebSocketHandler(wsHub, cfg.GatewayURL, valkeyClient, cfg)
@@ -97,8 +98,7 @@ func main() {
 
 	select {
 	case err := <-errCh:
-		slog.Error("websocket service stopped unexpectedly", "error", err)
-		os.Exit(1)
+		return err
 	case <-ctx.Done():
 	}
 
@@ -107,10 +107,10 @@ func main() {
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		slog.Error("failed to shut down websocket service", "error", err)
-		os.Exit(1)
 	}
 
 	slog.Info("websocket service stopped gracefully")
+	return nil
 }
 
 func okHandler(w http.ResponseWriter, _ *http.Request) {

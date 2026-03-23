@@ -27,10 +27,19 @@ import (
 )
 
 func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	if err := run(ctx); err != nil {
+		slog.Error("service error", "error", err)
+		os.Exit(1)
+	}
+}
+
+func run(ctx context.Context) error {
 	cfg, err := config.Load()
 	if err != nil {
-		slog.Error("failed to load config", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("load config: %w", err)
 	}
 
 	logLevel, err := logger.ParseLevel(cfg.LogLevel)
@@ -42,37 +51,29 @@ func main() {
 	l := logger.New(logger.Options{Level: logLevel})
 	slog.SetDefault(l)
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-
 	pgPool, err := pgxpool.New(ctx, cfg.PostgresDSN)
 	if err != nil {
-		slog.Error("failed to connect to postgres", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("connect to postgres: %w", err)
 	}
 	defer pgPool.Close()
 
 	if err := pgPool.Ping(ctx); err != nil {
-		slog.Error("failed to ping postgres", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("ping postgres: %w", err)
 	}
 
 	nc, err := sharednats.Connect(cfg.NATSURL, cfg.NATSUser, cfg.NATSPass)
 	if err != nil {
-		slog.Error("failed to connect to nats", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("connect to nats: %w", err)
 	}
 	defer nc.Close()
 
 	js, err := sharednats.New(nc)
 	if err != nil {
-		slog.Error("failed to create jetstream context", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("create jetstream context: %w", err)
 	}
 
 	if err := sharednats.ProvisionStreams(ctx, js, nats.Streams()); err != nil {
-		slog.Error("failed to provision nats streams", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("provision nats streams: %w", err)
 	}
 
 	roomRepo := repository.NewRoomRepository(pgPool)
@@ -81,8 +82,7 @@ func main() {
 
 	roomHandler, err := handler.NewRoomHandler(roomSvc)
 	if err != nil {
-		slog.Error("failed to create room handler", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("create room handler: %w", err)
 	}
 
 	grpcServer := grpc.NewServer(
@@ -129,7 +129,8 @@ func main() {
 
 	select {
 	case err := <-errCh:
-		slog.Error("server error", "error", err)
+		grpcServer.GracefulStop()
+		return fmt.Errorf("server error: %w", err)
 	case <-ctx.Done():
 		slog.Info("shutting down servers")
 	}
@@ -149,4 +150,5 @@ func main() {
 	}
 
 	slog.Info("service stopped")
+	return nil
 }

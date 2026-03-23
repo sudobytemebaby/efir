@@ -28,57 +28,57 @@ import (
 )
 
 func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	if err := run(ctx); err != nil {
+		slog.Error("service error", "error", err)
+		os.Exit(1)
+	}
+}
+
+func run(ctx context.Context) error {
 	cfg, err := config.Load()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to load config: %v\n", err)
-		os.Exit(1)
+		return err
 	}
 
 	logLevel, err := logger.ParseLevel(cfg.LogLevel)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "invalid log level: %v\n", err)
-		os.Exit(1)
+		slog.Warn("invalid log level in config, falling back to info", "value", cfg.LogLevel)
+		logLevel = logger.LevelInfo
 	}
 	l := logger.New(logger.Options{Level: logLevel})
 	slog.SetDefault(l)
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-
 	pgPool, err := pgxpool.New(ctx, cfg.PostgresDSN)
 	if err != nil {
-		slog.Error("failed to connect to postgres", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("connect to postgres: %w", err)
 	}
 	defer pgPool.Close()
 
 	if err := pgPool.Ping(ctx); err != nil {
-		slog.Error("failed to ping postgres", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("ping postgres: %w", err)
 	}
 
 	nc, err := sharednats.Connect(cfg.NATSURL, cfg.NATSUser, cfg.NATSPass)
 	if err != nil {
-		slog.Error("failed to connect to nats", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("connect to nats: %w", err)
 	}
 	defer nc.Close()
 
 	js, err := sharednats.New(nc)
 	if err != nil {
-		slog.Error("failed to create jetstream", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("create jetstream: %w", err)
 	}
 
 	if err := sharednats.ProvisionStreams(ctx, js, nats.Streams()); err != nil {
-		slog.Error("failed to provision nats streams", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("provision nats streams: %w", err)
 	}
 
 	roomClient, err := client.NewRoomClient(cfg.RoomServiceAddr, cfg.RoomCallTimeout)
 	if err != nil {
-		slog.Error("failed to create room client", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("create room client: %w", err)
 	}
 	defer func() {
 		if err := roomClient.Close(); err != nil {
@@ -91,8 +91,7 @@ func main() {
 	msgSvc := service.NewMessageService(msgRepo, roomClient, publisher)
 	msgHandler, err := handler.NewMessageHandler(msgSvc)
 	if err != nil {
-		slog.Error("failed to create message handler", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("create message handler: %w", err)
 	}
 
 	grpcServer := grpc.NewServer(
@@ -122,22 +121,22 @@ func main() {
 	go func() {
 		addr := ":" + cfg.GRPCPort
 		slog.Info("starting gRPC server", "addr", addr)
-		if err := grpcServer.Serve(listener(addr)); err != nil {
+		if err := grpcServer.Serve(newListener(addr)); err != nil {
 			errCh <- fmt.Errorf("gRPC server error: %w", err)
 		}
 	}()
 
 	go func() {
 		slog.Info("starting health server", "addr", healthServer.Addr)
-		if err := healthServer.Serve(listener(healthServer.Addr)); err != nil && err != http.ErrServerClosed {
+		if err := healthServer.Serve(newListener(healthServer.Addr)); err != nil && err != http.ErrServerClosed {
 			errCh <- fmt.Errorf("health server error: %w", err)
 		}
 	}()
 
 	select {
 	case err := <-errCh:
-		slog.Error("server stopped unexpectedly", "error", err)
-		os.Exit(1)
+		grpcServer.GracefulStop()
+		return fmt.Errorf("server error: %w", err)
 	case <-ctx.Done():
 	}
 
@@ -151,9 +150,10 @@ func main() {
 	}
 
 	slog.Info("server stopped gracefully")
+	return nil
 }
 
-func listener(addr string) net.Listener {
+func newListener(addr string) net.Listener {
 	l, err := net.Listen("tcp", addr)
 	if err != nil {
 		slog.Error("failed to create listener", "addr", addr, "error", err)

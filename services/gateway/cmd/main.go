@@ -20,10 +20,19 @@ import (
 )
 
 func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	if err := run(ctx); err != nil {
+		slog.Error("service error", "error", err)
+		os.Exit(1)
+	}
+}
+
+func run(ctx context.Context) error {
 	cfg, err := config.Load()
 	if err != nil {
-		slog.Error("failed to load config", "error", err)
-		os.Exit(1)
+		return err
 	}
 
 	logLevel, err := logger.ParseLevel(cfg.LogLevel)
@@ -35,28 +44,22 @@ func main() {
 	l := logger.New(logger.Options{Level: logLevel})
 	slog.SetDefault(l)
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-
 	valkeyClient, err := vk.NewClient(vk.ClientOption{
 		InitAddress: []string{cfg.ValkeyAddr},
 		Password:    cfg.ValkeyPass,
 	})
 	if err != nil {
-		slog.Error("failed to connect to valkey", "error", err)
-		os.Exit(1)
+		return err
 	}
 	defer valkeyClient.Close()
 
 	if err := valkeyClient.Do(ctx, valkeyClient.B().Ping().Build()).Error(); err != nil {
-		slog.Error("failed to ping valkey", "error", err)
-		os.Exit(1)
+		return err
 	}
 
 	authClient, err := client.NewAuthClient(cfg.AuthServiceAddr, cfg.GRPCTimeout)
 	if err != nil {
-		slog.Error("failed to create auth client", "error", err)
-		os.Exit(1)
+		return err
 	}
 	defer func() {
 		if err := authClient.Close(); err != nil {
@@ -66,8 +69,7 @@ func main() {
 
 	userClient, err := client.NewUserClient(cfg.UserServiceAddr, cfg.GRPCTimeout)
 	if err != nil {
-		slog.Error("failed to create user client", "error", err)
-		os.Exit(1)
+		return err
 	}
 	defer func() {
 		if err := userClient.Close(); err != nil {
@@ -77,8 +79,7 @@ func main() {
 
 	roomClient, err := client.NewRoomClient(cfg.RoomServiceAddr, cfg.GRPCTimeout)
 	if err != nil {
-		slog.Error("failed to create room client", "error", err)
-		os.Exit(1)
+		return err
 	}
 	defer func() {
 		if err := roomClient.Close(); err != nil {
@@ -88,8 +89,7 @@ func main() {
 
 	messageClient, err := client.NewMessageClient(cfg.MessageServiceAddr, cfg.GRPCTimeout)
 	if err != nil {
-		slog.Error("failed to create message client", "error", err)
-		os.Exit(1)
+		return err
 	}
 	defer func() {
 		if err := messageClient.Close(); err != nil {
@@ -150,8 +150,7 @@ func main() {
 
 	select {
 	case err := <-errCh:
-		slog.Error("gateway service stopped unexpectedly", "error", err)
-		os.Exit(1)
+		return err
 	case <-ctx.Done():
 	}
 
@@ -160,8 +159,8 @@ func main() {
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		slog.Error("failed to shut down gateway service", "error", err)
-		os.Exit(1)
 	}
 
 	slog.Info("gateway service stopped gracefully")
+	return nil
 }

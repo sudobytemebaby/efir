@@ -29,10 +29,19 @@ import (
 )
 
 func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	if err := run(ctx); err != nil {
+		slog.Error("service error", "error", err)
+		os.Exit(1)
+	}
+}
+
+func run(ctx context.Context) error {
 	cfg, err := config.Load()
 	if err != nil {
-		slog.Error("failed to load config", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("load config: %w", err)
 	}
 
 	logLevel, err := logger.ParseLevel(cfg.LogLevel)
@@ -44,56 +53,42 @@ func main() {
 	l := logger.New(logger.Options{Level: logLevel})
 	slog.SetDefault(l)
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-
-	// 1. Database
 	pgPool, err := pgxpool.New(ctx, cfg.PostgresDSN)
 	if err != nil {
-		slog.Error("failed to connect to postgres", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("connect to postgres: %w", err)
 	}
 	defer pgPool.Close()
 
 	if err := pgPool.Ping(ctx); err != nil {
-		slog.Error("failed to ping postgres", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("ping postgres: %w", err)
 	}
 
-	// 2. Valkey
 	valkeyClient, err := vk.NewClient(vk.ClientOption{
 		InitAddress: []string{cfg.ValkeyAddr},
 		Password:    cfg.ValkeyPass,
 	})
 	if err != nil {
-		slog.Error("failed to connect to valkey", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("connect to valkey: %w", err)
 	}
 	defer valkeyClient.Close()
 
-	// 3. NATS
 	nc, err := sharednats.Connect(cfg.NATSURL, cfg.NATSUser, cfg.NATSPass)
 	if err != nil {
-		slog.Error("failed to connect to nats", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("connect to nats: %w", err)
 	}
 	defer nc.Close()
 
 	js, err := sharednats.New(nc)
 	if err != nil {
-		slog.Error("failed to create jetstream context", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("create jetstream context: %w", err)
 	}
 
 	if err := sharednats.ProvisionStreams(ctx, js, nats.Streams()); err != nil {
-		slog.Error("failed to provision nats streams", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("provision nats streams: %w", err)
 	}
 
-	// 4. Rate limiter
 	limiter := ratelimit.NewValkeyLimiter(valkeyClient, cfg.RateLimitRequests, cfg.RateLimitWindow)
 
-	// 5. Initialize layers
 	accountRepo := repository.NewAccountRepository(pgPool)
 	tokenRepo := repository.NewTokenRepository(valkeyClient)
 	publisher := nats.NewPublisher(js)
@@ -108,14 +103,11 @@ func main() {
 		cfg.RefreshTTL,
 	)
 
-	// 6. Handler
 	authHandler, err := handler.NewAuthHandler(authSvc)
 	if err != nil {
-		slog.Error("failed to create auth handler", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("create auth handler: %w", err)
 	}
 
-	// 7. gRPC Server
 	grpcServer := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
 			middleware.RecoveryInterceptor(l),
@@ -127,7 +119,6 @@ func main() {
 		reflection.Register(grpcServer)
 	}
 
-	// 8. Healthcheck Server
 	healthHandler := healthcheck.New()
 	healthHandler.SetReady(true)
 	healthMux := http.NewServeMux()
@@ -138,7 +129,6 @@ func main() {
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
-	// 9. Start servers
 	errCh := make(chan error, 2)
 
 	go func() {
@@ -160,10 +150,10 @@ func main() {
 		}
 	}()
 
-	// 10. Wait for shutdown
 	select {
 	case err := <-errCh:
-		slog.Error("server error", "error", err)
+		grpcServer.GracefulStop()
+		return fmt.Errorf("server error: %w", err)
 	case <-ctx.Done():
 		slog.Info("shutting down servers")
 	}
@@ -183,4 +173,5 @@ func main() {
 	}
 
 	slog.Info("service stopped")
+	return nil
 }
