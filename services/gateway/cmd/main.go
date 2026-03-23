@@ -53,19 +53,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	grpcTimeout, err := cfg.ParseGRPCTimeout()
-	if err != nil {
-		slog.Error("failed to parse grpc timeout", "error", err)
-		os.Exit(1)
-	}
-
-	rateLimitWindow, err := cfg.ParseRateLimitWindow()
-	if err != nil {
-		slog.Error("failed to parse rate limit window", "error", err)
-		os.Exit(1)
-	}
-
-	authClient, err := client.NewAuthClient(cfg.AuthServiceAddr, grpcTimeout)
+	authClient, err := client.NewAuthClient(cfg.AuthServiceAddr, cfg.GRPCTimeout)
 	if err != nil {
 		slog.Error("failed to create auth client", "error", err)
 		os.Exit(1)
@@ -76,7 +64,7 @@ func main() {
 		}
 	}()
 
-	userClient, err := client.NewUserClient(cfg.UserServiceAddr, grpcTimeout)
+	userClient, err := client.NewUserClient(cfg.UserServiceAddr, cfg.GRPCTimeout)
 	if err != nil {
 		slog.Error("failed to create user client", "error", err)
 		os.Exit(1)
@@ -87,7 +75,7 @@ func main() {
 		}
 	}()
 
-	roomClient, err := client.NewRoomClient(cfg.RoomServiceAddr, grpcTimeout)
+	roomClient, err := client.NewRoomClient(cfg.RoomServiceAddr, cfg.GRPCTimeout)
 	if err != nil {
 		slog.Error("failed to create room client", "error", err)
 		os.Exit(1)
@@ -98,7 +86,7 @@ func main() {
 		}
 	}()
 
-	messageClient, err := client.NewMessageClient(cfg.MessageServiceAddr, grpcTimeout)
+	messageClient, err := client.NewMessageClient(cfg.MessageServiceAddr, cfg.GRPCTimeout)
 	if err != nil {
 		slog.Error("failed to create message client", "error", err)
 		os.Exit(1)
@@ -109,15 +97,9 @@ func main() {
 		}
 	}()
 
-	ticketTTL, err := cfg.ParseWSTicketTTL()
-	if err != nil {
-		slog.Error("failed to parse ticket TTL", "error", err)
-		os.Exit(1)
-	}
-
 	jwtMiddleware := middleware.JWTAuth(cfg.JWTSecret)
-	ipRateLimiter := middleware.IPRateLimiter(valkeyClient, cfg.RateLimitRequests, rateLimitWindow)
-	userRateLimiter := middleware.UserRateLimiter(valkeyClient, cfg.RateLimitRequests, rateLimitWindow)
+	ipRateLimiter := middleware.IPRateLimiter(valkeyClient, cfg.RateLimitRequests, cfg.RateLimitWindow)
+	userRateLimiter := middleware.UserRateLimiter(valkeyClient, cfg.RateLimitRequests, cfg.RateLimitWindow)
 
 	healthHandler := healthcheck.New()
 
@@ -125,7 +107,7 @@ func main() {
 	userHandler := handler.NewUserHandler(userClient)
 	roomHandler := handler.NewRoomHandler(roomClient)
 	messageHandler := handler.NewMessageHandler(messageClient)
-	wsAuthHandler := handler.NewWSAuthHandler(valkeyClient, ticketTTL)
+	wsAuthHandler := handler.NewWSAuthHandler(valkeyClient, cfg.WSTicketTTL)
 
 	r := chi.NewRouter()
 
