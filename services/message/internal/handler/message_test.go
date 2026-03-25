@@ -201,7 +201,7 @@ func TestMapMessageToProto_DeletedMessage(t *testing.T) {
 		UpdatedAt: now,
 	}
 
-	result := mapMessageToProto(msg)
+	result := messageToProto(msg)
 	assert.True(t, result.IsDeleted)
 }
 
@@ -226,7 +226,7 @@ func TestMapMessageToProto_WithReplyTo(t *testing.T) {
 		UpdatedAt: now,
 	}
 
-	result := mapMessageToProto(msg)
+	result := messageToProto(msg)
 	assert.NotNil(t, result.ReplyTo)
 	assert.Equal(t, replyToID.String(), result.ReplyTo.MessageId)
 	assert.NotNil(t, result.ReplyTo.TextPreview)
@@ -243,7 +243,7 @@ func TestMapPreviewToProto(t *testing.T) {
 		MimeType:    strPtr("application/pdf"),
 	}
 
-	result := mapPreviewToProto(preview)
+	result := previewToProto(preview)
 	assert.Equal(t, preview.MessageID.String(), result.MessageId)
 	assert.Equal(t, preview.SenderID.String(), result.SenderId)
 	assert.NotNil(t, result.TextPreview)

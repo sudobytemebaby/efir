@@ -10,7 +10,6 @@ import (
 	roomv1 "github.com/sudobytemebaby/efir/services/shared/gen/room"
 	sharederrors "github.com/sudobytemebaby/efir/services/shared/pkg/errors"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type roomHandler struct {
@@ -52,13 +51,8 @@ func (h *roomHandler) CreateRoom(ctx context.Context, req *roomv1.CreateRoomRequ
 		}
 	}
 
-	var roomType service.RoomType
-	switch req.Type {
-	case roomv1.RoomType_ROOM_TYPE_DIRECT:
-		roomType = service.RoomTypeDirect
-	case roomv1.RoomType_ROOM_TYPE_GROUP:
-		roomType = service.RoomTypeGroup
-	default:
+	roomType, ok := protoToRoomType(req.Type)
+	if !ok {
 		return nil, sharederrors.CodeInvalidArgument.Error("invalid room type")
 	}
 
@@ -71,7 +65,7 @@ func (h *roomHandler) CreateRoom(ctx context.Context, req *roomv1.CreateRoomRequ
 	}
 
 	return &roomv1.CreateRoomResponse{
-		Room: mapRoomToProto(room),
+		Room: roomToProto(room),
 	}, nil
 }
 
@@ -94,7 +88,7 @@ func (h *roomHandler) GetRoom(ctx context.Context, req *roomv1.GetRoomRequest) (
 	}
 
 	return &roomv1.GetRoomResponse{
-		Room: mapRoomToProto(room),
+		Room: roomToProto(room),
 	}, nil
 }
 
@@ -129,7 +123,7 @@ func (h *roomHandler) UpdateRoom(ctx context.Context, req *roomv1.UpdateRoomRequ
 	}
 
 	return &roomv1.UpdateRoomResponse{
-		Room: mapRoomToProto(room),
+		Room: roomToProto(room),
 	}, nil
 }
 
@@ -287,26 +281,4 @@ func (h *roomHandler) IsMember(ctx context.Context, req *roomv1.IsMemberRequest)
 	return &roomv1.IsMemberResponse{
 		IsMember: isMember,
 	}, nil
-}
-
-func mapRoomToProto(room *service.Room) *roomv1.Room {
-	return &roomv1.Room{
-		RoomId:    room.ID.String(),
-		Name:      room.Name,
-		Type:      mapRoomTypeToProto(room.Type),
-		CreatedBy: room.CreatedBy.String(),
-		CreatedAt: timestamppb.New(room.CreatedAt),
-		UpdatedAt: timestamppb.New(room.UpdatedAt),
-	}
-}
-
-func mapRoomTypeToProto(t service.RoomType) roomv1.RoomType {
-	switch t {
-	case service.RoomTypeDirect:
-		return roomv1.RoomType_ROOM_TYPE_DIRECT
-	case service.RoomTypeGroup:
-		return roomv1.RoomType_ROOM_TYPE_GROUP
-	default:
-		return roomv1.RoomType_ROOM_TYPE_UNSPECIFIED
-	}
 }

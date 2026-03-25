@@ -48,11 +48,7 @@ func (h *authHandler) Register(ctx context.Context, req *authv1.RegisterRequest)
 		return nil, sharederrors.CodeInternal.Wrap(err)
 	}
 
-	return &authv1.RegisterResponse{
-		UserId:       acc.ID.String(),
-		AccessToken:  tokens.AccessToken,
-		RefreshToken: tokens.RefreshToken,
-	}, nil
+	return registerResponseToProto(acc, tokens), nil
 }
 
 func (h *authHandler) Login(ctx context.Context, req *authv1.LoginRequest) (*authv1.LoginResponse, error) {
@@ -71,11 +67,7 @@ func (h *authHandler) Login(ctx context.Context, req *authv1.LoginRequest) (*aut
 		return nil, sharederrors.CodeInternal.Wrap(err)
 	}
 
-	return &authv1.LoginResponse{
-		UserId:       acc.ID.String(),
-		AccessToken:  tokens.AccessToken,
-		RefreshToken: tokens.RefreshToken,
-	}, nil
+	return loginResponseToProto(acc, tokens), nil
 }
 
 func (h *authHandler) Logout(ctx context.Context, req *authv1.LogoutRequest) (*authv1.LogoutResponse, error) {

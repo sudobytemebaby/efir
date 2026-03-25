@@ -3,7 +3,6 @@ package handler
 import (
 	"context"
 	stderrors "errors"
-	"time"
 
 	"buf.build/go/protovalidate"
 	"github.com/google/uuid"
@@ -11,7 +10,6 @@ import (
 	messagev1 "github.com/sudobytemebaby/efir/services/shared/gen/message"
 	sharederrors "github.com/sudobytemebaby/efir/services/shared/pkg/errors"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type messageHandler struct {
@@ -74,8 +72,8 @@ func (h *messageHandler) SendMessage(ctx context.Context, req *messagev1.SendMes
 		content = service.TextContent{Text: c.Text.Text}
 	case *messagev1.SendMessageRequest_Media:
 		media := c.Media
-		msgType = mapProtoTypeToMessageType(req.Type)
-		if msgType == "" || (msgType != service.MessageTypeImage && msgType != service.MessageTypeVideo) {
+		msgType, ok := protoToMessageType(req.Type)
+		if !ok || (msgType != service.MessageTypeImage && msgType != service.MessageTypeVideo) {
 			return nil, sharederrors.CodeInvalidArgument.Error("type must be IMAGE or VIDEO for media content")
 		}
 		cc := service.MediaContent{
@@ -199,7 +197,7 @@ func (h *messageHandler) SendMessage(ctx context.Context, req *messagev1.SendMes
 	}
 
 	return &messagev1.SendMessageResponse{
-		Message: mapMessageToProto(msg),
+		Message: messageToProto(msg),
 	}, nil
 }
 
@@ -237,7 +235,7 @@ func (h *messageHandler) GetMessages(ctx context.Context, req *messagev1.GetMess
 
 	protoMessages := make([]*messagev1.Message, len(messages))
 	for i, msg := range messages {
-		protoMessages[i] = mapMessageToProto(msg)
+		protoMessages[i] = messageToProto(msg)
 	}
 
 	var nextCursorStr *string
@@ -279,7 +277,7 @@ func (h *messageHandler) GetMessageById(ctx context.Context, req *messagev1.GetM
 	}
 
 	return &messagev1.GetMessageByIdResponse{
-		Message: mapMessageToProto(msg),
+		Message: messageToProto(msg),
 	}, nil
 }
 
@@ -310,173 +308,4 @@ func (h *messageHandler) DeleteMessage(ctx context.Context, req *messagev1.Delet
 	}
 
 	return &messagev1.DeleteMessageResponse{}, nil
-}
-
-func mapMessageToProto(msg *service.Message) *messagev1.Message {
-	result := &messagev1.Message{
-		MessageId: msg.ID.String(),
-		RoomId:    msg.RoomID.String(),
-		SenderId:  msg.SenderID.String(),
-		Type:      mapMessageTypeToProto(msg.Type),
-		IsDeleted: msg.DeletedAt != nil,
-		CreatedAt: timestampProto(msg.CreatedAt),
-		UpdatedAt: timestampProto(msg.UpdatedAt),
-	}
-
-	if msg.EditedAt != nil {
-		result.EditedAt = timestampProto(*msg.EditedAt)
-	}
-
-	if msg.ReplyTo != nil {
-		result.ReplyTo = mapPreviewToProto(msg.ReplyTo)
-	}
-
-	if msg.DeletedAt != nil {
-		return result
-	}
-
-	switch c := msg.Content.(type) {
-	case service.TextContent:
-		result.Content = &messagev1.Message_Text{
-			Text: &messagev1.TextContent{Text: c.Text},
-		}
-	case service.MediaContent:
-		media := &messagev1.MediaContent{
-			FileId:   c.FileID,
-			MimeType: c.MimeType,
-			FileSize: c.FileSize,
-			Width:    c.Width,
-			Height:   c.Height,
-		}
-		if c.ThumbnailID != nil {
-			media.ThumbnailId = c.ThumbnailID
-		}
-		if c.DurationSec != nil {
-			media.DurationSec = c.DurationSec
-		}
-		result.Content = &messagev1.Message_Media{Media: media}
-	case service.FileContent:
-		file := &messagev1.FileContent{
-			FileId:   c.FileID,
-			MimeType: c.MimeType,
-			FileSize: c.FileSize,
-			FileName: c.FileName,
-		}
-		if c.DurationSec != nil {
-			file.DurationSec = c.DurationSec
-		}
-		result.Content = &messagev1.Message_File{File: file}
-	case service.VoiceContent:
-		voice := &messagev1.VoiceContent{
-			FileId:      c.FileID,
-			MimeType:    c.MimeType,
-			FileSize:    c.FileSize,
-			DurationSec: c.DurationSec,
-		}
-		if c.Waveform != nil {
-			voice.Waveform = c.Waveform
-		}
-		result.Content = &messagev1.Message_Voice{Voice: voice}
-	case service.VideoNoteContent:
-		vn := &messagev1.VideoNoteContent{
-			FileId:      c.FileID,
-			MimeType:    c.MimeType,
-			FileSize:    c.FileSize,
-			DurationSec: c.DurationSec,
-			Width:       c.Width,
-			Height:      c.Height,
-		}
-		if c.ThumbnailID != nil {
-			vn.ThumbnailId = c.ThumbnailID
-		}
-		result.Content = &messagev1.Message_VideoNote{VideoNote: vn}
-	case service.StickerContent:
-		sticker := &messagev1.StickerContent{
-			FileId:   c.FileID,
-			MimeType: c.MimeType,
-		}
-		if c.Emoji != nil {
-			sticker.Emoji = c.Emoji
-		}
-		if c.SetName != nil {
-			sticker.SetName = c.SetName
-		}
-		result.Content = &messagev1.Message_Sticker{Sticker: sticker}
-	case service.EventContent:
-		result.Content = &messagev1.Message_Event{
-			Event: &messagev1.EventContent{Text: c.Text},
-		}
-	}
-
-	return result
-}
-
-func mapPreviewToProto(preview *service.MessagePreview) *messagev1.MessagePreview {
-	result := &messagev1.MessagePreview{
-		MessageId: preview.MessageID.String(),
-		SenderId:  preview.SenderID.String(),
-		Type:      mapMessageTypeToProto(preview.Type),
-	}
-
-	if preview.TextPreview != nil {
-		result.TextPreview = preview.TextPreview
-	}
-	if preview.FileName != nil {
-		result.FileName = preview.FileName
-	}
-	if preview.MimeType != nil {
-		result.MimeType = preview.MimeType
-	}
-
-	return result
-}
-
-func mapMessageTypeToProto(t service.MessageType) messagev1.MessageType {
-	switch t {
-	case service.MessageTypeText:
-		return messagev1.MessageType_MESSAGE_TYPE_TEXT
-	case service.MessageTypeImage:
-		return messagev1.MessageType_MESSAGE_TYPE_IMAGE
-	case service.MessageTypeVideo:
-		return messagev1.MessageType_MESSAGE_TYPE_VIDEO
-	case service.MessageTypeVideoNote:
-		return messagev1.MessageType_MESSAGE_TYPE_VIDEO_NOTE
-	case service.MessageTypeVoice:
-		return messagev1.MessageType_MESSAGE_TYPE_VOICE
-	case service.MessageTypeAudio:
-		return messagev1.MessageType_MESSAGE_TYPE_AUDIO
-	case service.MessageTypeFile:
-		return messagev1.MessageType_MESSAGE_TYPE_FILE
-	case service.MessageTypeSticker:
-		return messagev1.MessageType_MESSAGE_TYPE_STICKER
-	default:
-		return messagev1.MessageType_MESSAGE_TYPE_UNSPECIFIED
-	}
-}
-
-func mapProtoTypeToMessageType(t messagev1.MessageType) service.MessageType {
-	switch t {
-	case messagev1.MessageType_MESSAGE_TYPE_TEXT:
-		return service.MessageTypeText
-	case messagev1.MessageType_MESSAGE_TYPE_IMAGE:
-		return service.MessageTypeImage
-	case messagev1.MessageType_MESSAGE_TYPE_VIDEO:
-		return service.MessageTypeVideo
-	case messagev1.MessageType_MESSAGE_TYPE_VIDEO_NOTE:
-		return service.MessageTypeVideoNote
-	case messagev1.MessageType_MESSAGE_TYPE_VOICE:
-		return service.MessageTypeVoice
-	case messagev1.MessageType_MESSAGE_TYPE_AUDIO:
-		return service.MessageTypeAudio
-	case messagev1.MessageType_MESSAGE_TYPE_FILE:
-		return service.MessageTypeFile
-	case messagev1.MessageType_MESSAGE_TYPE_STICKER:
-		return service.MessageTypeSticker
-	default:
-		return service.MessageType("")
-	}
-}
-
-func timestampProto(t time.Time) *timestamppb.Timestamp {
-	return timestamppb.New(t)
 }
