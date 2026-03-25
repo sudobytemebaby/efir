@@ -449,8 +449,6 @@ func mapMessageTypeToProto(t service.MessageType) messagev1.MessageType {
 		return messagev1.MessageType_MESSAGE_TYPE_FILE
 	case service.MessageTypeSticker:
 		return messagev1.MessageType_MESSAGE_TYPE_STICKER
-	case service.MessageTypeEvent:
-		return messagev1.MessageType_MESSAGE_TYPE_EVENT
 	default:
 		return messagev1.MessageType_MESSAGE_TYPE_UNSPECIFIED
 	}
@@ -474,8 +472,6 @@ func mapProtoTypeToMessageType(t messagev1.MessageType) service.MessageType {
 		return service.MessageTypeFile
 	case messagev1.MessageType_MESSAGE_TYPE_STICKER:
 		return service.MessageTypeSticker
-	case messagev1.MessageType_MESSAGE_TYPE_EVENT:
-		return service.MessageTypeEvent
 	default:
 		return service.MessageType("")
 	}

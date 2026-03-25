@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -67,7 +68,7 @@ func (c *RoomClient) GetRoomMembers(ctx context.Context, roomID uuid.UUID) ([]uu
 		for _, idStr := range resp.UserIds {
 			id, err := uuid.Parse(idStr)
 			if err != nil {
-				continue
+				return nil, fmt.Errorf("parse user ID %q: %w", idStr, err)
 			}
 			result = append(result, id)
 		}

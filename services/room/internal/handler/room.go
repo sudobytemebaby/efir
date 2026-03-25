@@ -59,7 +59,7 @@ func (h *roomHandler) CreateRoom(ctx context.Context, req *roomv1.CreateRoomRequ
 	case roomv1.RoomType_ROOM_TYPE_GROUP:
 		roomType = service.RoomTypeGroup
 	default:
-		roomType = service.RoomTypeGroup
+		return nil, sharederrors.CodeInvalidArgument.Error("invalid room type")
 	}
 
 	room, err := h.svc.CreateRoom(ctx, req.Name, roomType, createdBy, participantID)
@@ -251,7 +251,7 @@ func (h *roomHandler) GetRoomMembers(ctx context.Context, req *roomv1.GetRoomMem
 		return nil, sharederrors.CodeInternal.Wrap(err)
 	}
 
-	var userIDs []string
+	userIDs := make([]string, 0, len(members))
 	for _, m := range members {
 		userIDs = append(userIDs, m.UserID.String())
 	}

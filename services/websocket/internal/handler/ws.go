@@ -38,6 +38,10 @@ func (h *WebSocketHandler) HandleWS(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "missing ticket", http.StatusUnauthorized)
 		return
 	}
+	if len(ticket) > 256 {
+		http.Error(w, "ticket too long", http.StatusBadRequest)
+		return
+	}
 
 	userID, err := h.validateTicket(r.Context(), ticket)
 	if err != nil {
@@ -56,6 +60,10 @@ func (h *WebSocketHandler) HandleWS(w http.ResponseWriter, r *http.Request) {
 	initialRoomID := r.URL.Query().Get("room_id")
 
 	if initialRoomID != "" {
+		if _, err := uuid.Parse(initialRoomID); err != nil {
+			http.Error(w, "invalid room_id format", http.StatusBadRequest)
+			return
+		}
 		h.hub.Register(wsConn, userID, initialRoomID)
 	}
 

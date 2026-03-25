@@ -41,9 +41,6 @@ func (s *userService) CreateUser(ctx context.Context, userID uuid.UUID, email st
 			}
 			return toUser(existing), nil
 		}
-		if errors.Is(err, repository.ErrUserNotFound) {
-			return nil, ErrUserNotFound
-		}
 		return nil, fmt.Errorf("create user: %w", err)
 	}
 
