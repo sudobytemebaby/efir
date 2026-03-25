@@ -17,8 +17,8 @@ original epic plan.
 ### 1. JWT Validation — Local Only
 
 The Gateway validates JWT access tokens locally by verifying the signature
-against `JWT_SECRET`. No gRPC call to the Auth Service (`ValidateToken`) is
-made per request.
+against `JWT_SECRET`. No gRPC call to the Auth Service is made per request.
+The `ValidateToken` RPC has been removed from the Auth Service proto.
 
 **Rationale:** There is no token blacklist in the current implementation.
 Refresh tokens are invalidated in Valkey on logout, but access tokens are
@@ -152,12 +152,13 @@ userId limiters.
 - All downstream gRPC calls include explicit identity fields — no shared
   metadata injection
 - Rate limiter tests are tracked as a follow-up item for Module 2
+- The `ValidateToken` RPC has been removed from the Auth Service — no dead
+  code remains
 
 ## Follow-up
 
-- `TODO(blacklist)`: Introduce access token blacklist in Auth Service and update
-  Gateway JWT middleware to call `ValidateToken` gRPC for revocation checks.
-  Track as a Module 2 task.
+- `TODO(blacklist)`: Introduce access token blacklist in Auth Service to enable
+  token revocation before expiry. Track as a Module 2 task.
 - `TODO(ratelimit-shared)`: Extract rate limiter to `services/shared/pkg/ratelimit`
   with a generic interface when a third service requires rate limiting.
 - `TODO(ratelimit-tests)`: Add Testcontainers-based integration tests for the

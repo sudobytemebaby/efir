@@ -33,7 +33,6 @@ type AuthService interface {
 	Login(ctx context.Context, email, password string) (*repository.Account, *TokenPair, error)
 	Logout(ctx context.Context, refreshToken string) error
 	RefreshToken(ctx context.Context, refreshToken string) (*TokenPair, error)
-	ValidateToken(ctx context.Context, accessToken string) (uuid.UUID, error)
 }
 
 //go:generate mockery --name Publisher
@@ -183,37 +182,6 @@ func (s *authService) RefreshToken(ctx context.Context, refreshToken string) (*T
 	}
 
 	return tokenPair, nil
-}
-
-func (s *authService) ValidateToken(ctx context.Context, accessToken string) (uuid.UUID, error) {
-	token, err := jwt.Parse(accessToken, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
-		return s.jwtSecret, nil
-	})
-	if err != nil {
-		if errors.Is(err, jwt.ErrTokenExpired) {
-			return uuid.Nil, ErrExpiredToken
-		}
-		return uuid.Nil, ErrInvalidToken
-	}
-
-	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-		sub, ok := claims["sub"].(string)
-		if !ok {
-			return uuid.Nil, ErrInvalidToken
-		}
-
-		userID, err := uuid.Parse(sub)
-		if err != nil {
-			return uuid.Nil, ErrInvalidToken
-		}
-
-		return userID, nil
-	}
-
-	return uuid.Nil, ErrInvalidToken
 }
 
 func (s *authService) generateTokenPair(ctx context.Context, userID uuid.UUID) (*TokenPair, error) {
