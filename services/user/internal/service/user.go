@@ -86,9 +86,9 @@ func (s *userService) UpdateUser(ctx context.Context, userID uuid.UUID, displayN
 }
 
 func generateUsernameFromEmail(email string) string {
-	parts := strings.Split(email, "@")
-	if len(parts) > 0 {
-		return strings.ToLower(parts[0])
+	username := strings.ToLower(strings.SplitN(email, "@", 2)[0])
+	if username == "" {
+		return "user-" + uuid.New().String()[:8]
 	}
-	return strings.ToLower(email)
+	return username
 }

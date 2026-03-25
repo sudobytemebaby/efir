@@ -218,7 +218,6 @@ func (s *roomService) AddMember(ctx context.Context, roomID, userID, requesterID
 	return nil
 }
 
-// TODO: Add support for members to leave rooms themselves (not just owner removing them).
 func (s *roomService) RemoveMember(ctx context.Context, roomID, userID, requesterID uuid.UUID) error {
 	_, err := s.roomRepo.GetRoomByID(ctx, roomID)
 	if err != nil {
@@ -228,28 +227,36 @@ func (s *roomService) RemoveMember(ctx context.Context, roomID, userID, requeste
 		return fmt.Errorf("get room: %w", err)
 	}
 
-	role, err := s.roomRepo.GetMemberRole(ctx, roomID, requesterID)
+	requesterRole, err := s.roomRepo.GetMemberRole(ctx, roomID, requesterID)
 	if err != nil {
 		if errors.Is(err, repository.ErrMemberNotFound) {
 			return ErrNotMember
 		}
-		return fmt.Errorf("get member role: %w", err)
+		return fmt.Errorf("get requester role: %w", err)
 	}
 
-	if role != repository.MemberRoleOwner {
+	isSelfRemoval := userID == requesterID
+
+	if !isSelfRemoval && requesterRole != repository.MemberRoleOwner {
 		return ErrNotOwner
 	}
 
-	targetRole, err := s.roomRepo.GetMemberRole(ctx, roomID, userID)
-	if err != nil {
-		if errors.Is(err, repository.ErrMemberNotFound) {
-			return ErrMemberNotFound
-		}
-		return fmt.Errorf("get target member role: %w", err)
+	if isSelfRemoval && requesterRole == repository.MemberRoleOwner {
+		return ErrCannotRemoveOwner
 	}
 
-	if targetRole == repository.MemberRoleOwner {
-		return ErrCannotRemoveOwner
+	if !isSelfRemoval {
+		targetRole, err := s.roomRepo.GetMemberRole(ctx, roomID, userID)
+		if err != nil {
+			if errors.Is(err, repository.ErrMemberNotFound) {
+				return ErrMemberNotFound
+			}
+			return fmt.Errorf("get target member role: %w", err)
+		}
+
+		if targetRole == repository.MemberRoleOwner {
+			return ErrCannotRemoveOwner
+		}
 	}
 
 	if err := s.roomRepo.RemoveMember(ctx, roomID, userID); err != nil {

@@ -122,7 +122,7 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("create grpc listener: %w", err)
 	}
-	healthLis, err := net.Listen("tcp", "127.0.0.1:8080")
+	healthLis, err := net.Listen("tcp", cfg.HealthListenAddr)
 	if err != nil {
 		return fmt.Errorf("create health listener: %w", err)
 	}

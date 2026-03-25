@@ -227,6 +227,9 @@ func (h *roomHandler) RemoveMember(ctx context.Context, req *roomv1.RemoveMember
 		if errors.Is(err, service.ErrMemberNotFound) {
 			return nil, sharederrors.CodeNotFound.Error("member not found")
 		}
+		if errors.Is(err, service.ErrCannotRemoveOwner) {
+			return nil, sharederrors.CodePermissionDenied.Error("owner cannot remove themselves from the room")
+		}
 		return nil, sharederrors.CodeInternal.Wrap(err)
 	}
 

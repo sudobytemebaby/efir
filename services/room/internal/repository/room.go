@@ -13,7 +13,6 @@ import (
 
 var (
 	ErrRoomNotFound        = errors.New("room not found")
-	ErrRoomAlreadyExists   = errors.New("room already exists")
 	ErrMemberNotFound      = errors.New("member not found")
 	ErrMemberAlreadyExists = errors.New("member already exists")
 	ErrDirectRoomExists    = errors.New("direct room already exists between these users")

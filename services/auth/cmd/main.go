@@ -135,7 +135,7 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("grpc listen: %w", err)
 	}
-	healthLis, err := net.Listen("tcp", "127.0.0.1:8080")
+	healthLis, err := net.Listen("tcp", cfg.HealthListenAddr)
 	if err != nil {
 		return fmt.Errorf("health listen: %w", err)
 	}

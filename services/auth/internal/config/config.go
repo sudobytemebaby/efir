@@ -11,6 +11,7 @@ type Config struct {
 	Env               Environment   `env:"ENV"                  env-default:"development"`
 	LogLevel          string        `env:"LOG_LEVEL"            env-default:"info"`
 	GRPCPort          string        `env:"GRPC_PORT"            env-default:"50051"`
+	HealthListenAddr  string        `env:"HEALTH_LISTEN_ADDR"    env-default:"127.0.0.1:8080"`
 	PostgresDSN       string        `env:"POSTGRES_DSN"         env-required:"true"`
 	ValkeyAddr        string        `env:"VALKEY_ADDR"          env-default:"valkey:6379"`
 	ValkeyPass        string        `env:"VALKEY_PASSWORD"`

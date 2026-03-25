@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/sudobytemebaby/efir/services/auth/internal/handler"
-	"github.com/sudobytemebaby/efir/services/auth/internal/repository"
 	"github.com/sudobytemebaby/efir/services/auth/internal/service"
 	svcmocks "github.com/sudobytemebaby/efir/services/auth/internal/service/mocks"
 	authv1 "github.com/sudobytemebaby/efir/services/shared/gen/auth"
@@ -33,7 +32,7 @@ func TestRegister_Success(t *testing.T) {
 	userID := uuid.New()
 
 	svc.On("Register", ctx, "user@example.com", "password123").
-		Return(&repository.Account{ID: userID, Email: "user@example.com"}, &service.TokenPair{
+		Return(&service.Account{ID: userID, Email: "user@example.com"}, &service.TokenPair{
 			AccessToken:  "access",
 			RefreshToken: "refresh",
 		}, nil).Once()
@@ -113,7 +112,7 @@ func TestLogin_Success(t *testing.T) {
 	userID := uuid.New()
 
 	svc.On("Login", ctx, "user@example.com", "password123").
-		Return(&repository.Account{ID: userID}, &service.TokenPair{
+		Return(&service.Account{ID: userID}, &service.TokenPair{
 			AccessToken:  "access",
 			RefreshToken: "refresh",
 		}, nil).Once()

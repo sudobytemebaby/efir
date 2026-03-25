@@ -509,6 +509,68 @@ func TestRemoveMember(t *testing.T) {
 		require.ErrorIs(t, err, ErrMemberNotFound)
 		mockRepo.AssertExpectations(t)
 	})
+
+	t.Run("member can remove themselves", func(t *testing.T) {
+		mockRepo := repomocks.NewRoomRepository(t)
+		pub := &mockPublisher{}
+		svc := NewRoomService(mockRepo, pub)
+
+		ctx := context.Background()
+		roomID := uuid.New()
+		userID := uuid.New()
+
+		room := &repository.Room{
+			ID:        roomID,
+			Name:      "Test Room",
+			Type:      repository.RoomTypeGroup,
+			CreatedBy: uuid.New(),
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		}
+
+		members := []repository.RoomMember{
+			{RoomID: roomID, UserID: uuid.New(), Role: repository.MemberRoleOwner, JoinedAt: time.Now()},
+		}
+
+		mockRepo.On("GetRoomByID", ctx, roomID).Return(room, nil).Once()
+		mockRepo.On("GetMemberRole", ctx, roomID, userID).Return(repository.MemberRoleMember, nil).Once()
+		mockRepo.On("RemoveMember", ctx, roomID, userID).Return(nil).Once()
+		mockRepo.On("GetRoomMembers", ctx, roomID).Return(members, nil).Once()
+		pub.On("PublishMembershipChanged", ctx, roomID, userID, "removed", mock.Anything).Return(nil).Once()
+
+		err := svc.RemoveMember(ctx, roomID, userID, userID)
+
+		require.NoError(t, err)
+		mockRepo.AssertExpectations(t)
+		pub.AssertExpectations(t)
+	})
+
+	t.Run("owner cannot remove themselves", func(t *testing.T) {
+		mockRepo := repomocks.NewRoomRepository(t)
+		pub := &mockPublisher{}
+		svc := NewRoomService(mockRepo, pub)
+
+		ctx := context.Background()
+		roomID := uuid.New()
+		ownerID := uuid.New()
+
+		room := &repository.Room{
+			ID:        roomID,
+			Name:      "Test Room",
+			Type:      repository.RoomTypeGroup,
+			CreatedBy: ownerID,
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		}
+
+		mockRepo.On("GetRoomByID", ctx, roomID).Return(room, nil).Once()
+		mockRepo.On("GetMemberRole", ctx, roomID, ownerID).Return(repository.MemberRoleOwner, nil).Once()
+
+		err := svc.RemoveMember(ctx, roomID, ownerID, ownerID)
+
+		require.ErrorIs(t, err, ErrCannotRemoveOwner)
+		mockRepo.AssertExpectations(t)
+	})
 }
 
 func TestGetRoomMembers(t *testing.T) {
