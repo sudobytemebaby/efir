@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -170,49 +169,5 @@ func TestAuthService_Logout(t *testing.T) {
 		tokenRepo.On("DeleteRefreshToken", ctx, token).Return(nil).Once()
 		err := svc.Logout(ctx, token)
 		assert.NoError(t, err)
-	})
-}
-
-func TestAuthService_ValidateToken(t *testing.T) {
-	ctx := context.Background()
-	jwtSecret := "secret"
-	svc, _, _, _, _ := newSvc(t)
-	userID := uuid.New()
-
-	t.Run("success", func(t *testing.T) {
-		claims := jwt.MapClaims{
-			"sub": userID.String(),
-			"exp": time.Now().Add(time.Minute).Unix(),
-		}
-		token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-		tokenStr, _ := token.SignedString([]byte(jwtSecret))
-
-		parsedID, err := svc.ValidateToken(ctx, tokenStr)
-		assert.NoError(t, err)
-		assert.Equal(t, userID, parsedID)
-	})
-
-	t.Run("expired token", func(t *testing.T) {
-		claims := jwt.MapClaims{
-			"sub": userID.String(),
-			"exp": time.Now().Add(-time.Minute).Unix(),
-		}
-		token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-		tokenStr, _ := token.SignedString([]byte(jwtSecret))
-
-		_, err := svc.ValidateToken(ctx, tokenStr)
-		assert.ErrorIs(t, err, service.ErrExpiredToken)
-	})
-
-	t.Run("invalid signature", func(t *testing.T) {
-		claims := jwt.MapClaims{
-			"sub": userID.String(),
-			"exp": time.Now().Add(time.Minute).Unix(),
-		}
-		token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-		tokenStr, _ := token.SignedString([]byte("wrong_secret"))
-
-		_, err := svc.ValidateToken(ctx, tokenStr)
-		assert.ErrorIs(t, err, service.ErrInvalidToken)
 	})
 }

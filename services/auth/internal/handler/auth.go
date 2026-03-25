@@ -108,21 +108,3 @@ func (h *authHandler) RefreshToken(ctx context.Context, req *authv1.RefreshToken
 		RefreshToken: tokens.RefreshToken,
 	}, nil
 }
-
-func (h *authHandler) ValidateToken(ctx context.Context, req *authv1.ValidateTokenRequest) (*authv1.ValidateTokenResponse, error) {
-	if err := h.validate(req); err != nil {
-		return nil, err
-	}
-
-	userID, err := h.svc.ValidateToken(ctx, req.AccessToken)
-	if err != nil {
-		if errors.Is(err, service.ErrInvalidToken) || errors.Is(err, service.ErrExpiredToken) {
-			return nil, sharederrors.CodeUnauthenticated.Error(err.Error())
-		}
-		return nil, sharederrors.CodeInternal.Wrap(err)
-	}
-
-	return &authv1.ValidateTokenResponse{
-		UserId: userID.String(),
-	}, nil
-}
