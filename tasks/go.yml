@@ -5,7 +5,7 @@ set: [pipefail]
 
 vars:
   GO_WORKSPACE_DIRS:
-    sh: go list -m -f '{{.Dir}}'
+    sh: go work edit -json | jq -r '.Use[].DiskPath'
 
 tasks:
   test:
