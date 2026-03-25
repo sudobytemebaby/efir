@@ -195,6 +195,7 @@ func TestUpdateRoom(t *testing.T) {
 		}
 
 		mockRepo.On("GetRoomByID", ctx, roomID).Return(room, nil).Once()
+		mockRepo.On("GetMemberRole", ctx, roomID, requesterID).Return(repository.MemberRoleOwner, nil).Once()
 		mockRepo.On("UpdateRoom", ctx, roomID, "New Name").Return(updatedRoom, nil).Once()
 		mockRepo.On("GetRoomMembers", ctx, roomID).Return([]repository.RoomMember{}, nil).Once()
 		pub.On("PublishRoomUpdated", ctx, roomID, "New Name", []uuid.UUID{}).Return(nil).Once()
@@ -215,22 +216,49 @@ func TestUpdateRoom(t *testing.T) {
 		ctx := context.Background()
 		roomID := uuid.New()
 		requesterID := uuid.New()
-		ownerID := uuid.New()
 
 		room := &repository.Room{
 			ID:        roomID,
 			Name:      "Old Name",
 			Type:      repository.RoomTypeGroup,
-			CreatedBy: ownerID,
+			CreatedBy: requesterID,
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
 		}
 
 		mockRepo.On("GetRoomByID", ctx, roomID).Return(room, nil).Once()
+		mockRepo.On("GetMemberRole", ctx, roomID, requesterID).Return(repository.MemberRoleMember, nil).Once()
 
 		_, err := svc.UpdateRoom(ctx, roomID, requesterID, "New Name")
 
 		require.ErrorIs(t, err, ErrNotOwner)
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("not member", func(t *testing.T) {
+		mockRepo := repomocks.NewRoomRepository(t)
+		pub := &mockPublisher{}
+		svc := NewRoomService(mockRepo, pub)
+
+		ctx := context.Background()
+		roomID := uuid.New()
+		requesterID := uuid.New()
+
+		room := &repository.Room{
+			ID:        roomID,
+			Name:      "Old Name",
+			Type:      repository.RoomTypeGroup,
+			CreatedBy: requesterID,
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		}
+
+		mockRepo.On("GetRoomByID", ctx, roomID).Return(room, nil).Once()
+		mockRepo.On("GetMemberRole", ctx, roomID, requesterID).Return(repository.MemberRole(""), repository.ErrMemberNotFound).Once()
+
+		_, err := svc.UpdateRoom(ctx, roomID, requesterID, "New Name")
+
+		require.ErrorIs(t, err, ErrNotMember)
 		mockRepo.AssertExpectations(t)
 	})
 }
@@ -255,6 +283,7 @@ func TestDeleteRoom(t *testing.T) {
 		}
 
 		mockRepo.On("GetRoomByID", ctx, roomID).Return(room, nil).Once()
+		mockRepo.On("GetMemberRole", ctx, roomID, requesterID).Return(repository.MemberRoleOwner, nil).Once()
 		mockRepo.On("DeleteRoom", ctx, roomID).Return(nil).Once()
 
 		err := svc.DeleteRoom(ctx, roomID, requesterID)
@@ -271,22 +300,49 @@ func TestDeleteRoom(t *testing.T) {
 		ctx := context.Background()
 		roomID := uuid.New()
 		requesterID := uuid.New()
-		ownerID := uuid.New()
 
 		room := &repository.Room{
 			ID:        roomID,
 			Name:      "Test Room",
 			Type:      repository.RoomTypeGroup,
-			CreatedBy: ownerID,
+			CreatedBy: requesterID,
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
 		}
 
 		mockRepo.On("GetRoomByID", ctx, roomID).Return(room, nil).Once()
+		mockRepo.On("GetMemberRole", ctx, roomID, requesterID).Return(repository.MemberRoleMember, nil).Once()
 
 		err := svc.DeleteRoom(ctx, roomID, requesterID)
 
 		require.ErrorIs(t, err, ErrNotOwner)
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("not member", func(t *testing.T) {
+		mockRepo := repomocks.NewRoomRepository(t)
+		pub := &mockPublisher{}
+		svc := NewRoomService(mockRepo, pub)
+
+		ctx := context.Background()
+		roomID := uuid.New()
+		requesterID := uuid.New()
+
+		room := &repository.Room{
+			ID:        roomID,
+			Name:      "Test Room",
+			Type:      repository.RoomTypeGroup,
+			CreatedBy: requesterID,
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		}
+
+		mockRepo.On("GetRoomByID", ctx, roomID).Return(room, nil).Once()
+		mockRepo.On("GetMemberRole", ctx, roomID, requesterID).Return(repository.MemberRole(""), repository.ErrMemberNotFound).Once()
+
+		err := svc.DeleteRoom(ctx, roomID, requesterID)
+
+		require.ErrorIs(t, err, ErrNotMember)
 		mockRepo.AssertExpectations(t)
 	})
 }
@@ -355,6 +411,8 @@ func TestRemoveMember(t *testing.T) {
 		}
 
 		mockRepo.On("GetRoomByID", ctx, roomID).Return(room, nil).Once()
+		mockRepo.On("GetMemberRole", ctx, roomID, requesterID).Return(repository.MemberRoleOwner, nil).Once()
+		mockRepo.On("GetMemberRole", ctx, roomID, userID).Return(repository.MemberRoleMember, nil).Once()
 		mockRepo.On("RemoveMember", ctx, roomID, userID).Return(nil).Once()
 		mockRepo.On("GetRoomMembers", ctx, roomID).Return(members, nil).Once()
 		pub.On("PublishMembershipChanged", ctx, roomID, userID, "removed", mock.Anything).Return(nil).Once()
@@ -364,6 +422,92 @@ func TestRemoveMember(t *testing.T) {
 		require.NoError(t, err)
 		mockRepo.AssertExpectations(t)
 		pub.AssertExpectations(t)
+	})
+
+	t.Run("cannot remove owner", func(t *testing.T) {
+		mockRepo := repomocks.NewRoomRepository(t)
+		pub := &mockPublisher{}
+		svc := NewRoomService(mockRepo, pub)
+
+		ctx := context.Background()
+		roomID := uuid.New()
+		ownerID := uuid.New()
+		requesterID := uuid.New()
+
+		room := &repository.Room{
+			ID:        roomID,
+			Name:      "Test Room",
+			Type:      repository.RoomTypeGroup,
+			CreatedBy: requesterID,
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		}
+
+		mockRepo.On("GetRoomByID", ctx, roomID).Return(room, nil).Once()
+		mockRepo.On("GetMemberRole", ctx, roomID, requesterID).Return(repository.MemberRoleOwner, nil).Once()
+		mockRepo.On("GetMemberRole", ctx, roomID, ownerID).Return(repository.MemberRoleOwner, nil).Once()
+
+		err := svc.RemoveMember(ctx, roomID, ownerID, requesterID)
+
+		require.ErrorIs(t, err, ErrCannotRemoveOwner)
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("not owner", func(t *testing.T) {
+		mockRepo := repomocks.NewRoomRepository(t)
+		pub := &mockPublisher{}
+		svc := NewRoomService(mockRepo, pub)
+
+		ctx := context.Background()
+		roomID := uuid.New()
+		userID := uuid.New()
+		requesterID := uuid.New()
+
+		room := &repository.Room{
+			ID:        roomID,
+			Name:      "Test Room",
+			Type:      repository.RoomTypeGroup,
+			CreatedBy: requesterID,
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		}
+
+		mockRepo.On("GetRoomByID", ctx, roomID).Return(room, nil).Once()
+		mockRepo.On("GetMemberRole", ctx, roomID, requesterID).Return(repository.MemberRoleMember, nil).Once()
+
+		err := svc.RemoveMember(ctx, roomID, userID, requesterID)
+
+		require.ErrorIs(t, err, ErrNotOwner)
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("target not member", func(t *testing.T) {
+		mockRepo := repomocks.NewRoomRepository(t)
+		pub := &mockPublisher{}
+		svc := NewRoomService(mockRepo, pub)
+
+		ctx := context.Background()
+		roomID := uuid.New()
+		userID := uuid.New()
+		requesterID := uuid.New()
+
+		room := &repository.Room{
+			ID:        roomID,
+			Name:      "Test Room",
+			Type:      repository.RoomTypeGroup,
+			CreatedBy: requesterID,
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		}
+
+		mockRepo.On("GetRoomByID", ctx, roomID).Return(room, nil).Once()
+		mockRepo.On("GetMemberRole", ctx, roomID, requesterID).Return(repository.MemberRoleOwner, nil).Once()
+		mockRepo.On("GetMemberRole", ctx, roomID, userID).Return(repository.MemberRole(""), repository.ErrMemberNotFound).Once()
+
+		err := svc.RemoveMember(ctx, roomID, userID, requesterID)
+
+		require.ErrorIs(t, err, ErrMemberNotFound)
+		mockRepo.AssertExpectations(t)
 	})
 }
 

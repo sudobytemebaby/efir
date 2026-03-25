@@ -58,6 +58,7 @@ type RoomRepository interface {
 	RemoveMember(ctx context.Context, roomID, userID uuid.UUID) error
 	GetRoomMembers(ctx context.Context, roomID uuid.UUID) ([]RoomMember, error)
 	IsMember(ctx context.Context, roomID, userID uuid.UUID) (bool, error)
+	GetMemberRole(ctx context.Context, roomID, userID uuid.UUID) (MemberRole, error)
 	GetDirectRoomByUsers(ctx context.Context, userID1, userID2 uuid.UUID) (*Room, error)
 }
 
@@ -228,6 +229,24 @@ func (r *pgRoomRepository) IsMember(ctx context.Context, roomID, userID uuid.UUI
 	}
 
 	return true, nil
+}
+
+func (r *pgRoomRepository) GetMemberRole(ctx context.Context, roomID, userID uuid.UUID) (MemberRole, error) {
+	const query = `
+		SELECT role FROM room_members
+		WHERE room_id = $1 AND user_id = $2
+	`
+
+	var role MemberRole
+	err := r.pool.QueryRow(ctx, query, roomID, userID).Scan(&role)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", ErrMemberNotFound
+		}
+		return "", fmt.Errorf("get member role: %w", err)
+	}
+
+	return role, nil
 }
 
 func (r *pgRoomRepository) GetDirectRoomByUsers(ctx context.Context, userID1, userID2 uuid.UUID) (*Room, error) {

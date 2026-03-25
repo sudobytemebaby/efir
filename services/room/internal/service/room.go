@@ -11,11 +11,13 @@ import (
 )
 
 var (
-	ErrRoomNotFound     = errors.New("room not found")
-	ErrNotOwner         = errors.New("only owner can perform this action")
-	ErrNotMember        = errors.New("must be a room member to perform this action")
-	ErrDirectRoomExists = errors.New("direct room already exists between these users")
-	ErrMemberNotFound   = errors.New("member not found")
+	ErrRoomNotFound      = errors.New("room not found")
+	ErrNotOwner          = errors.New("only owner can perform this action")
+	ErrNotMember         = errors.New("must be a room member to perform this action")
+	ErrDirectRoomExists  = errors.New("direct room already exists between these users")
+	ErrMemberNotFound    = errors.New("member not found")
+	ErrCannotRemoveOwner = errors.New("owner cannot be removed from the room")
+	ErrCannotRemoveSelf  = errors.New("cannot remove yourself from the room")
 )
 
 //go:generate mockery --name Publisher
@@ -96,7 +98,7 @@ func (s *roomService) GetRoom(ctx context.Context, roomID uuid.UUID) (*Room, err
 }
 
 func (s *roomService) UpdateRoom(ctx context.Context, roomID uuid.UUID, requesterID uuid.UUID, name string) (*Room, error) {
-	room, err := s.roomRepo.GetRoomByID(ctx, roomID)
+	_, err := s.roomRepo.GetRoomByID(ctx, roomID)
 	if err != nil {
 		if errors.Is(err, repository.ErrRoomNotFound) {
 			return nil, ErrRoomNotFound
@@ -104,7 +106,15 @@ func (s *roomService) UpdateRoom(ctx context.Context, roomID uuid.UUID, requeste
 		return nil, fmt.Errorf("get room: %w", err)
 	}
 
-	if room.CreatedBy != requesterID {
+	role, err := s.roomRepo.GetMemberRole(ctx, roomID, requesterID)
+	if err != nil {
+		if errors.Is(err, repository.ErrMemberNotFound) {
+			return nil, ErrNotMember
+		}
+		return nil, fmt.Errorf("get member role: %w", err)
+	}
+
+	if role != repository.MemberRoleOwner {
 		return nil, ErrNotOwner
 	}
 
@@ -142,7 +152,7 @@ func (s *roomService) UpdateRoom(ctx context.Context, roomID uuid.UUID, requeste
 }
 
 func (s *roomService) DeleteRoom(ctx context.Context, roomID uuid.UUID, requesterID uuid.UUID) error {
-	room, err := s.roomRepo.GetRoomByID(ctx, roomID)
+	_, err := s.roomRepo.GetRoomByID(ctx, roomID)
 	if err != nil {
 		if errors.Is(err, repository.ErrRoomNotFound) {
 			return ErrRoomNotFound
@@ -150,7 +160,15 @@ func (s *roomService) DeleteRoom(ctx context.Context, roomID uuid.UUID, requeste
 		return fmt.Errorf("get room: %w", err)
 	}
 
-	if room.CreatedBy != requesterID {
+	role, err := s.roomRepo.GetMemberRole(ctx, roomID, requesterID)
+	if err != nil {
+		if errors.Is(err, repository.ErrMemberNotFound) {
+			return ErrNotMember
+		}
+		return fmt.Errorf("get member role: %w", err)
+	}
+
+	if role != repository.MemberRoleOwner {
 		return ErrNotOwner
 	}
 
@@ -210,7 +228,7 @@ func (s *roomService) AddMember(ctx context.Context, roomID, userID, requesterID
 
 // TODO: Add support for members to leave rooms themselves (not just owner removing them).
 func (s *roomService) RemoveMember(ctx context.Context, roomID, userID, requesterID uuid.UUID) error {
-	room, err := s.roomRepo.GetRoomByID(ctx, roomID)
+	_, err := s.roomRepo.GetRoomByID(ctx, roomID)
 	if err != nil {
 		if errors.Is(err, repository.ErrRoomNotFound) {
 			return ErrRoomNotFound
@@ -218,14 +236,31 @@ func (s *roomService) RemoveMember(ctx context.Context, roomID, userID, requeste
 		return fmt.Errorf("get room: %w", err)
 	}
 
-	if room.CreatedBy != requesterID {
+	role, err := s.roomRepo.GetMemberRole(ctx, roomID, requesterID)
+	if err != nil {
+		if errors.Is(err, repository.ErrMemberNotFound) {
+			return ErrNotMember
+		}
+		return fmt.Errorf("get member role: %w", err)
+	}
+
+	if role != repository.MemberRoleOwner {
 		return ErrNotOwner
 	}
 
-	if err := s.roomRepo.RemoveMember(ctx, roomID, userID); err != nil {
+	targetRole, err := s.roomRepo.GetMemberRole(ctx, roomID, userID)
+	if err != nil {
 		if errors.Is(err, repository.ErrMemberNotFound) {
 			return ErrMemberNotFound
 		}
+		return fmt.Errorf("get target member role: %w", err)
+	}
+
+	if targetRole == repository.MemberRoleOwner {
+		return ErrCannotRemoveOwner
+	}
+
+	if err := s.roomRepo.RemoveMember(ctx, roomID, userID); err != nil {
 		return fmt.Errorf("remove member: %w", err)
 	}
 
