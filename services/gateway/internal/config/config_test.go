@@ -74,6 +74,7 @@ func TestLoad_Defaults(t *testing.T) {
 }
 
 func TestLoad_MissingJWTSecret(t *testing.T) {
+	_ = os.Unsetenv("JWT_SECRET")
 	cfg, err := Load()
 	assert.Error(t, err)
 	assert.Nil(t, cfg)
