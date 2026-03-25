@@ -124,6 +124,34 @@ func (_m *RoomRepository) GetDirectRoomByUsers(ctx context.Context, userID1 uuid
 	return r0, r1
 }
 
+// GetMemberRole provides a mock function with given fields: ctx, roomID, userID
+func (_m *RoomRepository) GetMemberRole(ctx context.Context, roomID uuid.UUID, userID uuid.UUID) (repository.MemberRole, error) {
+	ret := _m.Called(ctx, roomID, userID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetMemberRole")
+	}
+
+	var r0 repository.MemberRole
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, uuid.UUID) (repository.MemberRole, error)); ok {
+		return rf(ctx, roomID, userID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, uuid.UUID) repository.MemberRole); ok {
+		r0 = rf(ctx, roomID, userID)
+	} else {
+		r0 = ret.Get(0).(repository.MemberRole)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, uuid.UUID, uuid.UUID) error); ok {
+		r1 = rf(ctx, roomID, userID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetRoomByID provides a mock function with given fields: ctx, id
 func (_m *RoomRepository) GetRoomByID(ctx context.Context, id uuid.UUID) (*repository.Room, error) {
 	ret := _m.Called(ctx, id)
