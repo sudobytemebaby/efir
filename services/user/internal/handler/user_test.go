@@ -240,7 +240,7 @@ func TestMapUserToProto(t *testing.T) {
 		UpdatedAt:   now,
 	}
 
-	protoUser := mapUserToProto(user)
+	protoUser := userToProto(*user)
 
 	assert.Equal(t, user.ID.String(), protoUser.UserId)
 	assert.Equal(t, user.Username, protoUser.Username)

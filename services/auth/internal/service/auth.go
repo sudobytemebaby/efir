@@ -161,14 +161,6 @@ func (s *authService) Login(ctx context.Context, email, password string) (*Accou
 	return toAccount(acc), tokenPair, nil
 }
 
-func toAccount(acc *repository.Account) *Account {
-	return &Account{
-		ID:        acc.ID,
-		Email:     acc.Email,
-		CreatedAt: acc.CreatedAt,
-	}
-}
-
 func (s *authService) Logout(ctx context.Context, refreshToken string) error {
 	if err := s.tokenRepo.DeleteRefreshToken(ctx, refreshToken); err != nil {
 		return fmt.Errorf("delete refresh token: %w", err)

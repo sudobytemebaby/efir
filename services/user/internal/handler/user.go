@@ -10,7 +10,6 @@ import (
 	sharederrors "github.com/sudobytemebaby/efir/services/shared/pkg/errors"
 	"github.com/sudobytemebaby/efir/services/user/internal/service"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type userHandler struct {
@@ -53,7 +52,7 @@ func (h *userHandler) GetUser(ctx context.Context, req *userv1.GetUserRequest) (
 	}
 
 	return &userv1.GetUserResponse{
-		User: mapUserToProto(user),
+		User: userToProto(*user),
 	}, nil
 }
 
@@ -76,14 +75,8 @@ func (h *userHandler) GetUsersByIds(ctx context.Context, req *userv1.GetUsersByI
 		return nil, sharederrors.CodeInternal.Wrap(err)
 	}
 
-	protoUsers := make([]*userv1.User, 0, len(users))
-	for _, user := range users {
-		u := user
-		protoUsers = append(protoUsers, mapUserToProto(&u))
-	}
-
 	return &userv1.GetUsersByIdsResponse{
-		Users: protoUsers,
+		Users: usersToProto(users),
 	}, nil
 }
 
@@ -106,18 +99,6 @@ func (h *userHandler) UpdateUser(ctx context.Context, req *userv1.UpdateUserRequ
 	}
 
 	return &userv1.UpdateUserResponse{
-		User: mapUserToProto(user),
+		User: userToProto(*user),
 	}, nil
-}
-
-func mapUserToProto(user *service.User) *userv1.User {
-	return &userv1.User{
-		UserId:      user.ID.String(),
-		Username:    user.Username,
-		DisplayName: user.DisplayName,
-		AvatarUrl:   user.AvatarURL,
-		Bio:         user.Bio,
-		CreatedAt:   timestamppb.New(user.CreatedAt),
-		UpdatedAt:   timestamppb.New(user.UpdatedAt),
-	}
 }
