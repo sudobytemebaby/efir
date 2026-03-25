@@ -1,23 +1,19 @@
 package auth
 
 import (
-	"encoding/json"
-	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/sudobytemebaby/efir/services/gateway/internal/client"
 	"github.com/sudobytemebaby/efir/services/gateway/internal/handler"
+	authv1 "github.com/sudobytemebaby/efir/services/shared/gen/auth"
 )
 
 type Handler struct {
-	authClient client.AuthClientInterface
+	client authv1.AuthServiceClient
 }
 
-func NewHandler(authClient client.AuthClientInterface) *Handler {
-	return &Handler{
-		authClient: authClient,
-	}
+func NewHandler(client authv1.AuthServiceClient) *Handler {
+	return &Handler{client: client}
 }
 
 func (h *Handler) Register(r chi.Router) {
@@ -28,85 +24,56 @@ func (h *Handler) Register(r chi.Router) {
 }
 
 func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
-	var req registerRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	var req authv1.RegisterRequest
+	if err := handler.ReadProto(r, &req); err != nil {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
-
-	resp, err := h.authClient.Register(r.Context(), req.Email, req.Password)
+	resp, err := h.client.Register(r.Context(), &req)
 	if err != nil {
 		handler.WriteError(w, r, err, "failed to register")
 		return
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(authResponse{
-		UserID:       resp.UserId,
-		AccessToken:  resp.AccessToken,
-		RefreshToken: resp.RefreshToken,
-	}); err != nil {
-		slog.ErrorContext(r.Context(), "failed to encode response", "error", err)
-	}
+	handler.WriteProto(w, http.StatusOK, resp)
 }
 
 func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
-	var req registerRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	var req authv1.LoginRequest
+	if err := handler.ReadProto(r, &req); err != nil {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
-
-	resp, err := h.authClient.Login(r.Context(), req.Email, req.Password)
+	resp, err := h.client.Login(r.Context(), &req)
 	if err != nil {
 		handler.WriteError(w, r, err, "failed to login")
 		return
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(authResponse{
-		UserID:       resp.UserId,
-		AccessToken:  resp.AccessToken,
-		RefreshToken: resp.RefreshToken,
-	}); err != nil {
-		slog.ErrorContext(r.Context(), "failed to encode response", "error", err)
-	}
+	handler.WriteProto(w, http.StatusOK, resp)
 }
 
 func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
-	var req logoutRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	var req authv1.LogoutRequest
+	if err := handler.ReadProto(r, &req); err != nil {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
-
-	_, err := h.authClient.Logout(r.Context(), req.RefreshToken)
-	if err != nil {
+	if _, err := h.client.Logout(r.Context(), &req); err != nil {
 		handler.WriteError(w, r, err, "failed to logout")
 		return
 	}
-
 	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) refresh(w http.ResponseWriter, r *http.Request) {
-	var req refreshRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	var req authv1.RefreshTokenRequest
+	if err := handler.ReadProto(r, &req); err != nil {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
-
-	resp, err := h.authClient.RefreshToken(r.Context(), req.RefreshToken)
+	resp, err := h.client.RefreshToken(r.Context(), &req)
 	if err != nil {
 		handler.WriteError(w, r, err, "failed to refresh token")
 		return
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(authResponse{
-		AccessToken:  resp.AccessToken,
-		RefreshToken: resp.RefreshToken,
-	}); err != nil {
-		slog.ErrorContext(r.Context(), "failed to encode response", "error", err)
-	}
+	handler.WriteProto(w, http.StatusOK, resp)
 }

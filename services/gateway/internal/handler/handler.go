@@ -2,11 +2,43 @@ package handler
 
 import (
 	"encoding/json"
+	"io"
 	"log/slog"
 	"net/http"
 
 	"github.com/sudobytemebaby/efir/services/shared/pkg/errors"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 )
+
+var marshaler = protojson.MarshalOptions{
+	UseProtoNames:   true,
+	EmitUnpopulated: false,
+}
+
+var unmarshaler = protojson.UnmarshalOptions{
+	DiscardUnknown: true,
+}
+
+func WriteProto(w http.ResponseWriter, status int, msg proto.Message) {
+	b, err := marshaler.Marshal(msg)
+	if err != nil {
+		slog.Error("failed to marshal proto response", "error", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_, _ = w.Write(b)
+}
+
+func ReadProto(r *http.Request, msg proto.Message) error {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		return err
+	}
+	return unmarshaler.Unmarshal(body, msg)
+}
 
 type errorResponse struct {
 	Error string `json:"error"`
@@ -33,10 +65,10 @@ func WriteError(w http.ResponseWriter, r *http.Request, err error, msg string) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code.ToHTTPCode())
-	if encodeErr := json.NewEncoder(w).Encode(errorResponse{
+	if encErr := json.NewEncoder(w).Encode(errorResponse{
 		Error: codeToMessage[code],
 		Code:  string(code),
-	}); encodeErr != nil {
-		slog.ErrorContext(r.Context(), "failed to encode error response", "error", encodeErr)
+	}); encErr != nil {
+		slog.ErrorContext(r.Context(), "failed to encode error response", "error", encErr)
 	}
 }
