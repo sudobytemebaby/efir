@@ -147,7 +147,7 @@ func (h *Handler) sendMessage(w http.ResponseWriter, r *http.Request) {
 		}}
 	}
 
-	resp, err := h.messageClient.SendMessage(r.Context(), grpcReq)
+	resp, err := h.messageClient.SendMessage(middleware.InjectRequestIDToOutgoingContext(r.Context()), grpcReq)
 	if err != nil {
 		handler.WriteError(w, r, err, "failed to send message")
 		return
@@ -279,7 +279,7 @@ func (h *Handler) getMessages(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	resp, err := h.messageClient.GetMessages(r.Context(), roomID, requesterID, cursor, limit)
+	resp, err := h.messageClient.GetMessages(middleware.InjectRequestIDToOutgoingContext(r.Context()), roomID, requesterID, cursor, limit)
 	if err != nil {
 		handler.WriteError(w, r, err, "failed to get messages")
 		return

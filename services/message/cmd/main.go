@@ -96,6 +96,7 @@ func run(ctx context.Context) error {
 
 	grpcServer := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
+			middleware.RequestIDInterceptor(),
 			middleware.RecoveryInterceptor(l),
 			middleware.LoggingInterceptor(l),
 		),
@@ -107,7 +108,6 @@ func run(ctx context.Context) error {
 	}
 
 	healthHandler := healthcheck.New()
-	healthHandler.SetReady(true)
 	healthMux := http.NewServeMux()
 	healthHandler.Register(healthMux)
 	healthServer := &http.Server{
@@ -118,20 +118,30 @@ func run(ctx context.Context) error {
 
 	errCh := make(chan error, 2)
 
+	grpcLis, err := net.Listen("tcp", ":"+cfg.GRPCPort)
+	if err != nil {
+		return fmt.Errorf("create grpc listener: %w", err)
+	}
+	healthLis, err := net.Listen("tcp", "127.0.0.1:8080")
+	if err != nil {
+		return fmt.Errorf("create health listener: %w", err)
+	}
+
 	go func() {
-		addr := ":" + cfg.GRPCPort
-		slog.Info("starting gRPC server", "addr", addr)
-		if err := grpcServer.Serve(newListener(addr)); err != nil {
+		slog.Info("starting gRPC server", "addr", grpcLis.Addr())
+		if err := grpcServer.Serve(grpcLis); err != nil {
 			errCh <- fmt.Errorf("gRPC server error: %w", err)
 		}
 	}()
 
 	go func() {
 		slog.Info("starting health server", "addr", healthServer.Addr)
-		if err := healthServer.Serve(newListener(healthServer.Addr)); err != nil && err != http.ErrServerClosed {
+		if err := healthServer.Serve(healthLis); err != nil && err != http.ErrServerClosed {
 			errCh <- fmt.Errorf("health server error: %w", err)
 		}
 	}()
+
+	healthHandler.SetReady(true)
 
 	select {
 	case err := <-errCh:
@@ -143,7 +153,15 @@ func run(ctx context.Context) error {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	grpcServer.GracefulStop()
+	grpcDone := make(chan struct{})
+	go func() { grpcServer.GracefulStop(); close(grpcDone) }()
+	select {
+	case <-grpcDone:
+		slog.Info("grpc server stopped gracefully")
+	case <-time.After(5 * time.Second):
+		grpcServer.Stop()
+		slog.Warn("grpc server force stopped after timeout")
+	}
 
 	if err := healthServer.Shutdown(shutdownCtx); err != nil {
 		slog.Error("failed to shut down health server", "error", err)
@@ -151,13 +169,4 @@ func run(ctx context.Context) error {
 
 	slog.Info("server stopped gracefully")
 	return nil
-}
-
-func newListener(addr string) net.Listener {
-	l, err := net.Listen("tcp", addr)
-	if err != nil {
-		slog.Error("failed to create listener", "addr", addr, "error", err)
-		os.Exit(1)
-	}
-	return l
 }

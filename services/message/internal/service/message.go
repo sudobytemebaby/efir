@@ -60,7 +60,10 @@ func (s *messageService) SendMessage(ctx context.Context, input *SendMessageInpu
 	if input.ReplyToID != nil {
 		original, err := s.repo.GetMessageByID(ctx, *input.ReplyToID)
 		if err != nil {
-			return nil, ErrInvalidReplyTarget
+			if errors.Is(err, repository.ErrMessageNotFound) {
+				return nil, ErrInvalidReplyTarget
+			}
+			return nil, err
 		}
 		if original.DeletedAt != nil {
 			return nil, ErrInvalidReplyTarget

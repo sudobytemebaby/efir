@@ -51,7 +51,7 @@ func (h *Handler) getMe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := h.userClient.GetUser(r.Context(), userID)
+	resp, err := h.userClient.GetUser(middleware.InjectRequestIDToOutgoingContext(r.Context()), userID)
 	if err != nil {
 		handler.WriteError(w, r, err, "failed to get user")
 		return
@@ -70,7 +70,7 @@ func (h *Handler) getByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := h.userClient.GetUser(r.Context(), id)
+	resp, err := h.userClient.GetUser(middleware.InjectRequestIDToOutgoingContext(r.Context()), id)
 	if err != nil {
 		handler.WriteError(w, r, err, "failed to get user")
 		return
@@ -95,7 +95,7 @@ func (h *Handler) updateMe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := h.userClient.UpdateUser(r.Context(), userID, req.DisplayName, req.AvatarURL, req.Bio)
+	resp, err := h.userClient.UpdateUser(middleware.InjectRequestIDToOutgoingContext(r.Context()), userID, req.DisplayName, req.AvatarURL, req.Bio)
 	if err != nil {
 		handler.WriteError(w, r, err, "failed to update user")
 		return

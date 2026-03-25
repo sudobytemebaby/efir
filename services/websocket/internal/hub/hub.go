@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"sync"
+	"time"
 )
 
 const (
@@ -15,6 +17,10 @@ const (
 	TypeSubscribe            = "subscribe"
 	TypeUnsubscribe          = "unsubscribe"
 	TypeError                = "error"
+)
+
+const (
+	writeTimeout = 5 * time.Second
 )
 
 type Envelope struct {
@@ -231,19 +237,34 @@ func (h *Hub) sendToRoom(roomID string, envelope Envelope) {
 		return
 	}
 
-	targets := make([]Conn, 0)
+	var wg sync.WaitGroup
 	for _, conns := range room {
-		targets = append(targets, conns...)
-	}
-
-	for _, conn := range targets {
-		if err := conn.WriteJSON(envelope); err != nil {
-			slog.Error("failed to write to conn", "error", err)
-			if closeErr := conn.Close(StatusAbnormalClosure, "write error"); closeErr != nil {
-				slog.Error("failed to close conn", "error", closeErr)
-			}
+		for _, conn := range conns {
+			wg.Add(1)
+			go func(c Conn) {
+				defer wg.Done()
+				done := make(chan error, 1)
+				go func() {
+					done <- c.WriteJSON(envelope)
+				}()
+				select {
+				case err := <-done:
+					if err != nil {
+						slog.Error("failed to write to conn", "error", err)
+						if closeErr := c.Close(StatusAbnormalClosure, "write error"); closeErr != nil {
+							slog.Error("failed to close conn", "error", closeErr)
+						}
+					}
+				case <-time.After(writeTimeout):
+					slog.Error("write timeout, closing conn")
+					if closeErr := conn.Close(StatusAbnormalClosure, "write timeout"); closeErr != nil {
+						slog.Error("failed to close conn", "error", closeErr)
+					}
+				}
+			}(conn)
 		}
 	}
+	wg.Wait()
 }
 
 func (h *Hub) getRoomUserCount(roomID string) int {

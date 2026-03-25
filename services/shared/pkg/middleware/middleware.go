@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -13,15 +14,38 @@ import (
 )
 
 const (
-	MetadataKeyUserID = "x-user-id"
+	MetadataKeyUserID    = "x-user-id"
+	MetadataKeyRequestID = "x-request-id"
 )
+
+func RequestIDInterceptor() grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+		md, ok := metadata.FromIncomingContext(ctx)
+		if !ok {
+			md = metadata.MD{}
+		}
+
+		requestIDs := md.Get(MetadataKeyRequestID)
+		var requestID string
+		if len(requestIDs) > 0 && requestIDs[0] != "" {
+			requestID = requestIDs[0]
+		} else {
+			requestID = uuid.New().String()
+		}
+
+		ctx = context.WithValue(ctx, contextKeyRequestID{}, requestID)
+		return handler(ctx, req)
+	}
+}
 
 func LoggingInterceptor(logger *slog.Logger) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 		start := time.Now()
+		requestID, _ := GetRequestID(ctx)
 
 		logger.Info("gRPC request started",
 			"method", info.FullMethod,
+			"request_id", requestID,
 		)
 
 		resp, err := handler(ctx, req)
@@ -34,6 +58,7 @@ func LoggingInterceptor(logger *slog.Logger) grpc.UnaryServerInterceptor {
 
 		logger.Log(ctx, level, "gRPC request completed",
 			"method", info.FullMethod,
+			"request_id", requestID,
 			"duration_ms", duration.Milliseconds(),
 			"error", err,
 		)
@@ -46,7 +71,12 @@ func RecoveryInterceptor(logger *slog.Logger) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (_ any, err error) {
 		defer func() {
 			if r := recover(); r != nil {
-				logger.Error("panic recovered", "method", info.FullMethod, "panic", r)
+				requestID, _ := GetRequestID(ctx)
+				logger.Error("panic recovered",
+					"method", info.FullMethod,
+					"request_id", requestID,
+					"panic", r,
+				)
 				err = status.Errorf(codes.Internal, "internal server error")
 			}
 		}()
@@ -75,4 +105,10 @@ func GetUserID(ctx context.Context) (string, bool) {
 	return userID, ok
 }
 
+func GetRequestID(ctx context.Context) (string, bool) {
+	requestID, ok := ctx.Value(contextKeyRequestID{}).(string)
+	return requestID, ok
+}
+
 type contextKeyUserID struct{}
+type contextKeyRequestID struct{}

@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/sudobytemebaby/efir/services/shared/pkg/valkey"
@@ -50,14 +52,15 @@ func (h *WebSocketHandler) HandleWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	wsConn := &wsConnWrapper{ws: conn}
+	wsConn := newWSConnWrapper(conn, h.cfg.WriteDeadline())
 	initialRoomID := r.URL.Query().Get("room_id")
 
 	if initialRoomID != "" {
 		h.hub.Register(wsConn, userID, initialRoomID)
 	}
 
-	go h.readPump(wsConn, userID)
+	go h.readPump(wsConn, userID, h.cfg.ReadDeadline(), h.cfg.PingInterval())
+	go h.pingPump(wsConn, h.cfg.PingInterval())
 }
 
 func (h *WebSocketHandler) validateTicket(ctx context.Context, ticket string) (string, error) {
@@ -70,7 +73,7 @@ func (h *WebSocketHandler) validateTicket(ctx context.Context, ticket string) (s
 	return userID, nil
 }
 
-func (h *WebSocketHandler) readPump(conn *wsConnWrapper, userID string) {
+func (h *WebSocketHandler) readPump(conn *wsConnWrapper, userID string, readTimeout, pingInterval time.Duration) {
 	defer func() {
 		h.hub.Disconnect(conn)
 		if err := conn.Close(hub.StatusCode(websocket.StatusNormalClosure), "closing"); err != nil {
@@ -79,12 +82,18 @@ func (h *WebSocketHandler) readPump(conn *wsConnWrapper, userID string) {
 	}()
 
 	for {
-		_, msg, err := conn.Read(context.Background())
+		readCtx, cancel := context.WithTimeout(context.Background(), readTimeout)
+		_, msg, err := conn.Read(readCtx)
+		cancel()
 		if err != nil {
 			if websocket.CloseStatus(err) == websocket.StatusNormalClosure {
 				return
 			}
-			slog.ErrorContext(context.Background(), "failed to read message", "error", err)
+			if err == context.DeadlineExceeded {
+				slog.ErrorContext(context.Background(), "read timeout")
+			} else {
+				slog.ErrorContext(context.Background(), "failed to read message", "error", err)
+			}
 			return
 		}
 
@@ -100,6 +109,19 @@ func (h *WebSocketHandler) readPump(conn *wsConnWrapper, userID string) {
 		}
 
 		h.handleMessage(conn, userID, env)
+	}
+}
+
+func (h *WebSocketHandler) pingPump(conn *wsConnWrapper, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		if err := conn.Ping(); err != nil {
+			slog.ErrorContext(context.Background(), "failed to send ping", "error", err)
+			h.hub.Disconnect(conn)
+			return
+		}
 	}
 }
 
@@ -155,7 +177,16 @@ func (h *WebSocketHandler) sendError(conn *wsConnWrapper, code, message string) 
 }
 
 type wsConnWrapper struct {
-	ws *websocket.Conn
+	ws           *websocket.Conn
+	writeTimeout time.Duration
+	mu           sync.Mutex
+}
+
+func newWSConnWrapper(ws *websocket.Conn, writeTimeout time.Duration) *wsConnWrapper {
+	return &wsConnWrapper{
+		ws:           ws,
+		writeTimeout: writeTimeout,
+	}
 }
 
 func (c *wsConnWrapper) Read(ctx context.Context) (websocket.MessageType, []byte, error) {
@@ -167,7 +198,19 @@ func (c *wsConnWrapper) WriteJSON(v any) error {
 	if err != nil {
 		return err
 	}
-	return c.ws.Write(context.Background(), websocket.MessageText, data)
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	ctx, cancel := context.WithTimeout(context.Background(), c.writeTimeout)
+	defer cancel()
+	return c.ws.Write(ctx, websocket.MessageText, data)
+}
+
+func (c *wsConnWrapper) Ping() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	ctx, cancel := context.WithTimeout(context.Background(), c.writeTimeout)
+	defer cancel()
+	return c.ws.Ping(ctx)
 }
 
 func (c *wsConnWrapper) Close(code hub.StatusCode, reason string) error {

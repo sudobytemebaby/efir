@@ -76,7 +76,7 @@ func (h *Handler) createRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := h.roomClient.CreateRoom(r.Context(), req.Name, roomType, requesterID, req.ParticipantID)
+	resp, err := h.roomClient.CreateRoom(middleware.InjectRequestIDToOutgoingContext(r.Context()), req.Name, roomType, requesterID, req.ParticipantID)
 	if err != nil {
 		handler.WriteError(w, r, err, "failed to create room")
 		return
@@ -96,7 +96,7 @@ func (h *Handler) getRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := h.roomClient.GetRoom(r.Context(), id)
+	resp, err := h.roomClient.GetRoom(middleware.InjectRequestIDToOutgoingContext(r.Context()), id)
 	if err != nil {
 		handler.WriteError(w, r, err, "failed to get room")
 		return
@@ -127,7 +127,7 @@ func (h *Handler) updateRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := h.roomClient.UpdateRoom(r.Context(), id, requesterID, req.Name)
+	resp, err := h.roomClient.UpdateRoom(middleware.InjectRequestIDToOutgoingContext(r.Context()), id, requesterID, req.Name)
 	if err != nil {
 		handler.WriteError(w, r, err, "failed to update room")
 		return
@@ -152,7 +152,7 @@ func (h *Handler) deleteRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := h.roomClient.DeleteRoom(r.Context(), id, requesterID)
+	_, err := h.roomClient.DeleteRoom(middleware.InjectRequestIDToOutgoingContext(r.Context()), id, requesterID)
 	if err != nil {
 		handler.WriteError(w, r, err, "failed to delete room")
 		return
@@ -180,7 +180,7 @@ func (h *Handler) addMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := h.roomClient.AddMember(r.Context(), roomID, req.UserID, requesterID)
+	_, err := h.roomClient.AddMember(middleware.InjectRequestIDToOutgoingContext(r.Context()), roomID, req.UserID, requesterID)
 	if err != nil {
 		handler.WriteError(w, r, err, "failed to add member")
 		return
@@ -208,7 +208,7 @@ func (h *Handler) removeMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := h.roomClient.RemoveMember(r.Context(), roomID, userID, requesterID)
+	_, err := h.roomClient.RemoveMember(middleware.InjectRequestIDToOutgoingContext(r.Context()), roomID, userID, requesterID)
 	if err != nil {
 		handler.WriteError(w, r, err, "failed to remove member")
 		return
