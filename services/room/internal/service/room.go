@@ -211,16 +211,14 @@ func (s *roomService) AddMember(ctx context.Context, roomID, userID, requesterID
 		recipientIDs = append(recipientIDs, m.UserID)
 	}
 
-	if s.publisher != nil {
-		if err := s.publisher.PublishMembershipChanged(ctx, roomID, userID, "added", recipientIDs); err != nil {
-			slog.Error("failed to publish membership changed event, event may be lost",
-				"event_lost", true,
-				"room_id", roomID,
-				"user_id", userID,
-				"action", "added",
-				"error", err,
-			)
-		}
+	if err := s.publisher.PublishMembershipChanged(ctx, roomID, userID, "added", recipientIDs); err != nil {
+		slog.Error("failed to publish membership changed event, event may be lost",
+			"event_lost", true,
+			"room_id", roomID,
+			"user_id", userID,
+			"action", "added",
+			"error", err,
+		)
 	}
 
 	return nil
@@ -274,16 +272,14 @@ func (s *roomService) RemoveMember(ctx context.Context, roomID, userID, requeste
 		recipientIDs = append(recipientIDs, m.UserID)
 	}
 
-	if s.publisher != nil {
-		if err := s.publisher.PublishMembershipChanged(ctx, roomID, userID, "removed", recipientIDs); err != nil {
-			slog.Error("failed to publish membership changed event, event may be lost",
-				"event_lost", true,
-				"room_id", roomID,
-				"user_id", userID,
-				"action", "removed",
-				"error", err,
-			)
-		}
+	if err := s.publisher.PublishMembershipChanged(ctx, roomID, userID, "removed", recipientIDs); err != nil {
+		slog.Error("failed to publish membership changed event, event may be lost",
+			"event_lost", true,
+			"room_id", roomID,
+			"user_id", userID,
+			"action", "removed",
+			"error", err,
+		)
 	}
 
 	return nil
