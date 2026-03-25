@@ -10,11 +10,15 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-type contextKeyUserID struct{}
-type contextKeyRequestID struct{}
+type (
+	contextKeyUserID    struct{}
+	contextKeyRequestID struct{}
+)
 
-const HeaderRequestID = "X-Request-ID"
-const MetadataKeyRequestID = "x-request-id"
+const (
+	HeaderRequestID      = "X-Request-ID"
+	MetadataKeyRequestID = "x-request-id"
+)
 
 func JWTAuth(jwtSecret string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
@@ -72,6 +76,13 @@ func JWTAuth(jwtSecret string) func(http.Handler) http.Handler {
 func GetUserID(ctx context.Context) (string, bool) {
 	userID, ok := ctx.Value(contextKeyUserID{}).(string)
 	return userID, ok
+}
+
+// MustGetUserID returns the user ID from context.
+// Safe to call in handlers behind the JWTAuth middleware.
+func MustGetUserID(ctx context.Context) string {
+	userID, _ := ctx.Value(contextKeyUserID{}).(string)
+	return userID
 }
 
 func GetRequestID(ctx context.Context) (string, bool) {

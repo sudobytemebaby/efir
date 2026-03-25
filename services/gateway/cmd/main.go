@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/sudobytemebaby/efir/services/gateway/internal/client"
 	"github.com/sudobytemebaby/efir/services/gateway/internal/config"
 	"github.com/sudobytemebaby/efir/services/gateway/internal/handler/auth"
 	"github.com/sudobytemebaby/efir/services/gateway/internal/handler/message"
@@ -18,9 +17,15 @@ import (
 	"github.com/sudobytemebaby/efir/services/gateway/internal/handler/user"
 	"github.com/sudobytemebaby/efir/services/gateway/internal/handler/wsauth"
 	"github.com/sudobytemebaby/efir/services/gateway/internal/middleware"
+	authv1 "github.com/sudobytemebaby/efir/services/shared/gen/auth"
+	messagev1 "github.com/sudobytemebaby/efir/services/shared/gen/message"
+	roomv1 "github.com/sudobytemebaby/efir/services/shared/gen/room"
+	userv1 "github.com/sudobytemebaby/efir/services/shared/gen/user"
 	"github.com/sudobytemebaby/efir/services/shared/pkg/healthcheck"
 	"github.com/sudobytemebaby/efir/services/shared/pkg/logger"
 	vk "github.com/valkey-io/valkey-go"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func main() {
@@ -61,45 +66,34 @@ func run(ctx context.Context) error {
 		return err
 	}
 
-	authClient, err := client.NewAuthClient(cfg.AuthServiceAddr, cfg.GRPCTimeout)
-	if err != nil {
-		return err
+	dialOpts := []grpc.DialOption{
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(timeoutInterceptor(cfg.GRPCTimeout)),
 	}
-	defer func() {
-		if err := authClient.Close(); err != nil {
-			slog.Warn("failed to close auth client", "error", err)
-		}
-	}()
 
-	userClient, err := client.NewUserClient(cfg.UserServiceAddr, cfg.GRPCTimeout)
+	authConn, err := grpc.NewClient(cfg.AuthServiceAddr, dialOpts...)
 	if err != nil {
 		return err
 	}
-	defer func() {
-		if err := userClient.Close(); err != nil {
-			slog.Warn("failed to close user client", "error", err)
-		}
-	}()
+	defer func() { _ = authConn.Close() }()
 
-	roomClient, err := client.NewRoomClient(cfg.RoomServiceAddr, cfg.GRPCTimeout)
+	userConn, err := grpc.NewClient(cfg.UserServiceAddr, dialOpts...)
 	if err != nil {
 		return err
 	}
-	defer func() {
-		if err := roomClient.Close(); err != nil {
-			slog.Warn("failed to close room client", "error", err)
-		}
-	}()
+	defer func() { _ = userConn.Close() }()
 
-	messageClient, err := client.NewMessageClient(cfg.MessageServiceAddr, cfg.GRPCTimeout)
+	roomConn, err := grpc.NewClient(cfg.RoomServiceAddr, dialOpts...)
 	if err != nil {
 		return err
 	}
-	defer func() {
-		if err := messageClient.Close(); err != nil {
-			slog.Warn("failed to close message client", "error", err)
-		}
-	}()
+	defer func() { _ = roomConn.Close() }()
+
+	messageConn, err := grpc.NewClient(cfg.MessageServiceAddr, dialOpts...)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = messageConn.Close() }()
 
 	jwtMiddleware := middleware.JWTAuth(cfg.JWTSecret)
 	ipRateLimiter := middleware.IPRateLimiter(valkeyClient, cfg.RateLimitRequests, cfg.RateLimitWindow)
@@ -107,10 +101,10 @@ func run(ctx context.Context) error {
 
 	healthHandler := healthcheck.New()
 
-	authHandler := auth.NewHandler(authClient)
-	userHandler := user.NewHandler(userClient)
-	roomHandler := room.NewHandler(roomClient)
-	messageHandler := message.NewHandler(messageClient)
+	authHandler := auth.NewHandler(authv1.NewAuthServiceClient(authConn))
+	userHandler := user.NewHandler(userv1.NewUserServiceClient(userConn))
+	roomHandler := room.NewHandler(roomv1.NewRoomServiceClient(roomConn))
+	messageHandler := message.NewHandler(messagev1.NewMessageServiceClient(messageConn))
 	wsAuthHandler := wsauth.NewHandler(valkeyClient, cfg.WSTicketTTL)
 
 	r := chi.NewRouter()
@@ -167,4 +161,12 @@ func run(ctx context.Context) error {
 
 	slog.Info("gateway service stopped gracefully")
 	return nil
+}
+
+func timeoutInterceptor(timeout time.Duration) grpc.UnaryClientInterceptor {
+	return func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+		ctx, cancel := context.WithTimeout(ctx, timeout)
+		defer cancel()
+		return invoker(ctx, method, req, reply, cc, opts...)
+	}
 }

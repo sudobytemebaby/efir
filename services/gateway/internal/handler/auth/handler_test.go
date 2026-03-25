@@ -14,43 +14,51 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	authv1 "github.com/sudobytemebaby/efir/services/shared/gen/auth"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
 type mockAuthClient struct {
-	registerFunc     func(ctx context.Context, email, password string) (*authv1.RegisterResponse, error)
-	loginFunc        func(ctx context.Context, email, password string) (*authv1.LoginResponse, error)
-	logoutFunc       func(ctx context.Context, refreshToken string) (*authv1.LogoutResponse, error)
-	refreshTokenFunc func(ctx context.Context, refreshToken string) (*authv1.RefreshTokenResponse, error)
+	registerFunc     func(ctx context.Context, in *authv1.RegisterRequest, opts ...grpc.CallOption) (*authv1.RegisterResponse, error)
+	loginFunc        func(ctx context.Context, in *authv1.LoginRequest, opts ...grpc.CallOption) (*authv1.LoginResponse, error)
+	logoutFunc       func(ctx context.Context, in *authv1.LogoutRequest, opts ...grpc.CallOption) (*authv1.LogoutResponse, error)
+	refreshTokenFunc func(ctx context.Context, in *authv1.RefreshTokenRequest, opts ...grpc.CallOption) (*authv1.RefreshTokenResponse, error)
 }
 
-func (m *mockAuthClient) Register(ctx context.Context, email, password string) (*authv1.RegisterResponse, error) {
+func (m *mockAuthClient) Register(ctx context.Context, in *authv1.RegisterRequest, opts ...grpc.CallOption) (*authv1.RegisterResponse, error) {
 	if m.registerFunc != nil {
-		return m.registerFunc(ctx, email, password)
+		return m.registerFunc(ctx, in, opts...)
 	}
 	return nil, errors.New("not implemented")
 }
 
-func (m *mockAuthClient) Login(ctx context.Context, email, password string) (*authv1.LoginResponse, error) {
+func (m *mockAuthClient) Login(ctx context.Context, in *authv1.LoginRequest, opts ...grpc.CallOption) (*authv1.LoginResponse, error) {
 	if m.loginFunc != nil {
-		return m.loginFunc(ctx, email, password)
+		return m.loginFunc(ctx, in, opts...)
 	}
 	return nil, errors.New("not implemented")
 }
 
-func (m *mockAuthClient) Logout(ctx context.Context, refreshToken string) (*authv1.LogoutResponse, error) {
+func (m *mockAuthClient) Logout(ctx context.Context, in *authv1.LogoutRequest, opts ...grpc.CallOption) (*authv1.LogoutResponse, error) {
 	if m.logoutFunc != nil {
-		return m.logoutFunc(ctx, refreshToken)
+		return m.logoutFunc(ctx, in, opts...)
 	}
 	return nil, errors.New("not implemented")
 }
 
-func (m *mockAuthClient) RefreshToken(ctx context.Context, refreshToken string) (*authv1.RefreshTokenResponse, error) {
+func (m *mockAuthClient) RefreshToken(ctx context.Context, in *authv1.RefreshTokenRequest, opts ...grpc.CallOption) (*authv1.RefreshTokenResponse, error) {
 	if m.refreshTokenFunc != nil {
-		return m.refreshTokenFunc(ctx, refreshToken)
+		return m.refreshTokenFunc(ctx, in, opts...)
 	}
 	return nil, errors.New("not implemented")
+}
+
+// authFields mirrors the proto JSON response fields for test assertions.
+type authFields struct {
+	UserID       string `json:"user_id"`
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
 }
 
 type testHandler struct {
@@ -60,11 +68,8 @@ type testHandler struct {
 
 func newTestHandler() *testHandler {
 	mockClient := &mockAuthClient{}
-	h := &Handler{authClient: mockClient}
-	return &testHandler{
-		Handler:    h,
-		mockClient: mockClient,
-	}
+	h := &Handler{client: mockClient}
+	return &testHandler{Handler: h, mockClient: mockClient}
 }
 
 func TestHandler_Register_Success(t *testing.T) {
@@ -73,7 +78,7 @@ func TestHandler_Register_Success(t *testing.T) {
 	h.Register(r)
 
 	userID := uuid.New().String()
-	h.mockClient.registerFunc = func(ctx context.Context, email, password string) (*authv1.RegisterResponse, error) {
+	h.mockClient.registerFunc = func(_ context.Context, in *authv1.RegisterRequest, _ ...grpc.CallOption) (*authv1.RegisterResponse, error) {
 		return &authv1.RegisterResponse{
 			UserId:       userID,
 			AccessToken:  "access-token",
@@ -90,9 +95,8 @@ func TestHandler_Register_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var resp authResponse
-	err := json.Unmarshal(w.Body.Bytes(), &resp)
-	require.NoError(t, err)
+	var resp authFields
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
 	assert.Equal(t, userID, resp.UserID)
 	assert.Equal(t, "access-token", resp.AccessToken)
 	assert.Equal(t, "refresh-token", resp.RefreshToken)
@@ -118,7 +122,7 @@ func TestHandler_Register_GrpcError(t *testing.T) {
 	r := chi.NewRouter()
 	h.Register(r)
 
-	h.mockClient.registerFunc = func(ctx context.Context, email, password string) (*authv1.RegisterResponse, error) {
+	h.mockClient.registerFunc = func(_ context.Context, _ *authv1.RegisterRequest, _ ...grpc.CallOption) (*authv1.RegisterResponse, error) {
 		return nil, status.Error(codes.AlreadyExists, "user already exists")
 	}
 
@@ -138,7 +142,7 @@ func TestHandler_Login_Success(t *testing.T) {
 	h.Register(r)
 
 	userID := uuid.New().String()
-	h.mockClient.loginFunc = func(ctx context.Context, email, password string) (*authv1.LoginResponse, error) {
+	h.mockClient.loginFunc = func(_ context.Context, _ *authv1.LoginRequest, _ ...grpc.CallOption) (*authv1.LoginResponse, error) {
 		return &authv1.LoginResponse{
 			UserId:       userID,
 			AccessToken:  "access-token",
@@ -155,9 +159,8 @@ func TestHandler_Login_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var resp authResponse
-	err := json.Unmarshal(w.Body.Bytes(), &resp)
-	require.NoError(t, err)
+	var resp authFields
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
 	assert.Equal(t, userID, resp.UserID)
 	assert.Equal(t, "access-token", resp.AccessToken)
 	assert.Equal(t, "refresh-token", resp.RefreshToken)
@@ -168,7 +171,7 @@ func TestHandler_Login_InvalidCredentials(t *testing.T) {
 	r := chi.NewRouter()
 	h.Register(r)
 
-	h.mockClient.loginFunc = func(ctx context.Context, email, password string) (*authv1.LoginResponse, error) {
+	h.mockClient.loginFunc = func(_ context.Context, _ *authv1.LoginRequest, _ ...grpc.CallOption) (*authv1.LoginResponse, error) {
 		return nil, status.Error(codes.Unauthenticated, "invalid credentials")
 	}
 
@@ -187,7 +190,7 @@ func TestHandler_Logout_Success(t *testing.T) {
 	r := chi.NewRouter()
 	h.Register(r)
 
-	h.mockClient.logoutFunc = func(ctx context.Context, refreshToken string) (*authv1.LogoutResponse, error) {
+	h.mockClient.logoutFunc = func(_ context.Context, _ *authv1.LogoutRequest, _ ...grpc.CallOption) (*authv1.LogoutResponse, error) {
 		return &authv1.LogoutResponse{}, nil
 	}
 
@@ -206,7 +209,7 @@ func TestHandler_Refresh_Success(t *testing.T) {
 	r := chi.NewRouter()
 	h.Register(r)
 
-	h.mockClient.refreshTokenFunc = func(ctx context.Context, refreshToken string) (*authv1.RefreshTokenResponse, error) {
+	h.mockClient.refreshTokenFunc = func(_ context.Context, _ *authv1.RefreshTokenRequest, _ ...grpc.CallOption) (*authv1.RefreshTokenResponse, error) {
 		return &authv1.RefreshTokenResponse{
 			AccessToken:  "new-access-token",
 			RefreshToken: "new-refresh-token",
@@ -222,9 +225,8 @@ func TestHandler_Refresh_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var resp authResponse
-	err := json.Unmarshal(w.Body.Bytes(), &resp)
-	require.NoError(t, err)
+	var resp authFields
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
 	assert.Equal(t, "new-access-token", resp.AccessToken)
 	assert.Equal(t, "new-refresh-token", resp.RefreshToken)
 	assert.Empty(t, resp.UserID)
@@ -235,7 +237,7 @@ func TestHandler_Refresh_ExpiredToken(t *testing.T) {
 	r := chi.NewRouter()
 	h.Register(r)
 
-	h.mockClient.refreshTokenFunc = func(ctx context.Context, refreshToken string) (*authv1.RefreshTokenResponse, error) {
+	h.mockClient.refreshTokenFunc = func(_ context.Context, _ *authv1.RefreshTokenRequest, _ ...grpc.CallOption) (*authv1.RefreshTokenResponse, error) {
 		return nil, status.Error(codes.Unauthenticated, "token expired")
 	}
 
