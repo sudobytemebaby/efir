@@ -75,25 +75,25 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer authConn.Close()
+	defer func() { _ = authConn.Close() }()
 
 	userConn, err := grpc.NewClient(cfg.UserServiceAddr, dialOpts...)
 	if err != nil {
 		return err
 	}
-	defer userConn.Close()
+	defer func() { _ = userConn.Close() }()
 
 	roomConn, err := grpc.NewClient(cfg.RoomServiceAddr, dialOpts...)
 	if err != nil {
 		return err
 	}
-	defer roomConn.Close()
+	defer func() { _ = roomConn.Close() }()
 
 	messageConn, err := grpc.NewClient(cfg.MessageServiceAddr, dialOpts...)
 	if err != nil {
 		return err
 	}
-	defer messageConn.Close()
+	defer func() { _ = messageConn.Close() }()
 
 	jwtMiddleware := middleware.JWTAuth(cfg.JWTSecret)
 	ipRateLimiter := middleware.IPRateLimiter(valkeyClient, cfg.RateLimitRequests, cfg.RateLimitWindow)
