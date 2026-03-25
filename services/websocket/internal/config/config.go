@@ -69,3 +69,7 @@ func (c *Config) PingInterval() time.Duration {
 func (c *Config) ReadDeadline() time.Duration {
 	return 60 * time.Second
 }
+
+func (c *Config) WriteDeadline() time.Duration {
+	return 5 * time.Second
+}

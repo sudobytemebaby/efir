@@ -5,7 +5,7 @@ WORKDIR /workspace
 COPY go.work ./
 COPY services ./services
 
-RUN go build -o /out/user ./services/user/cmd
+RUN CGO_ENABLED=0 go build -o /out/user ./services/user/cmd
 
 FROM alpine:3.20
 

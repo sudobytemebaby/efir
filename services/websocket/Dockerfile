@@ -5,7 +5,7 @@ WORKDIR /workspace
 COPY go.work ./
 COPY services ./services
 
-RUN go build -o /out/websocket ./services/websocket/cmd
+RUN CGO_ENABLED=0 go build -o /out/websocket ./services/websocket/cmd
 
 FROM alpine:3.20
 

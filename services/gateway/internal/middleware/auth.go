@@ -6,13 +6,25 @@ import (
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
+	"google.golang.org/grpc/metadata"
 )
 
 type contextKeyUserID struct{}
+type contextKeyRequestID struct{}
+
+const HeaderRequestID = "X-Request-ID"
+const MetadataKeyRequestID = "x-request-id"
 
 func JWTAuth(jwtSecret string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			requestID := r.Header.Get(HeaderRequestID)
+			if requestID == "" {
+				requestID = uuid.New().String()
+			}
+			w.Header().Set(HeaderRequestID, requestID)
+
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
 				http.Error(w, "missing authorization header", http.StatusUnauthorized)
@@ -51,6 +63,7 @@ func JWTAuth(jwtSecret string) func(http.Handler) http.Handler {
 			}
 
 			ctx := context.WithValue(r.Context(), contextKeyUserID{}, sub)
+			ctx = context.WithValue(ctx, contextKeyRequestID{}, requestID)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -59,4 +72,22 @@ func JWTAuth(jwtSecret string) func(http.Handler) http.Handler {
 func GetUserID(ctx context.Context) (string, bool) {
 	userID, ok := ctx.Value(contextKeyUserID{}).(string)
 	return userID, ok
+}
+
+func GetRequestID(ctx context.Context) (string, bool) {
+	requestID, ok := ctx.Value(contextKeyRequestID{}).(string)
+	return requestID, ok
+}
+
+func InjectRequestIDToOutgoingContext(ctx context.Context) context.Context {
+	requestID, ok := GetRequestID(ctx)
+	if !ok || requestID == "" {
+		return ctx
+	}
+	md, ok := metadata.FromOutgoingContext(ctx)
+	if !ok {
+		md = metadata.MD{}
+	}
+	md.Set(MetadataKeyRequestID, requestID)
+	return metadata.NewOutgoingContext(ctx, md)
 }

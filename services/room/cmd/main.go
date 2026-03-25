@@ -87,6 +87,7 @@ func run(ctx context.Context) error {
 
 	grpcServer := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
+			middleware.RequestIDInterceptor(),
 			middleware.RecoveryInterceptor(l),
 			middleware.LoggingInterceptor(l),
 		),
@@ -97,7 +98,6 @@ func run(ctx context.Context) error {
 	}
 
 	healthHandler := healthcheck.New()
-	healthHandler.SetReady(true)
 	healthMux := http.NewServeMux()
 	healthHandler.Register(healthMux)
 	healthServer := &http.Server{
@@ -108,24 +108,30 @@ func run(ctx context.Context) error {
 
 	errCh := make(chan error, 2)
 
+	grpcLis, err := net.Listen("tcp", fmt.Sprintf(":%s", cfg.GRPCPort))
+	if err != nil {
+		return fmt.Errorf("grpc listen: %w", err)
+	}
+	healthLis, err := net.Listen("tcp", "127.0.0.1:8080")
+	if err != nil {
+		return fmt.Errorf("health listen: %w", err)
+	}
+
 	go func() {
-		lis, err := net.Listen("tcp", fmt.Sprintf(":%s", cfg.GRPCPort))
-		if err != nil {
-			errCh <- fmt.Errorf("grpc listen: %w", err)
-			return
-		}
 		slog.Info("grpc server started", "port", cfg.GRPCPort)
-		if err := grpcServer.Serve(lis); err != nil {
+		if err := grpcServer.Serve(grpcLis); err != nil {
 			errCh <- fmt.Errorf("grpc serve: %w", err)
 		}
 	}()
 
 	go func() {
 		slog.Info("health server started", "addr", healthServer.Addr)
-		if err := healthServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := healthServer.Serve(healthLis); err != nil && err != http.ErrServerClosed {
 			errCh <- fmt.Errorf("health serve: %w", err)
 		}
 	}()
+
+	healthHandler.SetReady(true)
 
 	select {
 	case err := <-errCh:
@@ -135,7 +141,15 @@ func run(ctx context.Context) error {
 		slog.Info("shutting down servers")
 	}
 
-	grpcServer.GracefulStop()
+	grpcDone := make(chan struct{})
+	go func() { grpcServer.GracefulStop(); close(grpcDone) }()
+	select {
+	case <-grpcDone:
+		slog.Info("grpc server stopped gracefully")
+	case <-time.After(5 * time.Second):
+		grpcServer.Stop()
+		slog.Warn("grpc server force stopped after timeout")
+	}
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

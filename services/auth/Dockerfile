@@ -5,7 +5,7 @@ WORKDIR /workspace
 COPY go.work go.work.sum ./
 COPY services ./services
 
-RUN cd services/auth && go build -o /out/auth ./cmd
+RUN cd services/auth && CGO_ENABLED=0 go build -o /out/auth ./cmd
 
 FROM alpine:3.20
 
