@@ -3,14 +3,17 @@ package middleware
 
 import (
 	"context"
+	stderrors "errors"
 	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
+	grpcCodes "google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+
+	sharederrors "github.com/sudobytemebaby/efir/services/shared/pkg/errors"
 )
 
 const (
@@ -62,7 +65,17 @@ func LoggingInterceptor(logger *slog.Logger) grpc.UnaryServerInterceptor {
 			"duration_ms", duration.Milliseconds(),
 		}
 		if err != nil {
-			attrs = append(attrs, "error", err)
+			var se *sharederrors.StatusError
+			if stderrors.As(err, &se) {
+				attrs = append(attrs, "code", string(se.Code()))
+				if cause := se.Unwrap(); cause != nil {
+					attrs = append(attrs, "error", cause)
+				} else {
+					attrs = append(attrs, "error", se.Error())
+				}
+			} else {
+				attrs = append(attrs, "error", err)
+			}
 		}
 		logger.Log(ctx, level, "gRPC request completed", attrs...)
 
@@ -80,7 +93,7 @@ func RecoveryInterceptor(logger *slog.Logger) grpc.UnaryServerInterceptor {
 					"request_id", requestID,
 					"panic", r,
 				)
-				err = status.Errorf(codes.Internal, "internal server error")
+				err = status.Errorf(grpcCodes.Internal, "internal server error")
 			}
 		}()
 		return handler(ctx, req)

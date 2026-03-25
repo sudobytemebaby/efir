@@ -33,7 +33,7 @@ func NewMessageHandler(svc service.MessageService) (messagev1.MessageServiceServ
 
 func (h *messageHandler) validate(msg proto.Message) error {
 	if err := h.validator.Validate(msg); err != nil {
-		return sharederrors.CodeInvalidArgument.Wrap(err)
+		return sharederrors.CodeInvalidArgument.Error(err.Error())
 	}
 	return nil
 }
@@ -190,10 +190,10 @@ func (h *messageHandler) SendMessage(ctx context.Context, req *messagev1.SendMes
 	msg, err := h.svc.SendMessage(ctx, input)
 	if err != nil {
 		if stderrors.Is(err, service.ErrNotMember) {
-			return nil, sharederrors.CodePermissionDenied.Error(err.Error())
+			return nil, sharederrors.CodePermissionDenied.Error("must be a room member")
 		}
 		if stderrors.Is(err, service.ErrInvalidReplyTarget) {
-			return nil, sharederrors.CodeInvalidArgument.Error(err.Error())
+			return nil, sharederrors.CodeInvalidArgument.Error("reply target not found or belongs to a different room")
 		}
 		return nil, sharederrors.CodeInternal.Wrap(err)
 	}
@@ -230,7 +230,7 @@ func (h *messageHandler) GetMessages(ctx context.Context, req *messagev1.GetMess
 	messages, nextCursor, err := h.svc.GetMessages(ctx, roomID, requesterID, cursor, int(req.Limit))
 	if err != nil {
 		if stderrors.Is(err, service.ErrNotMember) {
-			return nil, sharederrors.CodePermissionDenied.Error(err.Error())
+			return nil, sharederrors.CodePermissionDenied.Error("must be a room member")
 		}
 		return nil, sharederrors.CodeInternal.Wrap(err)
 	}
@@ -270,10 +270,10 @@ func (h *messageHandler) GetMessageById(ctx context.Context, req *messagev1.GetM
 	msg, err := h.svc.GetMessageByID(ctx, messageID, requesterID)
 	if err != nil {
 		if stderrors.Is(err, service.ErrMessageNotFound) {
-			return nil, sharederrors.CodeNotFound.Error(err.Error())
+			return nil, sharederrors.CodeNotFound.Error("message not found")
 		}
 		if stderrors.Is(err, service.ErrNotMember) {
-			return nil, sharederrors.CodePermissionDenied.Error(err.Error())
+			return nil, sharederrors.CodePermissionDenied.Error("must be a room member")
 		}
 		return nil, sharederrors.CodeInternal.Wrap(err)
 	}
@@ -301,10 +301,10 @@ func (h *messageHandler) DeleteMessage(ctx context.Context, req *messagev1.Delet
 	err = h.svc.DeleteMessage(ctx, messageID, requesterID)
 	if err != nil {
 		if stderrors.Is(err, service.ErrMessageNotFound) {
-			return nil, sharederrors.CodeNotFound.Error(err.Error())
+			return nil, sharederrors.CodeNotFound.Error("message not found")
 		}
 		if stderrors.Is(err, service.ErrNotOwner) {
-			return nil, sharederrors.CodePermissionDenied.Error(err.Error())
+			return nil, sharederrors.CodePermissionDenied.Error("only sender can delete message")
 		}
 		return nil, sharederrors.CodeInternal.Wrap(err)
 	}

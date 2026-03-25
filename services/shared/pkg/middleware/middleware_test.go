@@ -4,12 +4,15 @@ import (
 	"bytes"
 	"context"
 	"log/slog"
+	"strings"
 	"testing"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+
+	sharederrors "github.com/sudobytemebaby/efir/services/shared/pkg/errors"
 )
 
 func TestGetUserID(t *testing.T) {
@@ -258,5 +261,99 @@ func TestLoggingInterceptorDurationRecorded(t *testing.T) {
 	}
 	if !bytes.Contains(buf.Bytes(), []byte("duration_ms")) {
 		t.Error("expected duration_ms in log output")
+	}
+}
+
+func TestLoggingInterceptorStatusError(t *testing.T) {
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&buf, nil))
+	interceptor := LoggingInterceptor(logger)
+
+	ctx := context.Background()
+	req := "test request"
+	info := &grpc.UnaryServerInfo{
+		FullMethod: "/test.Service/Method",
+	}
+
+	innerErr := status.Error(codes.Internal, "connection refused")
+	expectedErr := sharederrors.CodeInternal.Wrap(innerErr)
+
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return nil, expectedErr
+	}
+
+	_, _ = interceptor(ctx, req, info, handler)
+
+	logOutput := buf.String()
+	if logOutput == "" {
+		t.Fatal("expected log output")
+	}
+	if !strings.Contains(logOutput, "code=INTERNAL") {
+		t.Error("expected code=INTERNAL in log output")
+	}
+	if !strings.Contains(logOutput, "connection refused") {
+		t.Error("expected original error 'connection refused' in log output, not safe message")
+	}
+	if strings.Contains(logOutput, "internal error") {
+		t.Error("should not contain safe message 'internal error' in logs")
+	}
+}
+
+func TestLoggingInterceptorStatusErrorNoCause(t *testing.T) {
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&buf, nil))
+	interceptor := LoggingInterceptor(logger)
+
+	ctx := context.Background()
+	req := "test request"
+	info := &grpc.UnaryServerInfo{
+		FullMethod: "/test.Service/Method",
+	}
+
+	expectedErr := sharederrors.CodeInvalidArgument.Error("invalid input")
+
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return nil, expectedErr
+	}
+
+	_, _ = interceptor(ctx, req, info, handler)
+
+	logOutput := buf.String()
+	if logOutput == "" {
+		t.Fatal("expected log output")
+	}
+	if !strings.Contains(logOutput, "code=INVALID_ARGUMENT") {
+		t.Error("expected code=INVALID_ARGUMENT in log output")
+	}
+	if !strings.Contains(logOutput, "invalid input") {
+		t.Error("expected error message 'invalid input' in log output")
+	}
+}
+
+func TestLoggingInterceptorRegularError(t *testing.T) {
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&buf, nil))
+	interceptor := LoggingInterceptor(logger)
+
+	ctx := context.Background()
+	req := "test request"
+	info := &grpc.UnaryServerInfo{
+		FullMethod: "/test.Service/Method",
+	}
+
+	expectedErr := status.Error(codes.NotFound, "not found")
+
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return nil, expectedErr
+	}
+
+	_, _ = interceptor(ctx, req, info, handler)
+
+	logOutput := buf.String()
+	if logOutput == "" {
+		t.Fatal("expected log output")
+	}
+	if !strings.Contains(logOutput, "not found") {
+		t.Error("expected error message in log output")
 	}
 }

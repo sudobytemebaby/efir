@@ -2,6 +2,8 @@
 package errors
 
 import (
+	stderrors "errors"
+
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -38,6 +40,27 @@ var codeToHTTPCode = map[Code]int{
 	CodeInternal:         500,
 }
 
+var codeToDefaultMessage = map[Code]string{
+	CodeNotFound:         "not found",
+	CodeAlreadyExists:    "already exists",
+	CodePermissionDenied: "permission denied",
+	CodeUnauthenticated:  "unauthenticated",
+	CodeInvalidArgument:  "invalid argument",
+	CodeUnavailable:      "service unavailable",
+	CodeInternal:         "internal error",
+}
+
+type StatusError struct {
+	code Code
+	msg  string
+	err  error
+}
+
+func (e *StatusError) Error() string              { return e.msg }
+func (e *StatusError) Unwrap() error              { return e.err }
+func (e *StatusError) Code() Code                 { return e.code }
+func (e *StatusError) GRPCStatus() *status.Status { return status.New(e.code.ToGRPCCode(), e.msg) }
+
 func (c Code) ToGRPCCode() codes.Code {
 	if code, ok := codeToGRPCCode[c]; ok {
 		return code
@@ -53,17 +76,22 @@ func (c Code) ToHTTPCode() int {
 }
 
 func (c Code) Error(msg string) error {
-	return status.Error(c.ToGRPCCode(), msg)
+	return &StatusError{code: c, msg: msg}
 }
 
 func (c Code) Wrap(err error) error {
 	if err == nil {
 		return nil
 	}
-	if s, ok := status.FromError(err); ok && s.Code() == c.ToGRPCCode() {
+	var se *StatusError
+	if stderrors.As(err, &se) && se.code == c {
 		return err
 	}
-	return status.Error(c.ToGRPCCode(), err.Error())
+	return &StatusError{
+		code: c,
+		msg:  codeToDefaultMessage[c],
+		err:  err,
+	}
 }
 
 func FromError(err error) (Code, bool) {

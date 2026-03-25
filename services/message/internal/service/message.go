@@ -140,7 +140,7 @@ func (s *messageService) GetMessageByID(ctx context.Context, messageID, requeste
 
 	isMember, err := s.roomClient.IsMember(ctx, msg.RoomID, requesterID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("check room membership: %w", err)
 	}
 	if !isMember {
 		return nil, ErrNotMember
