@@ -50,6 +50,14 @@ func (h *WebSocketHandler) HandleWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	initialRoomID := r.URL.Query().Get("room_id")
+	if initialRoomID != "" {
+		if _, err := uuid.Parse(initialRoomID); err != nil {
+			http.Error(w, "invalid room_id format", http.StatusBadRequest)
+			return
+		}
+	}
+
 	conn, err := websocket.Accept(w, r, nil)
 	if err != nil {
 		slog.ErrorContext(r.Context(), "failed to accept websocket", "error", err)
@@ -57,13 +65,8 @@ func (h *WebSocketHandler) HandleWS(w http.ResponseWriter, r *http.Request) {
 	}
 
 	wsConn := newWSConnWrapper(conn, h.cfg.WriteDeadline())
-	initialRoomID := r.URL.Query().Get("room_id")
 
 	if initialRoomID != "" {
-		if _, err := uuid.Parse(initialRoomID); err != nil {
-			http.Error(w, "invalid room_id format", http.StatusBadRequest)
-			return
-		}
 		h.hub.Register(wsConn, userID, initialRoomID)
 	}
 

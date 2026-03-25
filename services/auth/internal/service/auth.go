@@ -22,6 +22,12 @@ var (
 	ErrRateLimitExceeded    = errors.New("rate limit exceeded")
 )
 
+type Account struct {
+	ID        uuid.UUID
+	Email     string
+	CreatedAt time.Time
+}
+
 type TokenPair struct {
 	AccessToken  string
 	RefreshToken string
@@ -29,8 +35,8 @@ type TokenPair struct {
 
 //go:generate mockery --name AuthService
 type AuthService interface {
-	Register(ctx context.Context, email, password string) (*repository.Account, *TokenPair, error)
-	Login(ctx context.Context, email, password string) (*repository.Account, *TokenPair, error)
+	Register(ctx context.Context, email, password string) (*Account, *TokenPair, error)
+	Login(ctx context.Context, email, password string) (*Account, *TokenPair, error)
 	Logout(ctx context.Context, refreshToken string) error
 	RefreshToken(ctx context.Context, refreshToken string) (*TokenPair, error)
 }
@@ -70,7 +76,7 @@ func NewAuthService(
 	}
 }
 
-func (s *authService) Register(ctx context.Context, email, password string) (*repository.Account, *TokenPair, error) {
+func (s *authService) Register(ctx context.Context, email, password string) (*Account, *TokenPair, error) {
 	if err := s.limiter.Allow(ctx, ratelimit.ActionRegister, email); err != nil {
 		var rateLimitErr *ratelimit.ErrRateLimitExceeded
 		if errors.As(err, &rateLimitErr) {
@@ -119,10 +125,10 @@ func (s *authService) Register(ctx context.Context, email, password string) (*re
 		)
 	}
 
-	return acc, tokenPair, nil
+	return toAccount(acc), tokenPair, nil
 }
 
-func (s *authService) Login(ctx context.Context, email, password string) (*repository.Account, *TokenPair, error) {
+func (s *authService) Login(ctx context.Context, email, password string) (*Account, *TokenPair, error) {
 	if err := s.limiter.Allow(ctx, ratelimit.ActionLogin, email); err != nil {
 		var rateLimitErr *ratelimit.ErrRateLimitExceeded
 		if errors.As(err, &rateLimitErr) {
@@ -152,7 +158,15 @@ func (s *authService) Login(ctx context.Context, email, password string) (*repos
 		return nil, nil, fmt.Errorf("generate tokens: %w", err)
 	}
 
-	return acc, tokenPair, nil
+	return toAccount(acc), tokenPair, nil
+}
+
+func toAccount(acc *repository.Account) *Account {
+	return &Account{
+		ID:        acc.ID,
+		Email:     acc.Email,
+		CreatedAt: acc.CreatedAt,
+	}
 }
 
 func (s *authService) Logout(ctx context.Context, refreshToken string) error {

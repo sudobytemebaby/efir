@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	stderrors "errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -10,6 +11,8 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )
+
+const maxBodySize = 1 << 20 // 1 MB
 
 var marshaler = protojson.MarshalOptions{
 	UseProtoNames:   true,
@@ -33,8 +36,11 @@ func WriteProto(w http.ResponseWriter, status int, msg proto.Message) {
 }
 
 func ReadProto(r *http.Request, msg proto.Message) error {
-	body, err := io.ReadAll(r.Body)
+	body, err := io.ReadAll(io.LimitReader(r.Body, maxBodySize))
 	if err != nil {
+		if stderrors.Is(err, io.EOF) && len(body) >= maxBodySize {
+			return errors.CodeInvalidArgument.Error("request body too large")
+		}
 		return err
 	}
 	return unmarshaler.Unmarshal(body, msg)

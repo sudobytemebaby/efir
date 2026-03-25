@@ -51,7 +51,7 @@ func NewMessageService(repo repository.MessageRepository, roomClient RoomClient,
 func (s *messageService) SendMessage(ctx context.Context, input *SendMessageInput) (*Message, error) {
 	isMember, err := s.roomClient.IsMember(ctx, input.RoomID, input.SenderID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("check room membership: %w", err)
 	}
 	if !isMember {
 		return nil, ErrNotMember
@@ -63,7 +63,7 @@ func (s *messageService) SendMessage(ctx context.Context, input *SendMessageInpu
 			if errors.Is(err, repository.ErrMessageNotFound) {
 				return nil, ErrInvalidReplyTarget
 			}
-			return nil, err
+			return nil, fmt.Errorf("get reply target message: %w", err)
 		}
 		if original.DeletedAt != nil {
 			return nil, ErrInvalidReplyTarget
@@ -81,7 +81,7 @@ func (s *messageService) SendMessage(ctx context.Context, input *SendMessageInpu
 		ReplyToID: input.ReplyToID,
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create message: %w", err)
 	}
 
 	domainMsg := toMessage(msg)
@@ -110,7 +110,7 @@ func (s *messageService) SendMessage(ctx context.Context, input *SendMessageInpu
 func (s *messageService) GetMessages(ctx context.Context, roomID, requesterID uuid.UUID, cursor *uuid.UUID, limit int) ([]*Message, *uuid.UUID, error) {
 	isMember, err := s.roomClient.IsMember(ctx, roomID, requesterID)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("check room membership: %w", err)
 	}
 	if !isMember {
 		return nil, nil, ErrNotMember
@@ -118,7 +118,7 @@ func (s *messageService) GetMessages(ctx context.Context, roomID, requesterID uu
 
 	repoMsgs, nextCursor, err := s.repo.GetMessagesByRoomID(ctx, roomID, cursor, limit)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("get messages: %w", err)
 	}
 
 	msgs := make([]*Message, len(repoMsgs))

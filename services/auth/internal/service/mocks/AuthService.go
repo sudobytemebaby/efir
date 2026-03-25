@@ -6,8 +6,6 @@ import (
 	context "context"
 
 	mock "github.com/stretchr/testify/mock"
-	repository "github.com/sudobytemebaby/efir/services/auth/internal/repository"
-
 	service "github.com/sudobytemebaby/efir/services/auth/internal/service"
 )
 
@@ -17,24 +15,24 @@ type AuthService struct {
 }
 
 // Login provides a mock function with given fields: ctx, email, password
-func (_m *AuthService) Login(ctx context.Context, email string, password string) (*repository.Account, *service.TokenPair, error) {
+func (_m *AuthService) Login(ctx context.Context, email string, password string) (*service.Account, *service.TokenPair, error) {
 	ret := _m.Called(ctx, email, password)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Login")
 	}
 
-	var r0 *repository.Account
+	var r0 *service.Account
 	var r1 *service.TokenPair
 	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*repository.Account, *service.TokenPair, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*service.Account, *service.TokenPair, error)); ok {
 		return rf(ctx, email, password)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, string) *repository.Account); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *service.Account); ok {
 		r0 = rf(ctx, email, password)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*repository.Account)
+			r0 = ret.Get(0).(*service.Account)
 		}
 	}
 
@@ -104,24 +102,24 @@ func (_m *AuthService) RefreshToken(ctx context.Context, refreshToken string) (*
 }
 
 // Register provides a mock function with given fields: ctx, email, password
-func (_m *AuthService) Register(ctx context.Context, email string, password string) (*repository.Account, *service.TokenPair, error) {
+func (_m *AuthService) Register(ctx context.Context, email string, password string) (*service.Account, *service.TokenPair, error) {
 	ret := _m.Called(ctx, email, password)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Register")
 	}
 
-	var r0 *repository.Account
+	var r0 *service.Account
 	var r1 *service.TokenPair
 	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*repository.Account, *service.TokenPair, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*service.Account, *service.TokenPair, error)); ok {
 		return rf(ctx, email, password)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, string) *repository.Account); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *service.Account); ok {
 		r0 = rf(ctx, email, password)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*repository.Account)
+			r0 = ret.Get(0).(*service.Account)
 		}
 	}
 

@@ -257,7 +257,7 @@ func (h *Hub) sendToRoom(roomID string, envelope Envelope) {
 					}
 				case <-time.After(writeTimeout):
 					slog.Error("write timeout, closing conn")
-					if closeErr := conn.Close(StatusAbnormalClosure, "write timeout"); closeErr != nil {
+					if closeErr := c.Close(StatusAbnormalClosure, "write timeout"); closeErr != nil {
 						slog.Error("failed to close conn", "error", closeErr)
 					}
 				}

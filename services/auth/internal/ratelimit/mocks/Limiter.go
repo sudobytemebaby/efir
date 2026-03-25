@@ -36,8 +36,7 @@ func (_m *Limiter) Allow(ctx context.Context, action string, email string) error
 func NewLimiter(t interface {
 	mock.TestingT
 	Cleanup(func())
-},
-) *Limiter {
+}) *Limiter {
 	mock := &Limiter{}
 	mock.Mock.Test(t)
 

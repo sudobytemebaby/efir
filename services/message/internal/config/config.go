@@ -8,15 +8,16 @@ import (
 )
 
 type Config struct {
-	Env             Environment   `env:"ENV" env-default:"development"`
-	LogLevel        string        `env:"LOG_LEVEL" env-default:"info"`
-	GRPCPort        string        `env:"GRPC_PORT" env-default:"50054"`
-	PostgresDSN     string        `env:"POSTGRES_DSN" env-required:"true"`
-	NATSURL         string        `env:"NATS_URL" env-default:"nats://nats:4222"`
-	NATSUser        string        `env:"NATS_USER"`
-	NATSPass        string        `env:"NATS_PASSWORD"`
-	RoomServiceAddr string        `env:"ROOM_SERVICE_ADDR" env-default:"room:50053"`
-	RoomCallTimeout time.Duration `env:"ROOM_CALL_TIMEOUT" env-default:"3s"`
+	Env              Environment   `env:"ENV" env-default:"development"`
+	LogLevel         string        `env:"LOG_LEVEL" env-default:"info"`
+	GRPCPort         string        `env:"GRPC_PORT" env-default:"50054"`
+	HealthListenAddr string        `env:"HEALTH_LISTEN_ADDR" env-default:"127.0.0.1:8080"`
+	PostgresDSN      string        `env:"POSTGRES_DSN" env-required:"true"`
+	NATSURL          string        `env:"NATS_URL" env-default:"nats://nats:4222"`
+	NATSUser         string        `env:"NATS_USER"`
+	NATSPass         string        `env:"NATS_PASSWORD"`
+	RoomServiceAddr  string        `env:"ROOM_SERVICE_ADDR" env-default:"room:50053"`
+	RoomCallTimeout  time.Duration `env:"ROOM_CALL_TIMEOUT" env-default:"3s"`
 }
 
 type Environment string

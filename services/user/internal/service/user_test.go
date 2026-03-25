@@ -232,3 +232,11 @@ func TestGenerateUsernameFromEmail(t *testing.T) {
 		assert.Equal(t, tt.expected, result)
 	}
 }
+
+func TestGenerateUsernameFromEmail_EdgeCases(t *testing.T) {
+	result := generateUsernameFromEmail("")
+	assert.Regexp(t, `^user-[a-f0-9]{8}$`, result)
+
+	result = generateUsernameFromEmail("@example.com")
+	assert.Regexp(t, `^user-[a-f0-9]{8}$`, result)
+}

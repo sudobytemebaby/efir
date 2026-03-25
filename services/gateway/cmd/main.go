@@ -122,7 +122,10 @@ func run(ctx context.Context) error {
 		messageHandler.Register(r)
 	})
 
-	wsAuthHandler.Register(r)
+	r.Group(func(r chi.Router) {
+		r.Use(ipRateLimiter)
+		wsAuthHandler.Register(r)
+	})
 
 	r.HandleFunc("/health", healthHandler.Health)
 	r.HandleFunc("/ready", healthHandler.Ready)
