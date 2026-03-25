@@ -28,7 +28,7 @@ func (h *Handler) Register(r chi.Router) {
 	r.Get("/rooms/{id}/messages", h.getMessages)
 }
 
-func messageTypeFromString(t string) (messagev1.MessageType, bool) {
+func mapStringToMessageType(t string) (messagev1.MessageType, bool) {
 	switch t {
 	case "text":
 		return messagev1.MessageType_MESSAGE_TYPE_TEXT, true
@@ -70,7 +70,7 @@ func (h *Handler) sendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	msgType, ok := messageTypeFromString(req.Type)
+	msgType, ok := mapStringToMessageType(req.Type)
 	if !ok {
 		http.Error(w, "invalid message type", http.StatusBadRequest)
 		return
@@ -155,12 +155,12 @@ func (h *Handler) sendMessage(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	if err := json.NewEncoder(w).Encode(messageToResponse(resp.Message)); err != nil {
+	if err := json.NewEncoder(w).Encode(mapMessageToResponse(resp.Message)); err != nil {
 		slog.ErrorContext(r.Context(), "failed to encode response", "error", err)
 	}
 }
 
-func messageTypeToString(t messagev1.MessageType) string {
+func mapMessageTypeToString(t messagev1.MessageType) string {
 	switch t {
 	case messagev1.MessageType_MESSAGE_TYPE_TEXT:
 		return "text"
@@ -183,12 +183,12 @@ func messageTypeToString(t messagev1.MessageType) string {
 	}
 }
 
-func messageToResponse(msg *messagev1.Message) messageResponse {
+func mapMessageToResponse(msg *messagev1.Message) messageResponse {
 	resp := messageResponse{
 		MessageID: msg.MessageId,
 		RoomID:    msg.RoomId,
 		SenderID:  msg.SenderId,
-		Type:      messageTypeToString(msg.Type),
+		Type:      mapMessageTypeToString(msg.Type),
 		IsDeleted: msg.IsDeleted,
 		CreatedAt: handler.TimestampToString(msg.CreatedAt),
 		UpdatedAt: handler.TimestampToString(msg.UpdatedAt),
@@ -200,7 +200,7 @@ func messageToResponse(msg *messagev1.Message) messageResponse {
 		resp.ReplyTo = &messagePreview{
 			MessageID: msg.ReplyTo.MessageId,
 			SenderID:  msg.ReplyTo.SenderId,
-			Type:      messageTypeToString(msg.ReplyTo.Type),
+			Type:      mapMessageTypeToString(msg.ReplyTo.Type),
 		}
 	}
 	if text := msg.GetText(); text != nil {
@@ -287,7 +287,7 @@ func (h *Handler) getMessages(w http.ResponseWriter, r *http.Request) {
 
 	messages := make([]messageResponse, 0, len(resp.Messages))
 	for _, msg := range resp.Messages {
-		messages = append(messages, messageToResponse(msg))
+		messages = append(messages, mapMessageToResponse(msg))
 	}
 
 	w.Header().Set("Content-Type", "application/json")

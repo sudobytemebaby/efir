@@ -27,7 +27,7 @@ func (h *Handler) Register(r chi.Router) {
 	r.Patch("/users/me", h.updateMe)
 }
 
-func userToResponse(user *client.User) userResponse {
+func mapUserToResponse(user *client.User) userResponse {
 	resp := userResponse{
 		UserID:      user.UserId,
 		Username:    user.Username,
@@ -58,7 +58,7 @@ func (h *Handler) getMe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(userToResponse(resp.User)); err != nil {
+	if err := json.NewEncoder(w).Encode(mapUserToResponse(resp.User)); err != nil {
 		slog.ErrorContext(r.Context(), "failed to encode response", "error", err)
 	}
 }
@@ -77,7 +77,7 @@ func (h *Handler) getByID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(userToResponse(resp.User)); err != nil {
+	if err := json.NewEncoder(w).Encode(mapUserToResponse(resp.User)); err != nil {
 		slog.ErrorContext(r.Context(), "failed to encode response", "error", err)
 	}
 }
@@ -102,7 +102,7 @@ func (h *Handler) updateMe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(userToResponse(resp.User)); err != nil {
+	if err := json.NewEncoder(w).Encode(mapUserToResponse(resp.User)); err != nil {
 		slog.ErrorContext(r.Context(), "failed to encode response", "error", err)
 	}
 }

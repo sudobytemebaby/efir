@@ -30,7 +30,7 @@ func (h *Handler) Register(r chi.Router) {
 	r.Delete("/rooms/{id}/members/{userId}", h.removeMember)
 }
 
-func roomTypeToString(rt client.RoomType) string {
+func mapRoomTypeToString(rt client.RoomType) string {
 	switch rt {
 	case client.RoomTypeDirect:
 		return "direct"
@@ -41,11 +41,11 @@ func roomTypeToString(rt client.RoomType) string {
 	}
 }
 
-func roomToResponse(room *client.Room) roomResponse {
+func mapRoomToResponse(room *client.Room) roomResponse {
 	return roomResponse{
 		RoomID:    room.RoomId,
 		Name:      room.Name,
-		Type:      roomTypeToString(room.Type),
+		Type:      mapRoomTypeToString(room.Type),
 		CreatedBy: room.CreatedBy,
 		CreatedAt: handler.TimestampToString(room.CreatedAt),
 		UpdatedAt: handler.TimestampToString(room.UpdatedAt),
@@ -84,7 +84,7 @@ func (h *Handler) createRoom(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	if err := json.NewEncoder(w).Encode(roomToResponse(resp.Room)); err != nil {
+	if err := json.NewEncoder(w).Encode(mapRoomToResponse(resp.Room)); err != nil {
 		slog.ErrorContext(r.Context(), "failed to encode response", "error", err)
 	}
 }
@@ -103,7 +103,7 @@ func (h *Handler) getRoom(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(roomToResponse(resp.Room)); err != nil {
+	if err := json.NewEncoder(w).Encode(mapRoomToResponse(resp.Room)); err != nil {
 		slog.ErrorContext(r.Context(), "failed to encode response", "error", err)
 	}
 }
@@ -134,7 +134,7 @@ func (h *Handler) updateRoom(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(roomToResponse(resp.Room)); err != nil {
+	if err := json.NewEncoder(w).Encode(mapRoomToResponse(resp.Room)); err != nil {
 		slog.ErrorContext(r.Context(), "failed to encode response", "error", err)
 	}
 }
