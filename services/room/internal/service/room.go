@@ -135,10 +135,7 @@ func (s *roomService) UpdateRoom(ctx context.Context, roomID uuid.UUID, requeste
 		return toRoom(updatedRoom), nil
 	}
 
-	recipientIDs := make([]uuid.UUID, len(members))
-	for i, m := range members {
-		recipientIDs[i] = m.UserID
-	}
+	recipientIDs := memberUserIDs(members)
 
 	if err := s.publisher.PublishRoomUpdated(ctx, roomID, updatedRoom.Name, recipientIDs); err != nil {
 		slog.Error("failed to publish room updated event, event may be lost",
@@ -206,10 +203,7 @@ func (s *roomService) AddMember(ctx context.Context, roomID, userID, requesterID
 		return fmt.Errorf("get members for event: %w", err)
 	}
 
-	var recipientIDs []uuid.UUID
-	for _, m := range members {
-		recipientIDs = append(recipientIDs, m.UserID)
-	}
+	recipientIDs := memberUserIDs(members)
 
 	if err := s.publisher.PublishMembershipChanged(ctx, roomID, userID, "added", recipientIDs); err != nil {
 		slog.Error("failed to publish membership changed event, event may be lost",
@@ -267,10 +261,7 @@ func (s *roomService) RemoveMember(ctx context.Context, roomID, userID, requeste
 		return fmt.Errorf("get members for event: %w", err)
 	}
 
-	var recipientIDs []uuid.UUID
-	for _, m := range members {
-		recipientIDs = append(recipientIDs, m.UserID)
-	}
+	recipientIDs := memberUserIDs(members)
 
 	if err := s.publisher.PublishMembershipChanged(ctx, roomID, userID, "removed", recipientIDs); err != nil {
 		slog.Error("failed to publish membership changed event, event may be lost",
@@ -315,4 +306,12 @@ func (s *roomService) IsMember(ctx context.Context, roomID, userID uuid.UUID) (b
 	}
 
 	return isMember, nil
+}
+
+func memberUserIDs(members []repository.RoomMember) []uuid.UUID {
+	ids := make([]uuid.UUID, len(members))
+	for i, m := range members {
+		ids[i] = m.UserID
+	}
+	return ids
 }

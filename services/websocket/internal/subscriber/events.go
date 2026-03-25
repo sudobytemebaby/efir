@@ -91,7 +91,9 @@ func (s *Subscriber) handleMessageCreated(msg jetstream.Msg) {
 	var event MessageCreatedEvent
 	if err := json.Unmarshal(msg.Data(), &event); err != nil {
 		slog.Error("failed to unmarshal message.created event", "error", err)
-		_ = msg.Nak()
+		if err := msg.Nak(); err != nil {
+			slog.Warn("failed to nak message", "error", err)
+		}
 		return
 	}
 
@@ -108,20 +110,26 @@ func (s *Subscriber) handleMessageCreated(msg jetstream.Msg) {
 	})
 	if err != nil {
 		slog.Error("failed to marshal message.created payload", "error", err)
-		_ = msg.Nak()
+		if err := msg.Nak(); err != nil {
+			slog.Warn("failed to nak message", "error", err)
+		}
 		return
 	}
 	envelope.Payload = payload
 
 	s.hub.BroadcastToRoom(event.RoomID, envelope)
-	_ = msg.Ack()
+	if err := msg.Ack(); err != nil {
+		slog.Warn("failed to ack message", "error", err)
+	}
 }
 
 func (s *Subscriber) handleRoomMembershipChanged(msg jetstream.Msg) {
 	var event RoomMembershipChangedEvent
 	if err := json.Unmarshal(msg.Data(), &event); err != nil {
 		slog.Error("failed to unmarshal room.membership.changed event", "error", err)
-		_ = msg.Nak()
+		if err := msg.Nak(); err != nil {
+			slog.Warn("failed to nak message", "error", err)
+		}
 		return
 	}
 
@@ -137,20 +145,26 @@ func (s *Subscriber) handleRoomMembershipChanged(msg jetstream.Msg) {
 	})
 	if err != nil {
 		slog.Error("failed to marshal room.membership.changed payload", "error", err)
-		_ = msg.Nak()
+		if err := msg.Nak(); err != nil {
+			slog.Warn("failed to nak message", "error", err)
+		}
 		return
 	}
 	envelope.Payload = payload
 
 	s.hub.BroadcastToRoom(event.RoomID, envelope)
-	_ = msg.Ack()
+	if err := msg.Ack(); err != nil {
+		slog.Warn("failed to ack message", "error", err)
+	}
 }
 
 func (s *Subscriber) handleRoomUpdated(msg jetstream.Msg) {
 	var event RoomUpdatedEvent
 	if err := json.Unmarshal(msg.Data(), &event); err != nil {
 		slog.Error("failed to unmarshal room.updated event", "error", err)
-		_ = msg.Nak()
+		if err := msg.Nak(); err != nil {
+			slog.Warn("failed to nak message", "error", err)
+		}
 		return
 	}
 
@@ -165,11 +179,15 @@ func (s *Subscriber) handleRoomUpdated(msg jetstream.Msg) {
 	})
 	if err != nil {
 		slog.Error("failed to marshal room.updated payload", "error", err)
-		_ = msg.Nak()
+		if err := msg.Nak(); err != nil {
+			slog.Warn("failed to nak message", "error", err)
+		}
 		return
 	}
 	envelope.Payload = payload
 
 	s.hub.BroadcastToRoom(event.RoomID, envelope)
-	_ = msg.Ack()
+	if err := msg.Ack(); err != nil {
+		slog.Warn("failed to ack message", "error", err)
+	}
 }

@@ -56,12 +56,15 @@ func LoggingInterceptor(logger *slog.Logger) grpc.UnaryServerInterceptor {
 			level = slog.LevelError
 		}
 
-		logger.Log(ctx, level, "gRPC request completed",
+		attrs := []any{
 			"method", info.FullMethod,
 			"request_id", requestID,
 			"duration_ms", duration.Milliseconds(),
-			"error", err,
-		)
+		}
+		if err != nil {
+			attrs = append(attrs, "error", err)
+		}
+		logger.Log(ctx, level, "gRPC request completed", attrs...)
 
 		return resp, err
 	}

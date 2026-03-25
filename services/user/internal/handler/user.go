@@ -62,7 +62,7 @@ func (h *userHandler) GetUsersByIds(ctx context.Context, req *userv1.GetUsersByI
 		return nil, err
 	}
 
-	var userIDs []uuid.UUID
+	userIDs := make([]uuid.UUID, 0, len(req.UserIds))
 	for _, idStr := range req.UserIds {
 		id, err := uuid.Parse(idStr)
 		if err != nil {
@@ -76,7 +76,7 @@ func (h *userHandler) GetUsersByIds(ctx context.Context, req *userv1.GetUsersByI
 		return nil, sharederrors.CodeInternal.Wrap(err)
 	}
 
-	var protoUsers []*userv1.User
+	protoUsers := make([]*userv1.User, 0, len(users))
 	for _, user := range users {
 		u := user
 		protoUsers = append(protoUsers, mapUserToProto(&u))

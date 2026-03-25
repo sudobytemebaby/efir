@@ -4,6 +4,7 @@ package healthcheck
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"sync/atomic"
 	"time"
@@ -28,7 +29,9 @@ func (h *Handler) SetReady(ready bool) {
 func (h *Handler) Health(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(Response{Status: "ok"})
+	if err := json.NewEncoder(w).Encode(Response{Status: "ok"}); err != nil {
+		slog.Error("failed to encode health response", "error", err)
+	}
 }
 
 func (h *Handler) Ready(w http.ResponseWriter, _ *http.Request) {
@@ -36,12 +39,16 @@ func (h *Handler) Ready(w http.ResponseWriter, _ *http.Request) {
 
 	if !h.ready.Load() {
 		w.WriteHeader(http.StatusServiceUnavailable)
-		_ = json.NewEncoder(w).Encode(Response{Status: "not ready"})
+		if err := json.NewEncoder(w).Encode(Response{Status: "not ready"}); err != nil {
+			slog.Error("failed to encode ready response", "error", err)
+		}
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(Response{Status: "ready"})
+	if err := json.NewEncoder(w).Encode(Response{Status: "ready"}); err != nil {
+		slog.Error("failed to encode ready response", "error", err)
+	}
 }
 
 func (h *Handler) Register(mux *http.ServeMux) {
