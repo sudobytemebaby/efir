@@ -10,8 +10,6 @@ import (
 	"github.com/sudobytemebaby/efir/services/message/internal/service"
 	messagev1 "github.com/sudobytemebaby/efir/services/shared/gen/message"
 	sharederrors "github.com/sudobytemebaby/efir/services/shared/pkg/errors"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -192,12 +190,12 @@ func (h *messageHandler) SendMessage(ctx context.Context, req *messagev1.SendMes
 	msg, err := h.svc.SendMessage(ctx, input)
 	if err != nil {
 		if stderrors.Is(err, service.ErrNotMember) {
-			return nil, status.New(codes.PermissionDenied, err.Error()).Err()
+			return nil, sharederrors.CodePermissionDenied.Error(err.Error())
 		}
 		if stderrors.Is(err, service.ErrInvalidReplyTarget) {
-			return nil, status.New(codes.InvalidArgument, err.Error()).Err()
+			return nil, sharederrors.CodeInvalidArgument.Error(err.Error())
 		}
-		return nil, status.New(codes.Internal, err.Error()).Err()
+		return nil, sharederrors.CodeInternal.Wrap(err)
 	}
 
 	return &messagev1.SendMessageResponse{
@@ -232,9 +230,9 @@ func (h *messageHandler) GetMessages(ctx context.Context, req *messagev1.GetMess
 	messages, nextCursor, err := h.svc.GetMessages(ctx, roomID, requesterID, cursor, int(req.Limit))
 	if err != nil {
 		if stderrors.Is(err, service.ErrNotMember) {
-			return nil, status.New(codes.PermissionDenied, err.Error()).Err()
+			return nil, sharederrors.CodePermissionDenied.Error(err.Error())
 		}
-		return nil, status.New(codes.Internal, err.Error()).Err()
+		return nil, sharederrors.CodeInternal.Wrap(err)
 	}
 
 	protoMessages := make([]*messagev1.Message, len(messages))
@@ -272,12 +270,12 @@ func (h *messageHandler) GetMessageById(ctx context.Context, req *messagev1.GetM
 	msg, err := h.svc.GetMessageByID(ctx, messageID, requesterID)
 	if err != nil {
 		if stderrors.Is(err, service.ErrMessageNotFound) {
-			return nil, status.New(codes.NotFound, err.Error()).Err()
+			return nil, sharederrors.CodeNotFound.Error(err.Error())
 		}
 		if stderrors.Is(err, service.ErrNotMember) {
-			return nil, status.New(codes.PermissionDenied, err.Error()).Err()
+			return nil, sharederrors.CodePermissionDenied.Error(err.Error())
 		}
-		return nil, status.New(codes.Internal, err.Error()).Err()
+		return nil, sharederrors.CodeInternal.Wrap(err)
 	}
 
 	return &messagev1.GetMessageByIdResponse{
@@ -303,12 +301,12 @@ func (h *messageHandler) DeleteMessage(ctx context.Context, req *messagev1.Delet
 	err = h.svc.DeleteMessage(ctx, messageID, requesterID)
 	if err != nil {
 		if stderrors.Is(err, service.ErrMessageNotFound) {
-			return nil, status.New(codes.NotFound, err.Error()).Err()
+			return nil, sharederrors.CodeNotFound.Error(err.Error())
 		}
 		if stderrors.Is(err, service.ErrNotOwner) {
-			return nil, status.New(codes.PermissionDenied, err.Error()).Err()
+			return nil, sharederrors.CodePermissionDenied.Error(err.Error())
 		}
-		return nil, status.New(codes.Internal, err.Error()).Err()
+		return nil, sharederrors.CodeInternal.Wrap(err)
 	}
 
 	return &messagev1.DeleteMessageResponse{}, nil
