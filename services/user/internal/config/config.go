@@ -4,42 +4,29 @@ import (
 	"fmt"
 
 	"github.com/ilyakaznacheev/cleanenv"
+
+	sharedcfg "github.com/sudobytemebaby/efir/services/shared/pkg/config"
 )
 
 type Config struct {
-	Env              Environment `env:"ENV"              env-default:"development"`
-	LogLevel         string      `env:"LOG_LEVEL"        env-default:"info"`
-	GRPCPort         string      `env:"GRPC_PORT"        env-default:"50052"`
-	HealthListenAddr string      `env:"HEALTH_LISTEN_ADDR" env-default:"127.0.0.1:8080"`
-	PostgresDSN      string      `env:"POSTGRES_DSN"     env-required:"true"`
-	NATSURL          string      `env:"NATS_URL"         env-default:"nats://nats:4222"`
-	NATSUser         string      `env:"NATS_USER"`
-	NATSPass         string      `env:"NATS_PASSWORD"`
+	Env      sharedcfg.Environment    `yaml:"env"      env:"ENV"`
+	LogLevel string                   `yaml:"log_level" env:"LOG_LEVEL"`
+	Server   sharedcfg.ServerConfig   `yaml:"server"`
+	Timeouts sharedcfg.TimeoutsConfig `yaml:"timeouts"`
+	NATS     sharedcfg.NATSConfig     `yaml:"nats"`
+
+	Database struct {
+		DSN string `yaml:"-" env:"POSTGRES_DSN"`
+	} `yaml:"database"`
 }
 
-type Environment string
-
-const (
-	EnvDevelopment Environment = "development"
-	EnvProduction  Environment = "production"
-)
-
-func Load() (*Config, error) {
+func Load(path string) (*Config, error) {
 	cfg := &Config{}
-	if err := cleanenv.ReadEnv(cfg); err != nil {
-		return nil, fmt.Errorf("read env: %w", err)
+	if err := cleanenv.ReadConfig(path, cfg); err != nil {
+		return nil, fmt.Errorf("read config: %w", err)
 	}
 	if err := cfg.Env.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid environment: %w", err)
 	}
 	return cfg, nil
-}
-
-func (e Environment) Validate() error {
-	switch e {
-	case EnvDevelopment, EnvProduction:
-		return nil
-	default:
-		return fmt.Errorf("invalid environment %q, allowed: development, production", e)
-	}
 }

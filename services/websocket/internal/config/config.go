@@ -5,71 +5,50 @@ import (
 	"time"
 
 	"github.com/ilyakaznacheev/cleanenv"
+
+	sharedcfg "github.com/sudobytemebaby/efir/services/shared/pkg/config"
 )
 
 type Config struct {
-	Env        Environment `env:"ENV"               env-default:"development"`
-	LogLevel   string      `env:"LOG_LEVEL"         env-default:"info"`
-	Port       string      `env:"WEBSOCKET_PORT"     env-default:"8081"`
-	GatewayURL string      `env:"GATEWAY_URL"        env-default:"http://gateway:8080"`
-	ValkeyAddr string      `env:"VALKEY_ADDR"        env-default:"valkey:6379"`
-	ValkeyPass string      `env:"VALKEY_PASSWORD"`
-	NATSURL    string      `env:"NATS_URL"           env-default:"nats://nats:4222"`
-	NATSUser   string      `env:"NATS_USER"`
-	NATSPass   string      `env:"NATS_PASSWORD"`
-	WriteLimit int64       `env:"WRITE_LIMIT"        env-default:"4096"`
-	ReadLimit  int64       `env:"READ_LIMIT"         env-default:"4096"`
+	Env      sharedcfg.Environment `yaml:"env"      env:"ENV"`
+	LogLevel string                `yaml:"log_level" env:"LOG_LEVEL"`
+	NATS     sharedcfg.NATSConfig  `yaml:"nats"`
+
+	Server struct {
+		Port          string `yaml:"port"            env:"WEBSOCKET_PORT"`
+		HubBufferSize int    `yaml:"hub_buffer_size" env:"HUB_BUFFER_SIZE"`
+	} `yaml:"server"`
+
+	Timeouts struct {
+		Shutdown   time.Duration `yaml:"shutdown"    env:"SHUTDOWN_TIMEOUT"`
+		ReadHeader time.Duration `yaml:"read_header" env:"READ_HEADER_TIMEOUT"`
+	} `yaml:"timeouts"`
+
+	Cache struct {
+		Addr string `yaml:"addr" env:"VALKEY_ADDR"`
+		Pass string `yaml:"-"   env:"VALKEY_PASSWORD"`
+	} `yaml:"cache"`
+
+	Services struct {
+		GatewayURL string `yaml:"gateway_url" env:"GATEWAY_URL"`
+	} `yaml:"services"`
+
+	WebSocket struct {
+		WriteLimit    int64         `yaml:"write_limit"   env:"WRITE_LIMIT"`
+		ReadLimit     int64         `yaml:"read_limit"    env:"READ_LIMIT"`
+		PingInterval  time.Duration `yaml:"ping_interval" env:"PING_INTERVAL"`
+		ReadDeadline  time.Duration `yaml:"read_deadline" env:"READ_DEADLINE"`
+		WriteDeadline time.Duration `yaml:"write_deadline" env:"WRITE_DEADLINE"`
+	} `yaml:"websocket"`
 }
 
-type Environment string
-
-const (
-	EnvDevelopment Environment = "development"
-	EnvProduction  Environment = "production"
-)
-
-func Load() (*Config, error) {
+func Load(path string) (*Config, error) {
 	cfg := &Config{}
-	if err := cleanenv.ReadEnv(cfg); err != nil {
-		return nil, fmt.Errorf("read env: %w", err)
+	if err := cleanenv.ReadConfig(path, cfg); err != nil {
+		return nil, fmt.Errorf("read config: %w", err)
 	}
 	if err := cfg.Env.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid environment: %w", err)
 	}
 	return cfg, nil
-}
-
-func (e Environment) Validate() error {
-	switch e {
-	case EnvDevelopment, EnvProduction:
-		return nil
-	default:
-		return fmt.Errorf("invalid environment %q, allowed: development, production", e)
-	}
-}
-
-func (c *Config) WriteLimitBytes() int64 {
-	if c.WriteLimit <= 0 {
-		return 4096
-	}
-	return c.WriteLimit
-}
-
-func (c *Config) ReadLimitBytes() int64 {
-	if c.ReadLimit <= 0 {
-		return 4096
-	}
-	return c.ReadLimit
-}
-
-func (c *Config) PingInterval() time.Duration {
-	return 30 * time.Second
-}
-
-func (c *Config) ReadDeadline() time.Duration {
-	return 60 * time.Second
-}
-
-func (c *Config) WriteDeadline() time.Duration {
-	return 5 * time.Second
 }

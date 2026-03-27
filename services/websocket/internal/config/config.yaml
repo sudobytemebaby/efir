@@ -1,0 +1,32 @@
+env: development
+log_level: info
+
+server:
+  port: "8081"
+  hub_buffer_size: 256
+
+timeouts:
+  shutdown: 30s
+  read_header: 5s
+
+nats:
+  url: "nats://localhost:4222"
+  user: ""
+  reconnect_wait: 2s
+  max_reconnects: -1
+  ack_wait: 30s
+  max_deliver: 5
+  consumer_retry_wait: 2s
+
+cache:
+  addr: "localhost:6379"
+
+services:
+  gateway_url: "http://localhost:8080"
+
+websocket:
+  write_limit: 4096
+  read_limit: 4096
+  ping_interval: 30s
+  read_deadline: 35s
+  write_deadline: 35s

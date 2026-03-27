@@ -67,7 +67,7 @@ func waitForHubProcess(d time.Duration) {
 }
 
 func TestNewHub(t *testing.T) {
-	hub := NewHub()
+	hub := NewHub(256)
 	require.NotNil(t, hub)
 	assert.NotNil(t, hub.rooms)
 	assert.NotNil(t, hub.userIDs)
@@ -79,7 +79,7 @@ func TestNewHub(t *testing.T) {
 }
 
 func TestHub_RegisterUnregister(t *testing.T) {
-	hub := NewHub()
+	hub := NewHub(256)
 	conn := newMockConn()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -101,7 +101,7 @@ func TestHub_RegisterUnregister(t *testing.T) {
 }
 
 func TestHub_BroadcastToRoom(t *testing.T) {
-	hub := NewHub()
+	hub := NewHub(256)
 	conn1 := newMockConn()
 	conn2 := newMockConn()
 
@@ -133,7 +133,7 @@ func TestHub_BroadcastToRoom(t *testing.T) {
 }
 
 func TestHub_BroadcastToRoom_NoConns(t *testing.T) {
-	hub := NewHub()
+	hub := NewHub(256)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -149,7 +149,7 @@ func TestHub_BroadcastToRoom_NoConns(t *testing.T) {
 }
 
 func TestHub_MultipleRooms(t *testing.T) {
-	hub := NewHub()
+	hub := NewHub(256)
 	conn1 := newMockConn()
 	conn2 := newMockConn()
 
@@ -178,7 +178,7 @@ func TestHub_MultipleRooms(t *testing.T) {
 }
 
 func TestHub_MultipleConnsSameUser(t *testing.T) {
-	hub := NewHub()
+	hub := NewHub(256)
 	conn1 := newMockConn()
 	conn2 := newMockConn()
 
@@ -208,7 +208,7 @@ func TestHub_MultipleConnsSameUser(t *testing.T) {
 }
 
 func TestHub_GetRoomUserCount(t *testing.T) {
-	hub := NewHub()
+	hub := NewHub(256)
 	conn := newMockConn()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -227,7 +227,7 @@ func TestHub_GetRoomUserCount(t *testing.T) {
 }
 
 func TestHub_Disconnect(t *testing.T) {
-	hub := NewHub()
+	hub := NewHub(256)
 	conn := newMockConn()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -253,7 +253,7 @@ func TestHub_Disconnect(t *testing.T) {
 }
 
 func TestHub_SubscribeUnsubscribeMultipleRooms(t *testing.T) {
-	hub := NewHub()
+	hub := NewHub(256)
 	conn := newMockConn()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -289,7 +289,7 @@ func TestHub_SubscribeUnsubscribeMultipleRooms(t *testing.T) {
 }
 
 func TestHub_CloseOnWriteError(t *testing.T) {
-	hub := NewHub()
+	hub := NewHub(256)
 	conn := &errorMockConn{}
 
 	ctx, cancel := context.WithCancel(context.Background())

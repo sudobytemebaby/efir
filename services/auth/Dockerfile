@@ -17,6 +17,10 @@ RUN apk --no-cache add ca-certificates
 RUN adduser -D -H -s /sbin/nologin appuser
 
 COPY --from=builder /out/auth /usr/local/bin/auth
+COPY --from=builder /workspace/services/auth/internal/config/config.yaml /app/config.yaml
+
+WORKDIR /app
+ENV CONFIG_PATH=/app/config.yaml
 
 USER appuser
 

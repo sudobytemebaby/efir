@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/sudobytemebaby/efir/services/gateway/internal/config"
+	gatewayhandler "github.com/sudobytemebaby/efir/services/gateway/internal/handler"
 	"github.com/sudobytemebaby/efir/services/gateway/internal/handler/auth"
 	"github.com/sudobytemebaby/efir/services/gateway/internal/handler/message"
 	"github.com/sudobytemebaby/efir/services/gateway/internal/handler/room"
@@ -39,9 +41,13 @@ func main() {
 }
 
 func run(ctx context.Context) error {
-	cfg, err := config.Load()
+	configPath := os.Getenv("CONFIG_PATH")
+	if configPath == "" {
+		configPath = "config.yaml"
+	}
+	cfg, err := config.Load(configPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("load config: %w", err)
 	}
 
 	logLevel, err := logger.ParseLevel(cfg.LogLevel)
@@ -54,8 +60,8 @@ func run(ctx context.Context) error {
 	slog.SetDefault(l)
 
 	valkeyClient, err := vk.NewClient(vk.ClientOption{
-		InitAddress: []string{cfg.ValkeyAddr},
-		Password:    cfg.ValkeyPass,
+		InitAddress: []string{cfg.Cache.Addr},
+		Password:    cfg.Cache.Pass,
 	})
 	if err != nil {
 		return err
@@ -68,44 +74,46 @@ func run(ctx context.Context) error {
 
 	dialOpts := []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithUnaryInterceptor(timeoutInterceptor(cfg.GRPCTimeout)),
+		grpc.WithUnaryInterceptor(timeoutInterceptor(cfg.Timeouts.GRPC)),
 	}
 
-	authConn, err := grpc.NewClient(cfg.AuthServiceAddr, dialOpts...)
+	authConn, err := grpc.NewClient(cfg.Services.Auth, dialOpts...)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = authConn.Close() }()
 
-	userConn, err := grpc.NewClient(cfg.UserServiceAddr, dialOpts...)
+	userConn, err := grpc.NewClient(cfg.Services.User, dialOpts...)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = userConn.Close() }()
 
-	roomConn, err := grpc.NewClient(cfg.RoomServiceAddr, dialOpts...)
+	roomConn, err := grpc.NewClient(cfg.Services.Room, dialOpts...)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = roomConn.Close() }()
 
-	messageConn, err := grpc.NewClient(cfg.MessageServiceAddr, dialOpts...)
+	messageConn, err := grpc.NewClient(cfg.Services.Message, dialOpts...)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = messageConn.Close() }()
 
-	jwtMiddleware := middleware.JWTAuth(cfg.JWTSecret)
-	ipRateLimiter := middleware.IPRateLimiter(valkeyClient, cfg.RateLimitRequests, cfg.RateLimitWindow)
-	userRateLimiter := middleware.UserRateLimiter(valkeyClient, cfg.RateLimitRequests, cfg.RateLimitWindow)
+	jwtMiddleware := middleware.JWTAuth(cfg.Auth.Secret)
+	ipRateLimiter := middleware.IPRateLimiter(valkeyClient, cfg.RateLimit.Requests, cfg.RateLimit.Window)
+	userRateLimiter := middleware.UserRateLimiter(valkeyClient, cfg.RateLimit.Requests, cfg.RateLimit.Window)
 
 	healthHandler := healthcheck.New()
+
+	gatewayhandler.SetMaxBodySize(cfg.Server.MaxBodySize)
 
 	authHandler := auth.NewHandler(authv1.NewAuthServiceClient(authConn))
 	userHandler := user.NewHandler(userv1.NewUserServiceClient(userConn))
 	roomHandler := room.NewHandler(roomv1.NewRoomServiceClient(roomConn))
 	messageHandler := message.NewHandler(messagev1.NewMessageServiceClient(messageConn))
-	wsAuthHandler := wsauth.NewHandler(valkeyClient, cfg.WSTicketTTL)
+	wsAuthHandler := wsauth.NewHandler(valkeyClient, cfg.Auth.WSTicketTTL)
 
 	r := chi.NewRouter()
 
@@ -136,9 +144,9 @@ func run(ctx context.Context) error {
 	})
 
 	server := &http.Server{
-		Addr:              ":" + cfg.Port,
+		Addr:              ":" + cfg.Server.Port,
 		Handler:           r,
-		ReadHeaderTimeout: 5 * time.Second,
+		ReadHeaderTimeout: cfg.Timeouts.ReadHeader,
 	}
 
 	errCh := make(chan error, 1)
@@ -155,7 +163,7 @@ func run(ctx context.Context) error {
 	case <-ctx.Done():
 	}
 
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.Timeouts.Shutdown)
 	defer cancel()
 
 	if err := server.Shutdown(shutdownCtx); err != nil {

@@ -19,6 +19,7 @@ import (
 	"github.com/sudobytemebaby/efir/services/message/internal/repository"
 	"github.com/sudobytemebaby/efir/services/message/internal/service"
 	messagev1 "github.com/sudobytemebaby/efir/services/shared/gen/message"
+	sharedcfg "github.com/sudobytemebaby/efir/services/shared/pkg/config"
 	"github.com/sudobytemebaby/efir/services/shared/pkg/healthcheck"
 	"github.com/sudobytemebaby/efir/services/shared/pkg/logger"
 	"github.com/sudobytemebaby/efir/services/shared/pkg/middleware"
@@ -38,9 +39,13 @@ func main() {
 }
 
 func run(ctx context.Context) error {
-	cfg, err := config.Load()
+	configPath := os.Getenv("CONFIG_PATH")
+	if configPath == "" {
+		configPath = "config.yaml"
+	}
+	cfg, err := config.Load(configPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("load config: %w", err)
 	}
 
 	logLevel, err := logger.ParseLevel(cfg.LogLevel)
@@ -51,7 +56,7 @@ func run(ctx context.Context) error {
 	l := logger.New(logger.Options{Level: logLevel})
 	slog.SetDefault(l)
 
-	pgPool, err := pgxpool.New(ctx, cfg.PostgresDSN)
+	pgPool, err := pgxpool.New(ctx, cfg.Database.DSN)
 	if err != nil {
 		return fmt.Errorf("connect to postgres: %w", err)
 	}
@@ -61,7 +66,10 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("ping postgres: %w", err)
 	}
 
-	nc, err := sharednats.Connect(cfg.NATSURL, cfg.NATSUser, cfg.NATSPass)
+	nc, err := sharednats.Connect(cfg.NATS.URL, cfg.NATS.User, cfg.NATS.Pass, sharednats.ConnectOptions{
+		ReconnectWait: cfg.NATS.ReconnectWait,
+		MaxReconnects: cfg.NATS.MaxReconnects,
+	})
 	if err != nil {
 		return fmt.Errorf("connect to nats: %w", err)
 	}
@@ -76,7 +84,7 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("provision nats streams: %w", err)
 	}
 
-	roomClient, err := client.NewRoomClient(cfg.RoomServiceAddr, cfg.RoomCallTimeout)
+	roomClient, err := client.NewRoomClient(cfg.Room.Addr, cfg.Room.CallTimeout, cfg.Room.RetryDelays)
 	if err != nil {
 		return fmt.Errorf("create room client: %w", err)
 	}
@@ -103,7 +111,7 @@ func run(ctx context.Context) error {
 	)
 	messagev1.RegisterMessageServiceServer(grpcServer, msgHandler)
 
-	if cfg.Env == config.EnvDevelopment {
+	if cfg.Env == sharedcfg.EnvDevelopment {
 		reflection.Register(grpcServer)
 	}
 
@@ -113,16 +121,16 @@ func run(ctx context.Context) error {
 	healthServer := &http.Server{
 		Addr:              ":8080",
 		Handler:           healthMux,
-		ReadHeaderTimeout: 5 * time.Second,
+		ReadHeaderTimeout: cfg.Timeouts.ReadHeader,
 	}
 
 	errCh := make(chan error, 2)
 
-	grpcLis, err := net.Listen("tcp", ":"+cfg.GRPCPort)
+	grpcLis, err := net.Listen("tcp", ":"+cfg.Server.GRPCPort)
 	if err != nil {
 		return fmt.Errorf("create grpc listener: %w", err)
 	}
-	healthLis, err := net.Listen("tcp", cfg.HealthListenAddr)
+	healthLis, err := net.Listen("tcp", cfg.Server.HealthListenAddr)
 	if err != nil {
 		return fmt.Errorf("create health listener: %w", err)
 	}
@@ -150,18 +158,18 @@ func run(ctx context.Context) error {
 	case <-ctx.Done():
 	}
 
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
 	grpcDone := make(chan struct{})
 	go func() { grpcServer.GracefulStop(); close(grpcDone) }()
 	select {
 	case <-grpcDone:
 		slog.Info("grpc server stopped gracefully")
-	case <-time.After(5 * time.Second):
+	case <-time.After(cfg.Timeouts.GRPCGraceful):
 		grpcServer.Stop()
 		slog.Warn("grpc server force stopped after timeout")
 	}
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.Timeouts.Shutdown)
+	defer cancel()
 
 	if err := healthServer.Shutdown(shutdownCtx); err != nil {
 		slog.Error("failed to shut down health server", "error", err)

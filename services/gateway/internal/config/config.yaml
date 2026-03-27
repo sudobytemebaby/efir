@@ -1,0 +1,27 @@
+env: development
+log_level: info
+
+server:
+  port: "8080"
+  max_body_size: 1048576
+
+timeouts:
+  shutdown: 30s
+  read_header: 5s
+  grpc: 10s
+
+cache:
+  addr: "localhost:6379"
+
+auth:
+  ws_ticket_ttl: 60s
+
+rate_limit:
+  requests: 100
+  window: 60s
+
+services:
+  auth: "localhost:50051"
+  user: "localhost:50052"
+  room: "localhost:50053"
+  message: "localhost:50054"

@@ -15,6 +15,10 @@ FROM alpine:3.20
 RUN adduser -D -H -s /sbin/nologin appuser
 
 COPY --from=builder /out/websocket /usr/local/bin/websocket
+COPY --from=builder /workspace/services/websocket/internal/config/config.yaml /app/config.yaml
+
+WORKDIR /app
+ENV CONFIG_PATH=/app/config.yaml
 
 USER appuser
 
