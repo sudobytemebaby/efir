@@ -13,27 +13,33 @@ import (
 
 func TestLoad(t *testing.T) {
 	env := map[string]string{
-		"ENV":                  "development",
-		"LOG_LEVEL":            "debug",
-		"GATEWAY_PORT":         "9090",
-		"VALKEY_ADDR":          "localhost:6379",
-		"VALKEY_PASSWORD":      "testpass",
-		"WS_TICKET_TTL":        "60s",
-		"AUTH_SERVICE_ADDR":    "auth:50051",
-		"USER_SERVICE_ADDR":    "user:50052",
-		"ROOM_SERVICE_ADDR":    "room:50053",
-		"MESSAGE_SERVICE_ADDR": "message:50054",
-		"JWT_SECRET":           "test-secret-key",
-		"GRPC_TIMEOUT":         "10s",
-		"RATE_LIMIT_REQUESTS":  "50",
-		"RATE_LIMIT_WINDOW":    "2m",
+		"ENV":                      "development",
+		"LOG_LEVEL":                "debug",
+		"WEBSOCKET_PORT":           "8081",
+		"HUB_BUFFER_SIZE":          "256",
+		"SHUTDOWN_TIMEOUT":         "30s",
+		"READ_HEADER_TIMEOUT":      "5s",
+		"NATS_URL":                 "nats://localhost:4222",
+		"NATS_RECONNECT_WAIT":      "2s",
+		"NATS_MAX_RECONNECTS":      "10",
+		"NATS_ACK_WAIT":            "30s",
+		"NATS_MAX_DELIVER":         "5",
+		"NATS_CONSUMER_RETRY_WAIT": "2s",
+		"VALKEY_ADDR":              "localhost:6379",
+		"VALKEY_PASSWORD":          "testpass",
+		"GATEWAY_URL":              "http://localhost:8080",
+		"WRITE_LIMIT":              "4096",
+		"READ_LIMIT":               "4096",
+		"PING_INTERVAL":            "30s",
+		"READ_DEADLINE":            "35s",
+		"WRITE_DEADLINE":           "35s",
 	}
 
 	for k, v := range env {
 		t.Setenv(k, v)
 	}
 
-	tmp, err := os.CreateTemp("", "gateway_config_*.yaml")
+	tmp, err := os.CreateTemp("", "websocket_config_*.yaml")
 	require.NoError(t, err)
 	defer func() { _ = os.Remove(tmp.Name()) }()
 	_, err = tmp.WriteString("env: development\n")
@@ -45,30 +51,35 @@ func TestLoad(t *testing.T) {
 
 	assert.Equal(t, sharedcfg.Environment("development"), cfg.Env)
 	assert.Equal(t, "debug", cfg.LogLevel)
-	assert.Equal(t, "9090", cfg.Server.Port)
+	assert.Equal(t, "8081", cfg.Server.Port)
+	assert.Equal(t, 256, cfg.Server.HubBufferSize)
+	assert.Equal(t, 30*time.Second, cfg.Timeouts.Shutdown)
+	assert.Equal(t, 5*time.Second, cfg.Timeouts.ReadHeader)
+	assert.Equal(t, "nats://localhost:4222", cfg.NATS.URL)
+	assert.Equal(t, 2*time.Second, cfg.NATS.ReconnectWait)
+	assert.Equal(t, 10, cfg.NATS.MaxReconnects)
+	assert.Equal(t, 30*time.Second, cfg.NATS.AckWait)
+	assert.Equal(t, 5, cfg.NATS.MaxDeliver)
+	assert.Equal(t, 2*time.Second, cfg.NATS.ConsumerRetryWait)
 	assert.Equal(t, "localhost:6379", cfg.Cache.Addr)
 	assert.Equal(t, "testpass", cfg.Cache.Pass)
-	assert.Equal(t, 60*time.Second, cfg.Auth.WSTicketTTL)
-	assert.Equal(t, "auth:50051", cfg.Services.Auth)
-	assert.Equal(t, "user:50052", cfg.Services.User)
-	assert.Equal(t, "room:50053", cfg.Services.Room)
-	assert.Equal(t, "message:50054", cfg.Services.Message)
-	assert.Equal(t, "test-secret-key", cfg.Auth.Secret)
-	assert.Equal(t, 10*time.Second, cfg.Timeouts.GRPC)
-	assert.Equal(t, 50, cfg.RateLimit.Requests)
-	assert.Equal(t, 2*time.Minute, cfg.RateLimit.Window)
+	assert.Equal(t, "http://localhost:8080", cfg.Services.GatewayURL)
+	assert.Equal(t, int64(4096), cfg.WebSocket.WriteLimit)
+	assert.Equal(t, int64(4096), cfg.WebSocket.ReadLimit)
+	assert.Equal(t, 30*time.Second, cfg.WebSocket.PingInterval)
+	assert.Equal(t, 35*time.Second, cfg.WebSocket.ReadDeadline)
+	assert.Equal(t, 35*time.Second, cfg.WebSocket.WriteDeadline)
 }
 
 func TestLoad_Defaults(t *testing.T) {
 	env := map[string]string{
-		"LOG_LEVEL":  "info",
-		"JWT_SECRET": "test-secret",
+		"LOG_LEVEL": "info",
 	}
 	for k, v := range env {
 		t.Setenv(k, v)
 	}
 
-	tmp, err := os.CreateTemp("", "gateway_defaults_*.yaml")
+	tmp, err := os.CreateTemp("", "websocket_defaults_*.yaml")
 	require.NoError(t, err)
 	defer func() { _ = os.Remove(tmp.Name()) }()
 	_, err = tmp.WriteString("env: development\n")
@@ -82,29 +93,8 @@ func TestLoad_Defaults(t *testing.T) {
 	assert.Equal(t, "info", cfg.LogLevel)
 }
 
-func TestLoad_MissingJWTSecret(t *testing.T) {
-	_ = os.Unsetenv("JWT_SECRET")
-	tmp, err := os.CreateTemp("", "gateway_missing_*.yaml")
-	require.NoError(t, err)
-	defer func() { _ = os.Remove(tmp.Name()) }()
-	_, err = tmp.WriteString("env: development\n")
-	require.NoError(t, err)
-	require.NoError(t, tmp.Close())
-	cfg, err := Load(tmp.Name())
-	require.NoError(t, err)
-	assert.NotNil(t, cfg)
-	assert.Equal(t, "", cfg.Auth.Secret)
-}
-
 func TestLoad_InvalidYAML(t *testing.T) {
-	env := map[string]string{
-		"JWT_SECRET": "test-secret",
-	}
-	for k, v := range env {
-		t.Setenv(k, v)
-	}
-
-	tmp, err := os.CreateTemp("", "gateway_invalid_*.yaml")
+	tmp, err := os.CreateTemp("", "websocket_invalid_*.yaml")
 	require.NoError(t, err)
 	defer func() { _ = os.Remove(tmp.Name()) }()
 	_, err = tmp.WriteString("invalid yaml content\n")
@@ -116,13 +106,18 @@ func TestLoad_InvalidYAML(t *testing.T) {
 	assert.Nil(t, cfg)
 }
 
-func TestLoad_InvalidDuration(t *testing.T) {
-	t.Setenv("WS_TICKET_TTL", "not-a-duration")
+func TestLoad_InvalidEnvironment(t *testing.T) {
+	env := map[string]string{
+		"LOG_LEVEL": "info",
+	}
+	for k, v := range env {
+		t.Setenv(k, v)
+	}
 
-	tmp, err := os.CreateTemp("", "gateway_*.yaml")
+	tmp, err := os.CreateTemp("", "websocket_env_*.yaml")
 	require.NoError(t, err)
 	defer func() { _ = os.Remove(tmp.Name()) }()
-	_, err = tmp.WriteString("env: development\n")
+	_, err = tmp.WriteString("env: invalid\n")
 	require.NoError(t, err)
 	require.NoError(t, tmp.Close())
 
