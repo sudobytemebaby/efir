@@ -35,7 +35,7 @@ func TestLoad(t *testing.T) {
 
 	tmp, err := os.CreateTemp("", "gateway_config_*.yaml")
 	require.NoError(t, err)
-	defer os.Remove(tmp.Name())
+	defer func() { _ = os.Remove(tmp.Name()) }()
 	_, err = tmp.WriteString("env: development\n")
 	require.NoError(t, err)
 	require.NoError(t, tmp.Close())
@@ -70,7 +70,7 @@ func TestLoad_Defaults(t *testing.T) {
 
 	tmp, err := os.CreateTemp("", "gateway_defaults_*.yaml")
 	require.NoError(t, err)
-	defer os.Remove(tmp.Name())
+	defer func() { _ = os.Remove(tmp.Name()) }()
 	_, err = tmp.WriteString("env: development\n")
 	require.NoError(t, err)
 	require.NoError(t, tmp.Close())
@@ -86,7 +86,7 @@ func TestLoad_MissingJWTSecret(t *testing.T) {
 	_ = os.Unsetenv("JWT_SECRET")
 	tmp, err := os.CreateTemp("", "gateway_missing_*.yaml")
 	require.NoError(t, err)
-	defer os.Remove(tmp.Name())
+	defer func() { _ = os.Remove(tmp.Name()) }()
 	_, err = tmp.WriteString("env: development\n")
 	require.NoError(t, err)
 	require.NoError(t, tmp.Close())
@@ -108,7 +108,7 @@ func TestLoad_InvalidDuration(t *testing.T) {
 
 	tmp, err := os.CreateTemp("", "gateway_invalid_*.yaml")
 	require.NoError(t, err)
-	defer os.Remove(tmp.Name())
+	defer func() { _ = os.Remove(tmp.Name()) }()
 	_, err = tmp.WriteString("invalid yaml\n")
 	require.NoError(t, err)
 	require.NoError(t, tmp.Close())
