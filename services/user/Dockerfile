@@ -15,6 +15,10 @@ FROM alpine:3.20
 RUN adduser -D -H -s /sbin/nologin appuser
 
 COPY --from=builder /out/user /usr/local/bin/user
+COPY --from=builder /workspace/services/user/internal/config/config.yaml /app/config.yaml
+
+WORKDIR /app
+ENV CONFIG_PATH=/app/config.yaml
 
 USER appuser
 

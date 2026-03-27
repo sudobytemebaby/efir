@@ -15,11 +15,16 @@ type (
 	ConsumerConfig = jetstream.ConsumerConfig
 )
 
-func Connect(url, user, password string) (*nats.Conn, error) {
+type ConnectOptions struct {
+	ReconnectWait time.Duration
+	MaxReconnects int
+}
+
+func Connect(url, user, password string, opts ConnectOptions) (*nats.Conn, error) {
 	nc, err := nats.Connect(url,
 		nats.UserInfo(user, password),
-		nats.ReconnectWait(2*time.Second),
-		nats.MaxReconnects(-1),
+		nats.ReconnectWait(opts.ReconnectWait),
+		nats.MaxReconnects(opts.MaxReconnects),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("connect to nats: %w", err)
@@ -52,7 +57,7 @@ func ProvisionConsumer(ctx context.Context, js jetstream.JetStream, stream strin
 	return c, nil
 }
 
-func ProvisionConsumerWithRetry(ctx context.Context, js jetstream.JetStream, stream string, cfg ConsumerConfig) (jetstream.Consumer, error) {
+func ProvisionConsumerWithRetry(ctx context.Context, js jetstream.JetStream, stream string, cfg ConsumerConfig, retryInterval time.Duration) (jetstream.Consumer, error) {
 	for {
 		c, err := js.CreateOrUpdateConsumer(ctx, stream, cfg)
 		if err == nil {
@@ -63,7 +68,7 @@ func ProvisionConsumerWithRetry(ctx context.Context, js jetstream.JetStream, str
 			select {
 			case <-ctx.Done():
 				return nil, fmt.Errorf("stream %q never appeared: %w", stream, ctx.Err())
-			case <-time.After(2 * time.Second):
+			case <-time.After(retryInterval):
 				continue
 			}
 		}
@@ -72,12 +77,12 @@ func ProvisionConsumerWithRetry(ctx context.Context, js jetstream.JetStream, str
 	}
 }
 
-func DefaultConsumerConfig(durable, filterSubject string) ConsumerConfig {
+func DefaultConsumerConfig(durable, filterSubject string, maxDeliver int, ackWait time.Duration) ConsumerConfig {
 	return ConsumerConfig{
 		Durable:       durable,
 		FilterSubject: filterSubject,
 		AckPolicy:     jetstream.AckExplicitPolicy,
-		MaxDeliver:    5,
-		AckWait:       30 * time.Second,
+		MaxDeliver:    maxDeliver,
+		AckWait:       ackWait,
 	}
 }

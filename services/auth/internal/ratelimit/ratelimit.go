@@ -36,11 +36,11 @@ type Limiter interface {
 
 type valkeyLimiter struct {
 	client vk.Client
-	limit  int64
+	limit  int
 	window time.Duration
 }
 
-func NewValkeyLimiter(client vk.Client, limit int64, window time.Duration) Limiter {
+func NewValkeyLimiter(client vk.Client, limit int, window time.Duration) Limiter {
 	return &valkeyLimiter{
 		client: client,
 		limit:  limit,
@@ -50,14 +50,14 @@ func NewValkeyLimiter(client vk.Client, limit int64, window time.Duration) Limit
 
 func (l *valkeyLimiter) Allow(ctx context.Context, action, email string) error {
 	key := valkey.AuthRateLimitKey(action, email)
-	ttlSeconds := strconv.FormatInt(int64(l.window.Seconds()), 10)
+	ttlSeconds := strconv.Itoa(int(l.window.Seconds()))
 
 	result, err := l.client.Do(ctx, l.client.B().Eval().Script(valkey.IncrWithExpiryScript).Numkeys(1).Key(key).Arg(ttlSeconds).Build()).AsInt64()
 	if err != nil {
 		return fmt.Errorf("rate limit check: %w", err)
 	}
 
-	if result > l.limit {
+	if result > int64(l.limit) {
 		return &ErrRateLimitExceeded{Action: action, Email: email}
 	}
 

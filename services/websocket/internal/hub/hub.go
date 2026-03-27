@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"log/slog"
 	"sync"
-	"time"
 )
 
 const (
@@ -17,10 +16,6 @@ const (
 	TypeSubscribe            = "subscribe"
 	TypeUnsubscribe          = "unsubscribe"
 	TypeError                = "error"
-)
-
-const (
-	writeTimeout = 5 * time.Second
 )
 
 type Envelope struct {
@@ -101,16 +96,16 @@ type RoomCountRequest struct {
 	CountCh chan int
 }
 
-func NewHub() *Hub {
+func NewHub(bufferSize int) *Hub {
 	return &Hub{
 		rooms:      make(map[string]map[string][]Conn),
 		userIDs:    make(map[Conn]string),
 		connRooms:  make(map[Conn]map[string]struct{}),
-		register:   make(chan *ConnRegistration, 256),
-		unregister: make(chan *ConnUnregistration, 256),
-		disconnect: make(chan Conn, 256),
-		broadcast:  make(chan *BroadcastMessage, 256),
-		roomCount:  make(chan *RoomCountRequest, 256),
+		register:   make(chan *ConnRegistration, bufferSize),
+		unregister: make(chan *ConnUnregistration, bufferSize),
+		disconnect: make(chan Conn, bufferSize),
+		broadcast:  make(chan *BroadcastMessage, bufferSize),
+		roomCount:  make(chan *RoomCountRequest, bufferSize),
 	}
 }
 
@@ -243,21 +238,9 @@ func (h *Hub) sendToRoom(roomID string, envelope Envelope) {
 			wg.Add(1)
 			go func(c Conn) {
 				defer wg.Done()
-				done := make(chan error, 1)
-				go func() {
-					done <- c.WriteJSON(envelope)
-				}()
-				select {
-				case err := <-done:
-					if err != nil {
-						slog.Error("failed to write to conn", "error", err)
-						if closeErr := c.Close(StatusAbnormalClosure, "write error"); closeErr != nil {
-							slog.Error("failed to close conn", "error", closeErr)
-						}
-					}
-				case <-time.After(writeTimeout):
-					slog.Error("write timeout, closing conn")
-					if closeErr := c.Close(StatusAbnormalClosure, "write timeout"); closeErr != nil {
+				if err := c.WriteJSON(envelope); err != nil {
+					slog.Error("failed to write to conn", "error", err)
+					if closeErr := c.Close(StatusAbnormalClosure, "write error"); closeErr != nil {
 						slog.Error("failed to close conn", "error", closeErr)
 					}
 				}

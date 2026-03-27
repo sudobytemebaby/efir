@@ -12,7 +12,13 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-const maxBodySize = 1 << 20 // 1 MB
+var maxBodySize int64 = 1 << 20
+
+func SetMaxBodySize(n int64) {
+	if n > 0 {
+		maxBodySize = n
+	}
+}
 
 var marshaler = protojson.MarshalOptions{
 	UseProtoNames:   true,
@@ -38,7 +44,7 @@ func WriteProto(w http.ResponseWriter, status int, msg proto.Message) {
 func ReadProto(r *http.Request, msg proto.Message) error {
 	body, err := io.ReadAll(io.LimitReader(r.Body, maxBodySize))
 	if err != nil {
-		if stderrors.Is(err, io.EOF) && len(body) >= maxBodySize {
+		if stderrors.Is(err, io.EOF) && int64(len(body)) >= maxBodySize {
 			return errors.CodeInvalidArgument.Error("request body too large")
 		}
 		return err

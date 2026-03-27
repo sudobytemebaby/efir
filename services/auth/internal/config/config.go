@@ -5,49 +5,45 @@ import (
 	"time"
 
 	"github.com/ilyakaznacheev/cleanenv"
+
+	sharedcfg "github.com/sudobytemebaby/efir/services/shared/pkg/config"
 )
 
 type Config struct {
-	Env               Environment   `env:"ENV"                  env-default:"development"`
-	LogLevel          string        `env:"LOG_LEVEL"            env-default:"info"`
-	GRPCPort          string        `env:"GRPC_PORT"            env-default:"50051"`
-	HealthListenAddr  string        `env:"HEALTH_LISTEN_ADDR"    env-default:"127.0.0.1:8080"`
-	PostgresDSN       string        `env:"POSTGRES_DSN"         env-required:"true"`
-	ValkeyAddr        string        `env:"VALKEY_ADDR"          env-default:"valkey:6379"`
-	ValkeyPass        string        `env:"VALKEY_PASSWORD"`
-	NATSURL           string        `env:"NATS_URL"             env-default:"nats://nats:4222"`
-	JWTSecret         string        `env:"JWT_SECRET"           env-required:"true"`
-	AccessTTL         time.Duration `env:"JWT_ACCESS_TTL"     env-default:"15m"`
-	RefreshTTL        time.Duration `env:"JWT_REFRESH_TTL"    env-default:"168h"`
-	NATSUser          string        `env:"NATS_USER"`
-	NATSPass          string        `env:"NATS_PASSWORD"`
-	RateLimitRequests int64         `env:"RATE_LIMIT_REQUESTS" env-default:"10"`
-	RateLimitWindow   time.Duration `env:"RATE_LIMIT_WINDOW"  env-default:"1m"`
+	Env      sharedcfg.Environment    `yaml:"env"      env:"ENV"`
+	LogLevel string                   `yaml:"log_level" env:"LOG_LEVEL"`
+	Server   sharedcfg.ServerConfig   `yaml:"server"`
+	Timeouts sharedcfg.TimeoutsConfig `yaml:"timeouts"`
+	NATS     sharedcfg.NATSConfig     `yaml:"nats"`
+
+	Database struct {
+		DSN string `yaml:"-" env:"POSTGRES_DSN"`
+	} `yaml:"database"`
+
+	Cache struct {
+		Addr string `yaml:"addr" env:"VALKEY_ADDR"`
+		Pass string `yaml:"-"   env:"VALKEY_PASSWORD"`
+	} `yaml:"cache"`
+
+	Auth struct {
+		Secret     string        `yaml:"-"          env:"JWT_SECRET"`
+		AccessTTL  time.Duration `yaml:"access_ttl"  env:"JWT_ACCESS_TTL"`
+		RefreshTTL time.Duration `yaml:"refresh_ttl" env:"JWT_REFRESH_TTL"`
+	} `yaml:"auth"`
+
+	RateLimit struct {
+		Requests int           `yaml:"requests" env:"RATE_LIMIT_REQUESTS"`
+		Window   time.Duration `yaml:"window"   env:"RATE_LIMIT_WINDOW"`
+	} `yaml:"rate_limit"`
 }
 
-type Environment string
-
-const (
-	EnvDevelopment Environment = "development"
-	EnvProduction  Environment = "production"
-)
-
-func Load() (*Config, error) {
+func Load(path string) (*Config, error) {
 	cfg := &Config{}
-	if err := cleanenv.ReadEnv(cfg); err != nil {
-		return nil, fmt.Errorf("read env: %w", err)
+	if err := cleanenv.ReadConfig(path, cfg); err != nil {
+		return nil, fmt.Errorf("read config: %w", err)
 	}
 	if err := cfg.Env.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid environment: %w", err)
 	}
 	return cfg, nil
-}
-
-func (e Environment) Validate() error {
-	switch e {
-	case EnvDevelopment, EnvProduction:
-		return nil
-	default:
-		return fmt.Errorf("invalid environment %q, allowed: development, production", e)
-	}
 }

@@ -14,21 +14,23 @@ import (
 )
 
 type RoomClient struct {
-	client  roomv1.RoomServiceClient
-	timeout time.Duration
-	conn    *grpc.ClientConn
+	client      roomv1.RoomServiceClient
+	timeout     time.Duration
+	retryDelays []time.Duration
+	conn        *grpc.ClientConn
 }
 
-func NewRoomClient(addr string, timeout time.Duration) (*RoomClient, error) {
+func NewRoomClient(addr string, timeout time.Duration, retryDelays []time.Duration) (*RoomClient, error) {
 	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
 	}
 
 	return &RoomClient{
-		client:  roomv1.NewRoomServiceClient(conn),
-		timeout: timeout,
-		conn:    conn,
+		client:      roomv1.NewRoomServiceClient(conn),
+		timeout:     timeout,
+		retryDelays: retryDelays,
+		conn:        conn,
 	}, nil
 }
 
@@ -37,7 +39,7 @@ func (c *RoomClient) Close() error {
 }
 
 func (c *RoomClient) IsMember(ctx context.Context, roomID, userID uuid.UUID) (bool, error) {
-	return withRetry(ctx, func(ctx context.Context) (bool, error) {
+	return withRetry(ctx, c.retryDelays, func(ctx context.Context) (bool, error) {
 		ctx, cancel := context.WithTimeout(ctx, c.timeout)
 		defer cancel()
 
@@ -53,7 +55,7 @@ func (c *RoomClient) IsMember(ctx context.Context, roomID, userID uuid.UUID) (bo
 }
 
 func (c *RoomClient) GetRoomMembers(ctx context.Context, roomID uuid.UUID) ([]uuid.UUID, error) {
-	return withRetry(ctx, func(ctx context.Context) ([]uuid.UUID, error) {
+	return withRetry(ctx, c.retryDelays, func(ctx context.Context) ([]uuid.UUID, error) {
 		ctx, cancel := context.WithTimeout(ctx, c.timeout)
 		defer cancel()
 
@@ -76,8 +78,11 @@ func (c *RoomClient) GetRoomMembers(ctx context.Context, roomID uuid.UUID) ([]uu
 	})
 }
 
-func withRetry[T any](ctx context.Context, fn func(ctx context.Context) (T, error)) (T, error) {
-	delays := []time.Duration{100 * time.Millisecond, 300 * time.Millisecond, 900 * time.Millisecond}
+func withRetry[T any](ctx context.Context, delays []time.Duration, fn func(ctx context.Context) (T, error)) (T, error) {
+	if len(delays) == 0 {
+		return fn(ctx)
+	}
+
 	var result T
 	var err error
 

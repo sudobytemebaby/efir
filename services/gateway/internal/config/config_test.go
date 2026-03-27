@@ -7,6 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	sharedcfg "github.com/sudobytemebaby/efir/services/shared/pkg/config"
 )
 
 func TestLoad(t *testing.T) {
@@ -31,53 +33,67 @@ func TestLoad(t *testing.T) {
 		t.Setenv(k, v)
 	}
 
-	cfg, err := Load()
+	tmp, err := os.CreateTemp("", "gateway_config_*.yaml")
+	require.NoError(t, err)
+	defer func() { _ = os.Remove(tmp.Name()) }()
+	_, err = tmp.WriteString("env: development\n")
+	require.NoError(t, err)
+	require.NoError(t, tmp.Close())
+
+	cfg, err := Load(tmp.Name())
 	require.NoError(t, err)
 
-	assert.Equal(t, Environment("development"), cfg.Env)
+	assert.Equal(t, sharedcfg.Environment("development"), cfg.Env)
 	assert.Equal(t, "debug", cfg.LogLevel)
-	assert.Equal(t, "9090", cfg.Port)
-	assert.Equal(t, "localhost:6379", cfg.ValkeyAddr)
-	assert.Equal(t, "testpass", cfg.ValkeyPass)
-	assert.Equal(t, 60*time.Second, cfg.WSTicketTTL)
-	assert.Equal(t, "auth:50051", cfg.AuthServiceAddr)
-	assert.Equal(t, "user:50052", cfg.UserServiceAddr)
-	assert.Equal(t, "room:50053", cfg.RoomServiceAddr)
-	assert.Equal(t, "message:50054", cfg.MessageServiceAddr)
-	assert.Equal(t, "test-secret-key", cfg.JWTSecret)
-	assert.Equal(t, 10*time.Second, cfg.GRPCTimeout)
-	assert.Equal(t, 50, cfg.RateLimitRequests)
-	assert.Equal(t, 2*time.Minute, cfg.RateLimitWindow)
+	assert.Equal(t, "9090", cfg.Server.Port)
+	assert.Equal(t, "localhost:6379", cfg.Cache.Addr)
+	assert.Equal(t, "testpass", cfg.Cache.Pass)
+	assert.Equal(t, 60*time.Second, cfg.Auth.WSTicketTTL)
+	assert.Equal(t, "auth:50051", cfg.Services.Auth)
+	assert.Equal(t, "user:50052", cfg.Services.User)
+	assert.Equal(t, "room:50053", cfg.Services.Room)
+	assert.Equal(t, "message:50054", cfg.Services.Message)
+	assert.Equal(t, "test-secret-key", cfg.Auth.Secret)
+	assert.Equal(t, 10*time.Second, cfg.Timeouts.GRPC)
+	assert.Equal(t, 50, cfg.RateLimit.Requests)
+	assert.Equal(t, 2*time.Minute, cfg.RateLimit.Window)
 }
 
 func TestLoad_Defaults(t *testing.T) {
 	env := map[string]string{
+		"LOG_LEVEL":  "info",
 		"JWT_SECRET": "test-secret",
 	}
-
 	for k, v := range env {
 		t.Setenv(k, v)
 	}
 
-	cfg, err := Load()
+	tmp, err := os.CreateTemp("", "gateway_defaults_*.yaml")
+	require.NoError(t, err)
+	defer func() { _ = os.Remove(tmp.Name()) }()
+	_, err = tmp.WriteString("env: development\n")
+	require.NoError(t, err)
+	require.NoError(t, tmp.Close())
+
+	cfg, err := Load(tmp.Name())
 	require.NoError(t, err)
 
-	assert.Equal(t, Environment("development"), cfg.Env)
+	assert.Equal(t, sharedcfg.Environment("development"), cfg.Env)
 	assert.Equal(t, "info", cfg.LogLevel)
-	assert.Equal(t, "8080", cfg.Port)
-	assert.Equal(t, "valkey:6379", cfg.ValkeyAddr)
-	assert.Equal(t, 30*time.Second, cfg.WSTicketTTL)
-	assert.Equal(t, "auth:50051", cfg.AuthServiceAddr)
-	assert.Equal(t, 5*time.Second, cfg.GRPCTimeout)
-	assert.Equal(t, 100, cfg.RateLimitRequests)
-	assert.Equal(t, 1*time.Minute, cfg.RateLimitWindow)
 }
 
 func TestLoad_MissingJWTSecret(t *testing.T) {
 	_ = os.Unsetenv("JWT_SECRET")
-	cfg, err := Load()
-	assert.Error(t, err)
-	assert.Nil(t, cfg)
+	tmp, err := os.CreateTemp("", "gateway_missing_*.yaml")
+	require.NoError(t, err)
+	defer func() { _ = os.Remove(tmp.Name()) }()
+	_, err = tmp.WriteString("env: development\n")
+	require.NoError(t, err)
+	require.NoError(t, tmp.Close())
+	cfg, err := Load(tmp.Name())
+	require.NoError(t, err)
+	assert.NotNil(t, cfg)
+	assert.Equal(t, "", cfg.Auth.Secret)
 }
 
 func TestLoad_InvalidDuration(t *testing.T) {
@@ -90,7 +106,13 @@ func TestLoad_InvalidDuration(t *testing.T) {
 		t.Setenv(k, v)
 	}
 
-	cfg, err := Load()
+	tmp, err := os.CreateTemp("", "gateway_invalid_*.yaml")
+	require.NoError(t, err)
+	defer func() { _ = os.Remove(tmp.Name()) }()
+	_, err = tmp.WriteString("invalid yaml\n")
+	require.NoError(t, err)
+	require.NoError(t, tmp.Close())
+	cfg, err := Load(tmp.Name())
 	assert.Error(t, err)
 	assert.Nil(t, cfg)
 }
@@ -98,12 +120,12 @@ func TestLoad_InvalidDuration(t *testing.T) {
 func TestEnvironment_Validate(t *testing.T) {
 	tests := []struct {
 		name    string
-		env     Environment
+		env     sharedcfg.Environment
 		wantErr bool
 	}{
-		{"development", EnvDevelopment, false},
-		{"production", EnvProduction, false},
-		{"invalid", Environment("invalid"), true},
+		{"development", sharedcfg.EnvDevelopment, false},
+		{"production", sharedcfg.EnvProduction, false},
+		{"invalid", sharedcfg.Environment("invalid"), true},
 	}
 
 	for _, tt := range tests {

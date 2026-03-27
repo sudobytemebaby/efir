@@ -64,14 +64,14 @@ func (h *WebSocketHandler) HandleWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	wsConn := newWSConnWrapper(conn, h.cfg.WriteDeadline())
+	wsConn := newWSConnWrapper(conn, h.cfg.WebSocket.WriteDeadline)
 
 	if initialRoomID != "" {
 		h.hub.Register(wsConn, userID, initialRoomID)
 	}
 
-	go h.readPump(wsConn, userID, h.cfg.ReadDeadline(), h.cfg.PingInterval())
-	go h.pingPump(wsConn, h.cfg.PingInterval())
+	go h.readPump(wsConn, userID, h.cfg.WebSocket.ReadDeadline, h.cfg.WebSocket.PingInterval)
+	go h.pingPump(wsConn, h.cfg.WebSocket.PingInterval)
 }
 
 func (h *WebSocketHandler) validateTicket(ctx context.Context, ticket string) (string, error) {
@@ -108,7 +108,7 @@ func (h *WebSocketHandler) readPump(conn *wsConnWrapper, userID string, readTime
 			return
 		}
 
-		if len(msg) > int(h.cfg.ReadLimitBytes()) {
+		if len(msg) > int(h.cfg.WebSocket.ReadLimit) {
 			h.sendError(conn, "message_too_large", "message exceeds size limit")
 			continue
 		}

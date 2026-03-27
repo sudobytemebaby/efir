@@ -1,6 +1,10 @@
 package nats
 
-import sharedjs "github.com/sudobytemebaby/efir/services/shared/pkg/nats"
+import (
+	"time"
+
+	sharedjs "github.com/sudobytemebaby/efir/services/shared/pkg/nats"
+)
 
 const (
 	StreamAuth                = "AUTH"
@@ -8,6 +12,6 @@ const (
 	ConsumerUserRegistered    = "user-svc-auth-registered"
 )
 
-func UserRegisteredConsumer() sharedjs.ConsumerConfig {
-	return sharedjs.DefaultConsumerConfig(ConsumerUserRegistered, SubjectAuthUserRegistered)
+func UserRegisteredConsumer(maxDeliver int, ackWait time.Duration) sharedjs.ConsumerConfig {
+	return sharedjs.DefaultConsumerConfig(ConsumerUserRegistered, SubjectAuthUserRegistered, maxDeliver, ackWait)
 }

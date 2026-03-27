@@ -10,7 +10,8 @@ services:
       - .env
     environment:
       - POSTGRES_DSN=${POSTGRES_AUTH_DSN}
-      - GRPC_PORT=${AUTH_GRPC_PORT}
+    volumes:
+      - ./services/auth/internal/config/config.yaml:/app/config.yaml:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -29,8 +30,9 @@ services:
     env_file:
       - .env
     environment:
-      - GRPC_PORT=${USER_GRPC_PORT}
       - POSTGRES_DSN=${POSTGRES_USER_DSN}
+    volumes:
+      - ./services/user/internal/config/config.yaml:/app/config.yaml:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -47,8 +49,9 @@ services:
     env_file:
       - .env
     environment:
-      - GRPC_PORT=${ROOM_GRPC_PORT}
       - POSTGRES_DSN=${POSTGRES_ROOM_DSN}
+    volumes:
+      - ./services/room/internal/config/config.yaml:/app/config.yaml:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -66,8 +69,9 @@ services:
       - .env
     environment:
       - POSTGRES_DSN=${POSTGRES_MESSAGE_DSN}
-      - GRPC_PORT=${MESSAGE_GRPC_PORT}
       - ROOM_SERVICE_ADDR=${ROOM_SERVICE_ADDR}
+    volumes:
+      - ./services/message/internal/config/config.yaml:/app/config.yaml:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -87,6 +91,8 @@ services:
       - .env
     environment:
       - GATEWAY_URL=${GATEWAY_URL:-http://gateway:8080}
+    volumes:
+      - ./services/websocket/internal/config/config.yaml:/app/config.yaml:ro
     depends_on:
       nats:
         condition: service_healthy
@@ -108,6 +114,8 @@ services:
     container_name: efir-gateway
     env_file:
       - .env
+    volumes:
+      - ./services/gateway/internal/config/config.yaml:/app/config.yaml:ro
     depends_on:
       valkey:
         condition: service_healthy

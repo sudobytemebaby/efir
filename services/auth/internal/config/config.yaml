@@ -1,0 +1,30 @@
+env: development
+log_level: info
+
+server:
+  grpc_port: "50051"
+  health_listen_addr: ":8080"
+
+timeouts:
+  shutdown: 30s
+  read_header: 5s
+  grpc_graceful: 5s
+
+nats:
+  url: "nats://localhost:4222"
+  user: ""
+  reconnect_wait: 2s
+  max_reconnects: -1
+  ack_wait: 30s
+  max_deliver: 5
+
+auth:
+  access_ttl: 15m
+  refresh_ttl: 24h
+
+rate_limit:
+  requests: 100
+  window: 60s
+
+cache:
+  addr: "localhost:6379"

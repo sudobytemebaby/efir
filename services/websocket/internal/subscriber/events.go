@@ -4,9 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"time"
 
 	"github.com/nats-io/nats.go/jetstream"
-	sharednats "github.com/sudobytemebaby/efir/services/shared/pkg/nats"
+	"github.com/sudobytemebaby/efir/services/shared/pkg/nats"
 	"github.com/sudobytemebaby/efir/services/websocket/internal/hub"
 	wsnats "github.com/sudobytemebaby/efir/services/websocket/internal/nats"
 )
@@ -29,32 +30,40 @@ type RoomUpdatedEvent struct {
 	UpdatedBy string `json:"updated_by"`
 }
 
+type SubscriberConfig struct {
+	MaxDeliver int
+	AckWait    time.Duration
+	RetryWait  time.Duration
+}
+
 type Subscriber struct {
 	hub  *hub.Hub
 	js   jetstream.JetStream
 	subs []jetstream.ConsumeContext
+	cfg  SubscriberConfig
 }
 
-func NewSubscriber(hub *hub.Hub, js jetstream.JetStream) *Subscriber {
+func NewSubscriber(hub *hub.Hub, js jetstream.JetStream, cfg SubscriberConfig) *Subscriber {
 	return &Subscriber{
 		hub:  hub,
 		js:   js,
+		cfg:  cfg,
 		subs: make([]jetstream.ConsumeContext, 0, 3),
 	}
 }
 
 func (s *Subscriber) Start(ctx context.Context) error {
-	msgConsumer, err := sharednats.ProvisionConsumerWithRetry(ctx, s.js, wsnats.StreamMessage, wsnats.MessageCreatedConsumer())
+	msgConsumer, err := nats.ProvisionConsumerWithRetry(ctx, s.js, wsnats.StreamMessage, wsnats.MessageCreatedConsumer(s.cfg.MaxDeliver, s.cfg.AckWait), s.cfg.RetryWait)
 	if err != nil {
 		return err
 	}
 
-	membershipConsumer, err := sharednats.ProvisionConsumerWithRetry(ctx, s.js, wsnats.StreamRoom, wsnats.RoomMembershipChangedConsumer())
+	membershipConsumer, err := nats.ProvisionConsumerWithRetry(ctx, s.js, wsnats.StreamRoom, wsnats.RoomMembershipChangedConsumer(s.cfg.MaxDeliver, s.cfg.AckWait), s.cfg.RetryWait)
 	if err != nil {
 		return err
 	}
 
-	roomUpdatedConsumer, err := sharednats.ProvisionConsumerWithRetry(ctx, s.js, wsnats.StreamRoom, wsnats.RoomUpdatedConsumer())
+	roomUpdatedConsumer, err := nats.ProvisionConsumerWithRetry(ctx, s.js, wsnats.StreamRoom, wsnats.RoomUpdatedConsumer(s.cfg.MaxDeliver, s.cfg.AckWait), s.cfg.RetryWait)
 	if err != nil {
 		return err
 	}

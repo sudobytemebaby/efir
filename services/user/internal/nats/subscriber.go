@@ -4,24 +4,32 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go/jetstream"
-	sharednats "github.com/sudobytemebaby/efir/services/shared/pkg/nats"
+	"github.com/sudobytemebaby/efir/services/shared/pkg/nats"
 	"github.com/sudobytemebaby/efir/services/user/internal/service"
 )
+
+type SubscriberConfig struct {
+	MaxDeliver int
+	AckWait    time.Duration
+	RetryWait  time.Duration
+}
 
 type subscriber struct {
 	js  jetstream.JetStream
 	svc service.UserService
+	cfg SubscriberConfig
 }
 
-func NewSubscriber(js jetstream.JetStream, svc service.UserService) *subscriber {
-	return &subscriber{js: js, svc: svc}
+func NewSubscriber(js jetstream.JetStream, svc service.UserService, cfg SubscriberConfig) *subscriber {
+	return &subscriber{js: js, svc: svc, cfg: cfg}
 }
 
 func (s *subscriber) Start(ctx context.Context) error {
-	consumer, err := sharednats.ProvisionConsumerWithRetry(ctx, s.js, StreamAuth, UserRegisteredConsumer())
+	consumer, err := nats.ProvisionConsumerWithRetry(ctx, s.js, StreamAuth, UserRegisteredConsumer(s.cfg.MaxDeliver, s.cfg.AckWait), s.cfg.RetryWait)
 	if err != nil {
 		return err
 	}

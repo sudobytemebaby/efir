@@ -1,6 +1,10 @@
 package nats
 
-import sharedjs "github.com/sudobytemebaby/efir/services/shared/pkg/nats"
+import (
+	"time"
+
+	sharedjs "github.com/sudobytemebaby/efir/services/shared/pkg/nats"
+)
 
 const (
 	StreamMessage                 = "MESSAGE"
@@ -13,14 +17,14 @@ const (
 	ConsumerRoomUpdated           = "ws-svc-room-updated"
 )
 
-func MessageCreatedConsumer() sharedjs.ConsumerConfig {
-	return sharedjs.DefaultConsumerConfig(ConsumerMessageCreated, SubjectMessageCreated)
+func MessageCreatedConsumer(maxDeliver int, ackWait time.Duration) sharedjs.ConsumerConfig {
+	return sharedjs.DefaultConsumerConfig(ConsumerMessageCreated, SubjectMessageCreated, maxDeliver, ackWait)
 }
 
-func RoomMembershipChangedConsumer() sharedjs.ConsumerConfig {
-	return sharedjs.DefaultConsumerConfig(ConsumerRoomMembershipChanged, SubjectRoomMembershipChanged)
+func RoomMembershipChangedConsumer(maxDeliver int, ackWait time.Duration) sharedjs.ConsumerConfig {
+	return sharedjs.DefaultConsumerConfig(ConsumerRoomMembershipChanged, SubjectRoomMembershipChanged, maxDeliver, ackWait)
 }
 
-func RoomUpdatedConsumer() sharedjs.ConsumerConfig {
-	return sharedjs.DefaultConsumerConfig(ConsumerRoomUpdated, SubjectRoomUpdated)
+func RoomUpdatedConsumer(maxDeliver int, ackWait time.Duration) sharedjs.ConsumerConfig {
+	return sharedjs.DefaultConsumerConfig(ConsumerRoomUpdated, SubjectRoomUpdated, maxDeliver, ackWait)
 }

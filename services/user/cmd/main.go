@@ -13,6 +13,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	userv1 "github.com/sudobytemebaby/efir/services/shared/gen/user"
+	sharedcfg "github.com/sudobytemebaby/efir/services/shared/pkg/config"
 	"github.com/sudobytemebaby/efir/services/shared/pkg/healthcheck"
 	"github.com/sudobytemebaby/efir/services/shared/pkg/logger"
 	"github.com/sudobytemebaby/efir/services/shared/pkg/middleware"
@@ -37,7 +38,11 @@ func main() {
 }
 
 func run(ctx context.Context) error {
-	cfg, err := config.Load()
+	configPath := os.Getenv("CONFIG_PATH")
+	if configPath == "" {
+		configPath = "config.yaml"
+	}
+	cfg, err := config.Load(configPath)
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
@@ -51,7 +56,7 @@ func run(ctx context.Context) error {
 	l := logger.New(logger.Options{Level: logLevel})
 	slog.SetDefault(l)
 
-	pgPool, err := pgxpool.New(ctx, cfg.PostgresDSN)
+	pgPool, err := pgxpool.New(ctx, cfg.Database.DSN)
 	if err != nil {
 		return fmt.Errorf("connect to postgres: %w", err)
 	}
@@ -61,7 +66,10 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("ping postgres: %w", err)
 	}
 
-	nc, err := sharednats.Connect(cfg.NATSURL, cfg.NATSUser, cfg.NATSPass)
+	nc, err := sharednats.Connect(cfg.NATS.URL, cfg.NATS.User, cfg.NATS.Pass, sharednats.ConnectOptions{
+		ReconnectWait: cfg.NATS.ReconnectWait,
+		MaxReconnects: cfg.NATS.MaxReconnects,
+	})
 	if err != nil {
 		return fmt.Errorf("connect to nats: %w", err)
 	}
@@ -88,7 +96,7 @@ func run(ctx context.Context) error {
 		),
 	)
 	userv1.RegisterUserServiceServer(grpcServer, userHandler)
-	if cfg.Env == config.EnvDevelopment {
+	if cfg.Env == sharedcfg.EnvDevelopment {
 		reflection.Register(grpcServer)
 	}
 
@@ -98,27 +106,31 @@ func run(ctx context.Context) error {
 	healthServer := &http.Server{
 		Addr:              ":8080",
 		Handler:           healthMux,
-		ReadHeaderTimeout: 5 * time.Second,
+		ReadHeaderTimeout: cfg.Timeouts.ReadHeader,
 	}
 
-	subscriber := nats.NewSubscriber(js, userSvc)
+	subscriber := nats.NewSubscriber(js, userSvc, nats.SubscriberConfig{
+		MaxDeliver: cfg.NATS.MaxDeliver,
+		AckWait:    cfg.NATS.AckWait,
+		RetryWait:  cfg.NATS.ConsumerRetryWait,
+	})
 	if err := subscriber.Start(ctx); err != nil {
 		return fmt.Errorf("start NATS subscriber: %w", err)
 	}
 
 	errCh := make(chan error, 2)
 
-	grpcLis, err := net.Listen("tcp", fmt.Sprintf(":%s", cfg.GRPCPort))
+	grpcLis, err := net.Listen("tcp", fmt.Sprintf(":%s", cfg.Server.GRPCPort))
 	if err != nil {
 		return fmt.Errorf("grpc listen: %w", err)
 	}
-	healthLis, err := net.Listen("tcp", cfg.HealthListenAddr)
+	healthLis, err := net.Listen("tcp", cfg.Server.HealthListenAddr)
 	if err != nil {
 		return fmt.Errorf("health listen: %w", err)
 	}
 
 	go func() {
-		slog.Info("grpc server started", "port", cfg.GRPCPort)
+		slog.Info("grpc server started", "port", cfg.Server.GRPCPort)
 		if err := grpcServer.Serve(grpcLis); err != nil {
 			errCh <- fmt.Errorf("grpc serve: %w", err)
 		}
@@ -146,12 +158,12 @@ func run(ctx context.Context) error {
 	select {
 	case <-grpcDone:
 		slog.Info("grpc server stopped gracefully")
-	case <-time.After(5 * time.Second):
+	case <-time.After(cfg.Timeouts.GRPCGraceful):
 		grpcServer.Stop()
 		slog.Warn("grpc server force stopped after timeout")
 	}
 
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.Timeouts.Shutdown)
 	defer cancel()
 	if err := healthServer.Shutdown(shutdownCtx); err != nil {
 		slog.Error("failed to shut down health server", "error", err)
