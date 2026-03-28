@@ -72,7 +72,8 @@ func (h *messageHandler) SendMessage(ctx context.Context, req *messagev1.SendMes
 		content = service.TextContent{Text: c.Text.Text}
 	case *messagev1.SendMessageRequest_Media:
 		media := c.Media
-		msgType, ok := protoToMessageType(req.Type)
+		var ok bool
+		msgType, ok = protoToMessageType(req.Type)
 		if !ok || (msgType != service.MessageTypeImage && msgType != service.MessageTypeVideo) {
 			return nil, sharederrors.CodeInvalidArgument.Error("type must be IMAGE or VIDEO for media content")
 		}
