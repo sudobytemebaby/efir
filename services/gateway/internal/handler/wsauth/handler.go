@@ -8,6 +8,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/sudobytemebaby/efir/services/gateway/internal/handler"
+	"github.com/sudobytemebaby/efir/services/gateway/internal/middleware"
 	"github.com/sudobytemebaby/efir/services/shared/pkg/errors"
 	"github.com/sudobytemebaby/efir/services/shared/pkg/valkey"
 	vk "github.com/valkey-io/valkey-go"
@@ -26,7 +27,6 @@ func NewHandler(client vk.Client, ticketTTL time.Duration) *Handler {
 }
 
 func (h *Handler) Register(r chi.Router) {
-	r.Post("/auth/ws-ticket", h.CreateTicket)
 	r.Get("/auth/validate", h.ValidateTicket)
 }
 
@@ -37,7 +37,7 @@ type createTicketResponse struct {
 func (h *Handler) CreateTicket(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	userID := r.Header.Get("X-User-Id")
+	userID := middleware.MustGetUserID(r.Context())
 	if userID == "" {
 		handler.WriteCode(w, errors.CodeUnauthenticated)
 		return

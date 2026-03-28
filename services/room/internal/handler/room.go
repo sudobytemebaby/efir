@@ -119,6 +119,9 @@ func (h *roomHandler) UpdateRoom(ctx context.Context, req *roomv1.UpdateRoomRequ
 		if errors.Is(err, service.ErrNotOwner) {
 			return nil, sharederrors.CodePermissionDenied.Error("only owner can update room")
 		}
+		if errors.Is(err, service.ErrNotMember) {
+			return nil, sharederrors.CodePermissionDenied.Error("must be a room member")
+		}
 		return nil, sharederrors.CodeInternal.Wrap(err)
 	}
 
@@ -149,6 +152,9 @@ func (h *roomHandler) DeleteRoom(ctx context.Context, req *roomv1.DeleteRoomRequ
 		}
 		if errors.Is(err, service.ErrNotOwner) {
 			return nil, sharederrors.CodePermissionDenied.Error("only owner can delete room")
+		}
+		if errors.Is(err, service.ErrNotMember) {
+			return nil, sharederrors.CodePermissionDenied.Error("must be a room member")
 		}
 		return nil, sharederrors.CodeInternal.Wrap(err)
 	}
@@ -217,6 +223,9 @@ func (h *roomHandler) RemoveMember(ctx context.Context, req *roomv1.RemoveMember
 		}
 		if errors.Is(err, service.ErrNotOwner) {
 			return nil, sharederrors.CodePermissionDenied.Error("only owner can remove members")
+		}
+		if errors.Is(err, service.ErrNotMember) {
+			return nil, sharederrors.CodePermissionDenied.Error("must be a room member")
 		}
 		if errors.Is(err, service.ErrMemberNotFound) {
 			return nil, sharederrors.CodeNotFound.Error("member not found")

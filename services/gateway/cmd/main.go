@@ -128,11 +128,12 @@ func run(ctx context.Context) error {
 		userHandler.Register(r)
 		roomHandler.Register(r)
 		messageHandler.Register(r)
+		r.Post("/auth/ws-ticket", wsAuthHandler.CreateTicket)
 	})
 
 	r.Group(func(r chi.Router) {
 		r.Use(ipRateLimiter)
-		wsAuthHandler.Register(r)
+		r.Get("/auth/validate", wsAuthHandler.ValidateTicket)
 	})
 
 	r.HandleFunc("/health", healthHandler.Health)
