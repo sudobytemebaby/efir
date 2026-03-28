@@ -4,18 +4,20 @@
 # Requires coverage.out in the current directory.
 set -euo pipefail
 
-go tool cover -func=coverage.out | grep -E "service|handler" | awk '
+go tool cover -func=coverage.out | awk '
+/^total:/ { next }
 {
-  pct = substr($3, 1, length($3)-1)
-  if ($2 ~ /service/ && pct+0 < 70) {
-    print "FAIL: " $0 " (below 70%)"
-    exit 1
+  pct = substr($NF, 1, length($NF)-1) + 0
+  if ($1 ~ /\/service\// && pct < 70) {
+    printf "FAIL: %s (%.1f%% < 70%%)\n", $0, pct
+    failed = 1
   }
-  if ($2 ~ /handler/ && pct+0 < 60) {
-    print "FAIL: " $0 " (below 60%)"
-    exit 1
+  if ($1 ~ /\/handler\// && pct < 60) {
+    printf "FAIL: %s (%.1f%% < 60%%)\n", $0, pct
+    failed = 1
   }
 }
+END { exit (failed ? 1 : 0) }
 '
 
 echo "✓ Coverage thresholds passed."

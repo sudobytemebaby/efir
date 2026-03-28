@@ -4,10 +4,9 @@
 set -euo pipefail
 
 if find services/ -name "*.go" 2>/dev/null | grep -q .; then
-  echo "has_go=true"
+  echo "Go files found."
   [ -n "${GITHUB_OUTPUT:-}" ] && echo "has_go=true" >> "$GITHUB_OUTPUT"
 else
-  echo "has_go=false"
-  [ -n "${GITHUB_OUTPUT:-}" ] && echo "has_go=false" >> "$GITHUB_OUTPUT"
   echo "No Go files found, skipping."
+  [ -n "${GITHUB_OUTPUT:-}" ] && echo "has_go=false" >> "$GITHUB_OUTPUT"
 fi

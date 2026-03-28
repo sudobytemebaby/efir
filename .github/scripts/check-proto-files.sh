@@ -4,10 +4,9 @@
 set -euo pipefail
 
 if find proto/ -name "*.proto" 2>/dev/null | grep -q .; then
-  echo "has_proto=true"
+  echo "Proto files found."
   [ -n "${GITHUB_OUTPUT:-}" ] && echo "has_proto=true" >> "$GITHUB_OUTPUT"
 else
-  echo "has_proto=false"
-  [ -n "${GITHUB_OUTPUT:-}" ] && echo "has_proto=false" >> "$GITHUB_OUTPUT"
   echo "No proto files found, skipping."
+  [ -n "${GITHUB_OUTPUT:-}" ] && echo "has_proto=false" >> "$GITHUB_OUTPUT"
 fi
