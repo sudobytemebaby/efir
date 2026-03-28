@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/sudobytemebaby/efir/services/shared/pkg/healthcheck"
 	"github.com/sudobytemebaby/efir/services/shared/pkg/logger"
 	"github.com/sudobytemebaby/efir/services/shared/pkg/nats"
 	"github.com/sudobytemebaby/efir/services/websocket/internal/config"
@@ -88,9 +89,10 @@ func run(ctx context.Context) error {
 
 	wsHandler := handler.NewWebSocketHandler(wsHub, cfg.Services.GatewayURL, valkeyClient, cfg)
 
+	healthHandler := healthcheck.New()
+
 	mux := http.NewServeMux()
-	mux.HandleFunc("/health", okHandler)
-	mux.HandleFunc("/ready", okHandler)
+	healthHandler.Register(mux)
 	mux.HandleFunc("/ws", wsHandler.HandleWS)
 
 	server := &http.Server{
@@ -113,6 +115,8 @@ func run(ctx context.Context) error {
 	case <-ctx.Done():
 	}
 
+	healthHandler.SetReady(true)
+
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.Timeouts.Shutdown)
 	defer cancel()
 
@@ -122,9 +126,4 @@ func run(ctx context.Context) error {
 
 	slog.Info("websocket service stopped gracefully")
 	return nil
-}
-
-func okHandler(w http.ResponseWriter, _ *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte("ok"))
 }

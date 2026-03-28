@@ -52,6 +52,12 @@ func (h *Handler) getMessages(w http.ResponseWriter, r *http.Request) {
 	}
 	if l := r.URL.Query().Get("limit"); l != "" {
 		if parsed, err := strconv.ParseInt(l, 10, 32); err == nil {
+			if parsed < 1 {
+				parsed = 1
+			}
+			if parsed > 100 {
+				parsed = 100
+			}
 			req.Limit = int32(parsed)
 		}
 	}

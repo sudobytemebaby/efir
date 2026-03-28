@@ -20,6 +20,8 @@ var messageTypeToProto = map[service.MessageType]messagev1.MessageType{
 	service.MessageTypeSticker:   messagev1.MessageType_MESSAGE_TYPE_STICKER,
 }
 
+const messageTypeDefaultProto = messagev1.MessageType_MESSAGE_TYPE_UNSPECIFIED
+
 var protoToMessageTypeMap = map[messagev1.MessageType]service.MessageType{
 	messagev1.MessageType_MESSAGE_TYPE_TEXT:       service.MessageTypeText,
 	messagev1.MessageType_MESSAGE_TYPE_IMAGE:      service.MessageTypeImage,
@@ -36,7 +38,7 @@ func messageToProto(msg *service.Message) *messagev1.Message {
 		MessageId: msg.ID.String(),
 		RoomId:    msg.RoomID.String(),
 		SenderId:  msg.SenderID.String(),
-		Type:      mapper.Enum(messageTypeToProto, msg.Type),
+		Type:      mapper.Enum(messageTypeToProto, msg.Type, messageTypeDefaultProto),
 		IsDeleted: msg.DeletedAt != nil,
 		CreatedAt: timestampProto(msg.CreatedAt),
 		UpdatedAt: timestampProto(msg.UpdatedAt),
@@ -134,7 +136,7 @@ func previewToProto(preview *service.MessagePreview) *messagev1.MessagePreview {
 	result := &messagev1.MessagePreview{
 		MessageId: preview.MessageID.String(),
 		SenderId:  preview.SenderID.String(),
-		Type:      mapper.Enum(messageTypeToProto, preview.Type),
+		Type:      mapper.Enum(messageTypeToProto, preview.Type, messageTypeDefaultProto),
 	}
 
 	if preview.TextPreview != nil {
