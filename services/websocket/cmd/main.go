@@ -109,13 +109,13 @@ func run(ctx context.Context) error {
 		}
 	}()
 
+	healthHandler.SetReady(true)
+
 	select {
 	case err := <-errCh:
 		return err
 	case <-ctx.Done():
 	}
-
-	healthHandler.SetReady(true)
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.Timeouts.Shutdown)
 	defer cancel()
