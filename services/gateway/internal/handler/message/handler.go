@@ -26,7 +26,7 @@ func (h *Handler) Register(r chi.Router) {
 func (h *Handler) sendMessage(w http.ResponseWriter, r *http.Request) {
 	var req messagev1.SendMessageRequest
 	if err := handler.ReadProto(r, &req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		handler.WriteError(w, r, err, "invalid request body")
 		return
 	}
 	req.RoomId = chi.URLParam(r, "id")

@@ -18,6 +18,7 @@ const (
 	CodeInvalidArgument  Code = "INVALID_ARGUMENT"
 	CodeUnavailable      Code = "UNAVAILABLE"
 	CodeInternal         Code = "INTERNAL"
+	CodeRateLimited      Code = "RATE_LIMITED"
 )
 
 var codeToGRPCCode = map[Code]codes.Code{
@@ -28,6 +29,7 @@ var codeToGRPCCode = map[Code]codes.Code{
 	CodeInvalidArgument:  codes.InvalidArgument,
 	CodeUnavailable:      codes.Unavailable,
 	CodeInternal:         codes.Internal,
+	CodeRateLimited:      codes.ResourceExhausted,
 }
 
 var codeToHTTPCode = map[Code]int{
@@ -38,6 +40,7 @@ var codeToHTTPCode = map[Code]int{
 	CodeInvalidArgument:  400,
 	CodeUnavailable:      503,
 	CodeInternal:         500,
+	CodeRateLimited:      429,
 }
 
 var codeToDefaultMessage = map[Code]string{
@@ -48,6 +51,7 @@ var codeToDefaultMessage = map[Code]string{
 	CodeInvalidArgument:  "invalid argument",
 	CodeUnavailable:      "service unavailable",
 	CodeInternal:         "internal error",
+	CodeRateLimited:      "rate limit exceeded",
 }
 
 type StatusError struct {
@@ -116,6 +120,8 @@ func FromError(err error) (Code, bool) {
 		return CodeInvalidArgument, true
 	case codes.Unavailable:
 		return CodeUnavailable, true
+	case codes.ResourceExhausted:
+		return CodeRateLimited, true
 	default:
 		return CodeInternal, true
 	}

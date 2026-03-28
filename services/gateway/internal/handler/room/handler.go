@@ -29,7 +29,7 @@ func (h *Handler) Register(r chi.Router) {
 func (h *Handler) createRoom(w http.ResponseWriter, r *http.Request) {
 	var req roomv1.CreateRoomRequest
 	if err := handler.ReadProto(r, &req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		handler.WriteError(w, r, err, "invalid request body")
 		return
 	}
 	req.CreatedBy = middleware.MustGetUserID(r.Context())
@@ -57,7 +57,7 @@ func (h *Handler) getRoom(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) updateRoom(w http.ResponseWriter, r *http.Request) {
 	var req roomv1.UpdateRoomRequest
 	if err := handler.ReadProto(r, &req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		handler.WriteError(w, r, err, "invalid request body")
 		return
 	}
 	req.RoomId = chi.URLParam(r, "id")
@@ -89,7 +89,7 @@ func (h *Handler) deleteRoom(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) addMember(w http.ResponseWriter, r *http.Request) {
 	var req roomv1.AddMemberRequest
 	if err := handler.ReadProto(r, &req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		handler.WriteError(w, r, err, "invalid request body")
 		return
 	}
 	req.RoomId = chi.URLParam(r, "id")

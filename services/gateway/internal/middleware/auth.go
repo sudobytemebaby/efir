@@ -7,6 +7,8 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/sudobytemebaby/efir/services/gateway/internal/handler"
+	"github.com/sudobytemebaby/efir/services/shared/pkg/errors"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -31,13 +33,13 @@ func JWTAuth(jwtSecret string) func(http.Handler) http.Handler {
 
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
-				http.Error(w, "missing authorization header", http.StatusUnauthorized)
+				handler.WriteCode(w, errors.CodeUnauthenticated)
 				return
 			}
 
 			parts := strings.SplitN(authHeader, " ", 2)
 			if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-				http.Error(w, "invalid authorization header format", http.StatusUnauthorized)
+				handler.WriteCode(w, errors.CodeUnauthenticated)
 				return
 			}
 
@@ -50,19 +52,19 @@ func JWTAuth(jwtSecret string) func(http.Handler) http.Handler {
 				return []byte(jwtSecret), nil
 			})
 			if err != nil || !token.Valid {
-				http.Error(w, "invalid or expired token", http.StatusUnauthorized)
+				handler.WriteCode(w, errors.CodeUnauthenticated)
 				return
 			}
 
 			claims, ok := token.Claims.(jwt.MapClaims)
 			if !ok {
-				http.Error(w, "invalid token claims", http.StatusUnauthorized)
+				handler.WriteCode(w, errors.CodeUnauthenticated)
 				return
 			}
 
 			sub, ok := claims["sub"].(string)
 			if !ok || sub == "" {
-				http.Error(w, "missing sub claim", http.StatusUnauthorized)
+				handler.WriteCode(w, errors.CodeUnauthenticated)
 				return
 			}
 

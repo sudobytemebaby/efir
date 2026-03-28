@@ -29,11 +29,53 @@ var unmarshaler = protojson.UnmarshalOptions{
 	DiscardUnknown: true,
 }
 
+type errorResponse struct {
+	Error string `json:"error"`
+	Code  string `json:"code"`
+}
+
+var codeToMessage = map[errors.Code]string{
+	errors.CodeNotFound:         "resource not found",
+	errors.CodeAlreadyExists:    "resource already exists",
+	errors.CodePermissionDenied: "permission denied",
+	errors.CodeUnauthenticated:  "authentication required",
+	errors.CodeInvalidArgument:  "invalid request",
+	errors.CodeUnavailable:      "service temporarily unavailable",
+	errors.CodeInternal:         "internal server error",
+	errors.CodeRateLimited:      "rate limit exceeded",
+}
+
+func WriteCode(w http.ResponseWriter, code errors.Code) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code.ToHTTPCode())
+	_ = json.NewEncoder(w).Encode(errorResponse{
+		Error: codeToMessage[code],
+		Code:  string(code),
+	})
+}
+
+func WriteJSON(w http.ResponseWriter, status int, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(v)
+}
+
+func WriteError(w http.ResponseWriter, r *http.Request, err error, msg string) {
+	slog.ErrorContext(r.Context(), msg, "error", err)
+
+	code, ok := errors.FromError(err)
+	if !ok {
+		code = errors.CodeInternal
+	}
+
+	WriteCode(w, code)
+}
+
 func WriteProto(w http.ResponseWriter, status int, msg proto.Message) {
 	b, err := marshaler.Marshal(msg)
 	if err != nil {
 		slog.Error("failed to marshal proto response", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		WriteCode(w, errors.CodeInternal)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -49,38 +91,8 @@ func ReadProto(r *http.Request, msg proto.Message) error {
 		}
 		return err
 	}
-	return unmarshaler.Unmarshal(body, msg)
-}
-
-type errorResponse struct {
-	Error string `json:"error"`
-	Code  string `json:"code"`
-}
-
-var codeToMessage = map[errors.Code]string{
-	errors.CodeNotFound:         "resource not found",
-	errors.CodeAlreadyExists:    "resource already exists",
-	errors.CodePermissionDenied: "permission denied",
-	errors.CodeUnauthenticated:  "authentication required",
-	errors.CodeInvalidArgument:  "invalid request",
-	errors.CodeUnavailable:      "service temporarily unavailable",
-	errors.CodeInternal:         "internal server error",
-}
-
-func WriteError(w http.ResponseWriter, r *http.Request, err error, msg string) {
-	slog.ErrorContext(r.Context(), msg, "error", err)
-
-	code, ok := errors.FromError(err)
-	if !ok {
-		code = errors.CodeInternal
+	if err := unmarshaler.Unmarshal(body, msg); err != nil {
+		return errors.CodeInvalidArgument.Wrap(err)
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code.ToHTTPCode())
-	if encErr := json.NewEncoder(w).Encode(errorResponse{
-		Error: codeToMessage[code],
-		Code:  string(code),
-	}); encErr != nil {
-		slog.ErrorContext(r.Context(), "failed to encode error response", "error", encErr)
-	}
+	return nil
 }
