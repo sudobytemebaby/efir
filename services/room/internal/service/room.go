@@ -17,7 +17,6 @@ var (
 	ErrDirectRoomExists  = errors.New("direct room already exists between these users")
 	ErrMemberNotFound    = errors.New("member not found")
 	ErrCannotRemoveOwner = errors.New("owner cannot be removed from the room")
-	ErrCannotRemoveSelf  = errors.New("cannot remove yourself from the room")
 )
 
 //go:generate mockery --name Publisher

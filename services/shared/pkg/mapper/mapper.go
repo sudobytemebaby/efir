@@ -1,7 +1,5 @@
 package mapper
 
-import "fmt"
-
 func Slice[T, U any](items []T, fn func(T) U) []U {
 	result := make([]U, len(items))
 	for i, item := range items {
@@ -10,10 +8,10 @@ func Slice[T, U any](items []T, fn func(T) U) []U {
 	return result
 }
 
-func Enum[From comparable, To any](m map[From]To, from From) To {
+func Enum[From comparable, To any](m map[From]To, from From, fallback To) To {
 	to, ok := m[from]
 	if !ok {
-		panic(fmt.Sprintf("mapper: unknown enum value: %v", from))
+		return fallback
 	}
 	return to
 }

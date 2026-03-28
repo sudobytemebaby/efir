@@ -150,6 +150,9 @@ func (s *messageService) GetMessageByID(ctx context.Context, messageID, requeste
 }
 
 func (s *messageService) DeleteMessage(ctx context.Context, messageID, requesterID uuid.UUID) error {
+	// DeleteMessage allows the original sender to soft-delete their message.
+	// Membership is intentionally not re-checked — a user who sent a message
+	// retains the right to delete it even after leaving the room.
 	msg, err := s.repo.GetMessageByID(ctx, messageID)
 	if err != nil {
 		if errors.Is(err, repository.ErrMessageNotFound) {
