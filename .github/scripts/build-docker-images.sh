@@ -3,15 +3,17 @@
 # Images are tagged as efir-{service}:ci.
 set -euo pipefail
 
-SERVICES=(gateway auth user message room websocket sidecar)
+found=0
 
-for svc in "${SERVICES[@]}"; do
-  dockerfile="services/$svc/Dockerfile"
-  if [ -f "$dockerfile" ]; then
-    echo "→ Building $svc..."
-    docker build -t "efir-$svc:ci" -f "$dockerfile" .
-    echo "✓ efir-$svc:ci built."
-  else
-    echo "  Skipping $svc (no Dockerfile)"
-  fi
+for dockerfile in services/*/Dockerfile; do
+  [ -f "$dockerfile" ] || continue
+  svc=$(basename "$(dirname "$dockerfile")")
+  echo "→ Building $svc..."
+  docker build -t "efir-$svc:ci" -f "$dockerfile" .
+  echo "✓ efir-$svc:ci built."
+  found=1
 done
+
+if [ "$found" -eq 0 ]; then
+  echo "No Dockerfiles found under services/."
+fi

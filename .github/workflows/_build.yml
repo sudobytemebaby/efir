@@ -7,6 +7,9 @@ jobs:
   build:
     name: Build Docker Images
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DOCKER_BUILDKIT: "1"
     steps:
       - uses: actions/checkout@v4
 
@@ -17,6 +20,15 @@ jobs:
       - name: Setup Go + Proto
         if: steps.check.outputs.has_dockerfiles == 'true'
         uses: ./.github/actions/setup-go-proto
+        with:
+          generate: "false"
+
+      - name: Download generated proto files
+        if: steps.check.outputs.has_dockerfiles == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: proto-generated
+          path: services/shared/gen
 
       - name: Build all service images
         if: steps.check.outputs.has_dockerfiles == 'true'

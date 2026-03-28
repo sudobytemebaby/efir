@@ -4,10 +4,9 @@
 set -euo pipefail
 
 if find services/ -name "Dockerfile" 2>/dev/null | grep -q .; then
-  echo "has_dockerfiles=true"
+  echo "Dockerfiles found."
   [ -n "${GITHUB_OUTPUT:-}" ] && echo "has_dockerfiles=true" >> "$GITHUB_OUTPUT"
 else
-  echo "has_dockerfiles=false"
-  [ -n "${GITHUB_OUTPUT:-}" ] && echo "has_dockerfiles=false" >> "$GITHUB_OUTPUT"
   echo "No Dockerfiles found, skipping."
+  [ -n "${GITHUB_OUTPUT:-}" ] && echo "has_dockerfiles=false" >> "$GITHUB_OUTPUT"
 fi

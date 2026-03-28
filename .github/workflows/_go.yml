@@ -10,9 +10,12 @@ on:
         default: "false"
 
 jobs:
-  lint:
-    name: Lint
+  check:
+    name: Check Go Files
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      has-go: ${{ steps.check.outputs.has_go }}
     steps:
       - uses: actions/checkout@v4
 
@@ -20,56 +23,58 @@ jobs:
         id: check
         run: bash .github/scripts/check-go-files.sh
 
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: check
+    if: needs.check.outputs.has-go == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
       - name: Setup Go + Proto
-        if: steps.check.outputs.has_go == 'true'
         uses: ./.github/actions/setup-go-proto
         with:
           generate: "false"
 
       - name: Download generated proto files
-        if: steps.check.outputs.has_go == 'true' && inputs.has-proto == 'true'
+        if: inputs.has-proto == 'true'
         uses: actions/download-artifact@v4
         with:
           name: proto-generated
           path: services/shared/gen
 
       - name: Install golangci-lint v2
-        if: steps.check.outputs.has_go == 'true'
         run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.8.0
 
       - name: Run golangci-lint across all workspace modules
-        if: steps.check.outputs.has_go == 'true'
         run: bash .github/scripts/lint-go-modules.sh
 
   test:
     name: Test
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: check
+    if: needs.check.outputs.has-go == 'true'
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check for Go files
-        id: check
-        run: bash .github/scripts/check-go-files.sh
-
       - name: Setup Go + Proto
-        if: steps.check.outputs.has_go == 'true'
         uses: ./.github/actions/setup-go-proto
         with:
           generate: "false"
 
       - name: Download generated proto files
-        if: steps.check.outputs.has_go == 'true' && inputs.has-proto == 'true'
+        if: inputs.has-proto == 'true'
         uses: actions/download-artifact@v4
         with:
           name: proto-generated
           path: services/shared/gen
 
       - name: Run tests with coverage
-        if: steps.check.outputs.has_go == 'true'
         run: bash .github/scripts/test-go-modules.sh
 
       - name: Upload coverage artifact
-        if: steps.check.outputs.has_go == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: coverage
@@ -79,6 +84,7 @@ jobs:
   coverage-gate:
     name: Coverage Gate
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs: test
     if: false # TODO: enable in Module 1 with thresholds
     steps:

@@ -6,16 +6,19 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate:
     uses: ./.github/workflows/_validate.yml
 
   proto:
-    needs: validate
     uses: ./.github/workflows/_proto.yml
 
   go:
-    needs: proto
+    needs: [validate, proto]
     uses: ./.github/workflows/_go.yml
     with:
       has-proto: ${{ needs.proto.outputs.has-proto }}
