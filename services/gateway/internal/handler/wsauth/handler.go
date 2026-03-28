@@ -1,13 +1,14 @@
 package wsauth
 
 import (
-	"encoding/json"
 	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/sudobytemebaby/efir/services/gateway/internal/handler"
+	"github.com/sudobytemebaby/efir/services/shared/pkg/errors"
 	"github.com/sudobytemebaby/efir/services/shared/pkg/valkey"
 	vk "github.com/valkey-io/valkey-go"
 )
@@ -38,12 +39,12 @@ func (h *Handler) CreateTicket(w http.ResponseWriter, r *http.Request) {
 
 	userID := r.Header.Get("X-User-Id")
 	if userID == "" {
-		http.Error(w, "missing X-User-Id header", http.StatusUnauthorized)
+		handler.WriteCode(w, errors.CodeUnauthenticated)
 		return
 	}
 
 	if _, err := uuid.Parse(userID); err != nil {
-		http.Error(w, "invalid X-User-Id header", http.StatusBadRequest)
+		handler.WriteCode(w, errors.CodeInvalidArgument)
 		return
 	}
 
@@ -53,14 +54,11 @@ func (h *Handler) CreateTicket(w http.ResponseWriter, r *http.Request) {
 	err := h.client.Do(ctx, h.client.B().Set().Key(key).Value(userID).Ex(h.ticketTTL).Build()).Error()
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to store ws ticket", "error", err)
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		handler.WriteCode(w, errors.CodeInternal)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(createTicketResponse{Ticket: ticket}); err != nil {
-		slog.ErrorContext(ctx, "failed to encode response", "error", err)
-	}
+	handler.WriteJSON(w, http.StatusCreated, createTicketResponse{Ticket: ticket})
 }
 
 func (h *Handler) ValidateTicket(w http.ResponseWriter, r *http.Request) {
@@ -68,7 +66,7 @@ func (h *Handler) ValidateTicket(w http.ResponseWriter, r *http.Request) {
 
 	ticket := r.Header.Get("X-Ws-Ticket")
 	if ticket == "" {
-		http.Error(w, "missing X-Ws-Ticket header", http.StatusUnauthorized)
+		handler.WriteCode(w, errors.CodeUnauthenticated)
 		return
 	}
 
@@ -78,18 +76,14 @@ func (h *Handler) ValidateTicket(w http.ResponseWriter, r *http.Request) {
 	userID, err := getResp.ToString()
 	if err != nil {
 		if vk.IsValkeyNil(err) {
-			http.Error(w, "invalid or expired ticket", http.StatusUnauthorized)
+			handler.WriteCode(w, errors.CodeUnauthenticated)
 			return
 		}
 		slog.ErrorContext(ctx, "failed to get/del ws ticket", "error", err)
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		handler.WriteCode(w, errors.CodeInternal)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("X-User-Id", userID)
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(map[string]string{"user_id": userID}); err != nil {
-		slog.ErrorContext(ctx, "failed to encode response", "error", err)
-	}
+	handler.WriteJSON(w, http.StatusOK, map[string]string{"user_id": userID})
 }

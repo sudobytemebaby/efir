@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/sudobytemebaby/efir/services/gateway/internal/handler"
+	"github.com/sudobytemebaby/efir/services/shared/pkg/errors"
 	"github.com/sudobytemebaby/efir/services/shared/pkg/valkey"
 	vk "github.com/valkey-io/valkey-go"
 )
@@ -27,12 +29,12 @@ func IPRateLimiter(client vk.Client, requests int, window time.Duration) func(ht
 
 			result, err := client.Do(r.Context(), client.B().Eval().Script(valkey.IncrWithExpiryScript).Numkeys(1).Key(key).Arg(ttlSeconds).Build()).ToInt64()
 			if err != nil {
-				http.Error(w, "rate limit check failed", http.StatusInternalServerError)
+				handler.WriteCode(w, errors.CodeInternal)
 				return
 			}
 
 			if result > int64(requests) {
-				http.Error(w, "too many requests", http.StatusTooManyRequests)
+				handler.WriteCode(w, errors.CodeRateLimited)
 				return
 			}
 
@@ -46,7 +48,7 @@ func UserRateLimiter(client vk.Client, requests int, window time.Duration) func(
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			userID, ok := GetUserID(r.Context())
 			if !ok {
-				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				handler.WriteCode(w, errors.CodeUnauthenticated)
 				return
 			}
 
@@ -55,12 +57,12 @@ func UserRateLimiter(client vk.Client, requests int, window time.Duration) func(
 
 			result, err := client.Do(r.Context(), client.B().Eval().Script(valkey.IncrWithExpiryScript).Numkeys(1).Key(key).Arg(ttlSeconds).Build()).ToInt64()
 			if err != nil {
-				http.Error(w, "rate limit check failed", http.StatusInternalServerError)
+				handler.WriteCode(w, errors.CodeInternal)
 				return
 			}
 
 			if result > int64(requests) {
-				http.Error(w, "too many requests", http.StatusTooManyRequests)
+				handler.WriteCode(w, errors.CodeRateLimited)
 				return
 			}
 

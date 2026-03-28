@@ -26,7 +26,7 @@ func (h *Handler) Register(r chi.Router) {
 func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
 	var req authv1.RegisterRequest
 	if err := handler.ReadProto(r, &req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		handler.WriteError(w, r, err, "invalid request body")
 		return
 	}
 	resp, err := h.client.Register(r.Context(), &req)
@@ -40,7 +40,7 @@ func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 	var req authv1.LoginRequest
 	if err := handler.ReadProto(r, &req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		handler.WriteError(w, r, err, "invalid request body")
 		return
 	}
 	resp, err := h.client.Login(r.Context(), &req)
@@ -54,7 +54,7 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
 	var req authv1.LogoutRequest
 	if err := handler.ReadProto(r, &req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		handler.WriteError(w, r, err, "invalid request body")
 		return
 	}
 	if _, err := h.client.Logout(r.Context(), &req); err != nil {
@@ -67,7 +67,7 @@ func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) refresh(w http.ResponseWriter, r *http.Request) {
 	var req authv1.RefreshTokenRequest
 	if err := handler.ReadProto(r, &req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		handler.WriteError(w, r, err, "invalid request body")
 		return
 	}
 	resp, err := h.client.RefreshToken(r.Context(), &req)

@@ -50,7 +50,7 @@ func (h *Handler) getByID(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) updateMe(w http.ResponseWriter, r *http.Request) {
 	var req userv1.UpdateUserRequest
 	if err := handler.ReadProto(r, &req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		handler.WriteError(w, r, err, "invalid request body")
 		return
 	}
 	req.UserId = middleware.MustGetUserID(r.Context())
