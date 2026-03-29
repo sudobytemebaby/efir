@@ -6,6 +6,7 @@ set -euo pipefail
 
 go tool cover -func=coverage.out | awk '
 /^total:/ { next }
+/\/mocks\// { next }
 {
   pct = substr($NF, 1, length($NF)-1) + 0
   if ($1 ~ /\/service\// && pct < 70) {

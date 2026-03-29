@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"github.com/sudobytemebaby/efir/services/auth/internal/ratelimit"
 	ratelimitmocks "github.com/sudobytemebaby/efir/services/auth/internal/ratelimit/mocks"
 	"github.com/sudobytemebaby/efir/services/auth/internal/repository"
