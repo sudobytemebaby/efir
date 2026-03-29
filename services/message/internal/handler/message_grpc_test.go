@@ -35,7 +35,7 @@ func newGRPCClient(t *testing.T, svc service.MessageService) messagev1.MessageSe
 	messagev1.RegisterMessageServiceServer(srv, msgHandler)
 	t.Cleanup(func() {
 		srv.GracefulStop()
-		lis.Close()
+		_ = lis.Close()
 	})
 
 	go func() {
@@ -52,7 +52,7 @@ func newGRPCClient(t *testing.T, svc service.MessageService) messagev1.MessageSe
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	require.NoError(t, err)
-	t.Cleanup(func() { conn.Close() })
+	t.Cleanup(func() { _ = conn.Close() })
 
 	return messagev1.NewMessageServiceClient(conn)
 }
