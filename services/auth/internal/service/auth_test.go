@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
 	"github.com/sudobytemebaby/efir/services/auth/internal/ratelimit"
 	ratelimitmocks "github.com/sudobytemebaby/efir/services/auth/internal/ratelimit/mocks"
@@ -169,5 +170,38 @@ func TestAuthService_Logout(t *testing.T) {
 		tokenRepo.On("DeleteRefreshToken", ctx, token).Return(nil).Once()
 		err := svc.Logout(ctx, token)
 		assert.NoError(t, err)
+	})
+}
+
+func TestAuthService_RefreshToken(t *testing.T) {
+	ctx := context.Background()
+	userID := uuid.New()
+	oldToken := "old_refresh_token"
+
+	t.Run("success", func(t *testing.T) {
+		svc, _, tokenRepo, _, _ := newSvc(t)
+
+		tokenRepo.On("GetUserIDByRefreshToken", ctx, oldToken).Return(userID, nil).Once()
+		tokenRepo.On("SaveRefreshToken", ctx, userID, mock.AnythingOfType("string"), time.Hour).Return(nil).Once()
+		tokenRepo.On("DeleteRefreshToken", ctx, oldToken).Return(nil).Once()
+
+		tokens, err := svc.RefreshToken(ctx, oldToken)
+
+		assert.NoError(t, err)
+		require.NotNil(t, tokens)
+		assert.NotEmpty(t, tokens.AccessToken)
+		assert.NotEmpty(t, tokens.RefreshToken)
+		assert.NotEqual(t, oldToken, tokens.RefreshToken)
+	})
+
+	t.Run("invalid token returns ErrInvalidToken", func(t *testing.T) {
+		svc, _, tokenRepo, _, _ := newSvc(t)
+
+		tokenRepo.On("GetUserIDByRefreshToken", ctx, oldToken).Return(uuid.UUID{}, repository.ErrTokenNotFound).Once()
+
+		tokens, err := svc.RefreshToken(ctx, oldToken)
+
+		assert.ErrorIs(t, err, service.ErrInvalidToken)
+		assert.Nil(t, tokens)
 	})
 }
