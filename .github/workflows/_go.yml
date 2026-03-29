@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
-      has-go: ${{ steps.check.outputs.has_go }}
+      has_go: ${{ steps.check.outputs.has_go }}
     steps:
       - uses: actions/checkout@v4
 
@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: check
-    if: needs.check.outputs.has-go == 'true'
+    if: needs.check.outputs.has_go == 'true'
     steps:
       - uses: actions/checkout@v4
 
@@ -55,7 +55,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: check
-    if: needs.check.outputs.has-go == 'true'
+    if: needs.check.outputs.has_go == 'true'
     steps:
       - uses: actions/checkout@v4
 
