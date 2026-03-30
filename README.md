@@ -68,10 +68,10 @@ Services communicate via:
 - [x] **Module 1: MVP** — Auth, user profiles, and basic realtime chat.
 - [x] Auth Service (registration, login, JWT tokens)
 - [x] User Service (profiles, username, avatar, bio)
-- [ ] Room Service (chat rooms, membership)
-- [ ] Message Service (send/receive messages)
-- [ ] WebSocket Connector (real-time delivery)
-- [ ] Gateway (HTTP API, routing, auth)
+- [x] Room Service (chat rooms, membership)
+- [x] Message Service (send/receive messages)
+- [x] WebSocket Connector (real-time delivery)
+- [x] Gateway (HTTP API, routing, auth)
 - [ ] **Module 2: Scale & Security** — Sidecar PEP for traffic validation and horizontal scaling.
 - [ ] **Module 3: Features** — Presence status, media handling, notifications, and global search.
 
