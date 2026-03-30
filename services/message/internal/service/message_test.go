@@ -235,6 +235,42 @@ func TestGetMessages_NotMember(t *testing.T) {
 	assert.ErrorIs(t, err, service.ErrNotMember)
 }
 
+func TestGetMessageByID_Success(t *testing.T) {
+	t.Parallel()
+	msgID, roomID, requesterID := uuid.New(), uuid.New(), uuid.New()
+
+	svc, repo, roomClient, _ := newSvc(t)
+	repo.On("GetMessageByID", mock.Anything, msgID).Return(repoMsg(msgID, roomID, requesterID), nil)
+	roomClient.On("IsMember", mock.Anything, roomID, requesterID).Return(true, nil)
+
+	msg, err := svc.GetMessageByID(context.Background(), msgID, requesterID)
+	require.NoError(t, err)
+	assert.Equal(t, msgID, msg.ID)
+}
+
+func TestGetMessageByID_NotFound(t *testing.T) {
+	t.Parallel()
+	msgID, requesterID := uuid.New(), uuid.New()
+
+	svc, repo, _, _ := newSvc(t)
+	repo.On("GetMessageByID", mock.Anything, msgID).Return(nil, repository.ErrMessageNotFound)
+
+	_, err := svc.GetMessageByID(context.Background(), msgID, requesterID)
+	assert.ErrorIs(t, err, service.ErrMessageNotFound)
+}
+
+func TestGetMessageByID_NotMember(t *testing.T) {
+	t.Parallel()
+	msgID, roomID, senderID, requesterID := uuid.New(), uuid.New(), uuid.New(), uuid.New()
+
+	svc, repo, roomClient, _ := newSvc(t)
+	repo.On("GetMessageByID", mock.Anything, msgID).Return(repoMsg(msgID, roomID, senderID), nil)
+	roomClient.On("IsMember", mock.Anything, roomID, requesterID).Return(false, nil)
+
+	_, err := svc.GetMessageByID(context.Background(), msgID, requesterID)
+	assert.ErrorIs(t, err, service.ErrNotMember)
+}
+
 func TestDeleteMessage_NotOwner(t *testing.T) {
 	t.Parallel()
 	msgID, senderID, requesterID := uuid.New(), uuid.New(), uuid.New()

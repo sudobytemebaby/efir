@@ -6,10 +6,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -20,20 +18,9 @@ import (
 	"github.com/sudobytemebaby/efir/services/gateway/internal/handler/room"
 	"github.com/sudobytemebaby/efir/services/gateway/internal/handler/room/mocks"
 	"github.com/sudobytemebaby/efir/services/gateway/internal/middleware"
+	"github.com/sudobytemebaby/efir/services/gateway/internal/testutil"
 	roomv1 "github.com/sudobytemebaby/efir/services/shared/gen/room"
 )
-
-const testSecret = "test-secret"
-
-// authHeader returns a signed JWT Authorization header value for the given userID.
-func authHeader(userID string) string {
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"sub": userID,
-		"exp": time.Now().Add(time.Hour).Unix(),
-	})
-	signed, _ := token.SignedString([]byte(testSecret))
-	return "Bearer " + signed
-}
 
 // newRouter returns a chi router with JWT auth middleware and the room handler registered.
 func newRouter(t *testing.T) (*mocks.RoomServiceClient, chi.Router) {
@@ -41,7 +28,7 @@ func newRouter(t *testing.T) (*mocks.RoomServiceClient, chi.Router) {
 	client := mocks.NewRoomServiceClient(t)
 	h := room.NewHandler(client)
 	r := chi.NewRouter()
-	r.Use(middleware.JWTAuth(testSecret))
+	r.Use(middleware.JWTAuth(testutil.TestSecret))
 	h.Register(r)
 	return client, r
 }
@@ -67,7 +54,7 @@ func TestCreateRoom_Success(t *testing.T) {
 
 	body := jsonBody(t, map[string]string{"name": "test-room"})
 	req := httptest.NewRequest(http.MethodPost, "/rooms", body)
-	req.Header.Set("Authorization", authHeader(userID))
+	req.Header.Set("Authorization", testutil.AuthHeader(userID))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -101,7 +88,7 @@ func TestGetRoom_Success(t *testing.T) {
 		}, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/rooms/"+roomID, nil)
-	req.Header.Set("Authorization", authHeader(userID))
+	req.Header.Set("Authorization", testutil.AuthHeader(userID))
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -121,7 +108,83 @@ func TestGetRoom_NotFound(t *testing.T) {
 		Return(nil, status.Error(codes.NotFound, "room not found"))
 
 	req := httptest.NewRequest(http.MethodGet, "/rooms/"+roomID, nil)
-	req.Header.Set("Authorization", authHeader(userID))
+	req.Header.Set("Authorization", testutil.AuthHeader(userID))
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestUpdateRoom_Success(t *testing.T) {
+	t.Parallel()
+	userID := uuid.New().String()
+	roomID := uuid.New().String()
+
+	client, r := newRouter(t)
+	client.On("UpdateRoom", mock.Anything, mock.MatchedBy(func(req *roomv1.UpdateRoomRequest) bool {
+		return req.RoomId == roomID && req.RequesterId == userID && req.GetName() == "New Name"
+	})).Return(&roomv1.UpdateRoomResponse{
+		Room: &roomv1.Room{RoomId: roomID, Name: "New Name"},
+	}, nil)
+
+	body := jsonBody(t, map[string]string{"name": "New Name"})
+	req := httptest.NewRequest(http.MethodPatch, "/rooms/"+roomID, body)
+	req.Header.Set("Authorization", testutil.AuthHeader(userID))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestUpdateRoom_InvalidBody(t *testing.T) {
+	t.Parallel()
+	userID := uuid.New().String()
+	roomID := uuid.New().String()
+
+	_, r := newRouter(t)
+
+	req := httptest.NewRequest(http.MethodPatch, "/rooms/"+roomID, bytes.NewBufferString(`{invalid`))
+	req.Header.Set("Authorization", testutil.AuthHeader(userID))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestUpdateRoom_NotOwner(t *testing.T) {
+	t.Parallel()
+	userID := uuid.New().String()
+	roomID := uuid.New().String()
+
+	client, r := newRouter(t)
+	client.On("UpdateRoom", mock.Anything, mock.Anything).
+		Return(nil, status.Error(codes.PermissionDenied, "not owner"))
+
+	body := jsonBody(t, map[string]string{"name": "New"})
+	req := httptest.NewRequest(http.MethodPatch, "/rooms/"+roomID, body)
+	req.Header.Set("Authorization", testutil.AuthHeader(userID))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusForbidden, w.Code)
+}
+
+func TestUpdateRoom_NotFound(t *testing.T) {
+	t.Parallel()
+	userID := uuid.New().String()
+	roomID := uuid.New().String()
+
+	client, r := newRouter(t)
+	client.On("UpdateRoom", mock.Anything, mock.Anything).
+		Return(nil, status.Error(codes.NotFound, "room not found"))
+
+	body := jsonBody(t, map[string]string{"name": "New"})
+	req := httptest.NewRequest(http.MethodPatch, "/rooms/"+roomID, body)
+	req.Header.Set("Authorization", testutil.AuthHeader(userID))
+	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -139,7 +202,7 @@ func TestDeleteRoom_Success(t *testing.T) {
 	})).Return(&roomv1.DeleteRoomResponse{}, nil)
 
 	req := httptest.NewRequest(http.MethodDelete, "/rooms/"+roomID, nil)
-	req.Header.Set("Authorization", authHeader(userID))
+	req.Header.Set("Authorization", testutil.AuthHeader(userID))
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -156,7 +219,7 @@ func TestDeleteRoom_PermissionDenied(t *testing.T) {
 		Return(nil, status.Error(codes.PermissionDenied, "not owner"))
 
 	req := httptest.NewRequest(http.MethodDelete, "/rooms/"+roomID, nil)
-	req.Header.Set("Authorization", authHeader(userID))
+	req.Header.Set("Authorization", testutil.AuthHeader(userID))
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -176,7 +239,7 @@ func TestAddMember_Success(t *testing.T) {
 
 	body := jsonBody(t, map[string]string{"user_id": memberID})
 	req := httptest.NewRequest(http.MethodPost, "/rooms/"+roomID+"/members", body)
-	req.Header.Set("Authorization", authHeader(userID))
+	req.Header.Set("Authorization", testutil.AuthHeader(userID))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -196,7 +259,7 @@ func TestRemoveMember_Success(t *testing.T) {
 	})).Return(&roomv1.RemoveMemberResponse{}, nil)
 
 	req := httptest.NewRequest(http.MethodDelete, "/rooms/"+roomID+"/members/"+memberID, nil)
-	req.Header.Set("Authorization", authHeader(userID))
+	req.Header.Set("Authorization", testutil.AuthHeader(userID))
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 

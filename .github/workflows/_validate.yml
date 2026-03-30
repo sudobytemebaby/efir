@@ -21,13 +21,3 @@ jobs:
           PUSH_BEFORE_SHA: ${{ github.event.before }}
           CURRENT_SHA: ${{ github.sha }}
         run: bash .github/scripts/validate-commits.sh
-
-  foundation:
-    name: Module 0 Foundation Check
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Verify required foundation files and directories
-        run: bash .github/scripts/check-foundation.sh

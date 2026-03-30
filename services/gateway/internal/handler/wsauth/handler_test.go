@@ -12,35 +12,24 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/sudobytemebaby/efir/services/gateway/internal/handler/wsauth"
 	"github.com/sudobytemebaby/efir/services/gateway/internal/middleware"
-	"github.com/sudobytemebaby/efir/services/shared/pkg/testutil"
+	"github.com/sudobytemebaby/efir/services/gateway/internal/testutil"
+	sharedtestutil "github.com/sudobytemebaby/efir/services/shared/pkg/testutil"
 )
 
-var valkeyContainer *testutil.ValkeyContainer
+var valkeyContainer *sharedtestutil.ValkeyContainer
 
 func TestMain(m *testing.M) {
 	ctx := context.Background()
-	valkeyContainer = testutil.NewValkeyContainer(ctx)
+	valkeyContainer = sharedtestutil.NewValkeyContainer(ctx)
 	exitCode := m.Run()
 	_ = valkeyContainer.Terminate(ctx)
 	os.Exit(exitCode)
-}
-
-const testSecret = "test-secret"
-
-func authHeader(userID string) string {
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"sub": userID,
-		"exp": time.Now().Add(time.Hour).Unix(),
-	})
-	signed, _ := token.SignedString([]byte(testSecret))
-	return "Bearer " + signed
 }
 
 func newRouter(t *testing.T) chi.Router {
@@ -48,7 +37,7 @@ func newRouter(t *testing.T) chi.Router {
 	client := valkeyContainer.Client(t)
 	h := wsauth.NewHandler(client, 5*time.Minute)
 	r := chi.NewRouter()
-	r.With(middleware.JWTAuth(testSecret)).Post("/ws/ticket", h.CreateTicket)
+	r.With(middleware.JWTAuth(testutil.TestSecret)).Post("/ws/ticket", h.CreateTicket)
 	h.Register(r)
 	return r
 }
@@ -58,7 +47,7 @@ func TestCreateTicket_Success(t *testing.T) {
 	r := newRouter(t)
 
 	req := httptest.NewRequest(http.MethodPost, "/ws/ticket", nil)
-	req.Header.Set("Authorization", authHeader(userID))
+	req.Header.Set("Authorization", testutil.AuthHeader(userID))
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -84,7 +73,7 @@ func TestValidateTicket_Success(t *testing.T) {
 
 	// Step 1: create a ticket.
 	createReq := httptest.NewRequest(http.MethodPost, "/ws/ticket", nil)
-	createReq.Header.Set("Authorization", authHeader(userID))
+	createReq.Header.Set("Authorization", testutil.AuthHeader(userID))
 	createW := httptest.NewRecorder()
 	r.ServeHTTP(createW, createReq)
 	require.Equal(t, http.StatusCreated, createW.Code)
@@ -114,7 +103,7 @@ func TestValidateTicket_TicketIsConsumedOnce(t *testing.T) {
 
 	// Create ticket.
 	createReq := httptest.NewRequest(http.MethodPost, "/ws/ticket", nil)
-	createReq.Header.Set("Authorization", authHeader(userID))
+	createReq.Header.Set("Authorization", testutil.AuthHeader(userID))
 	createW := httptest.NewRecorder()
 	r.ServeHTTP(createW, createReq)
 	require.Equal(t, http.StatusCreated, createW.Code)
@@ -136,6 +125,17 @@ func TestValidateTicket_TicketIsConsumedOnce(t *testing.T) {
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
 	assert.Equal(t, http.StatusUnauthorized, w2.Code)
+}
+
+func TestCreateTicket_InvalidUserID(t *testing.T) {
+	r := newRouter(t)
+
+	req := httptest.NewRequest(http.MethodPost, "/ws/ticket", nil)
+	req.Header.Set("Authorization", testutil.AuthHeader("not-a-uuid"))
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
 func TestValidateTicket_MissingTicket(t *testing.T) {

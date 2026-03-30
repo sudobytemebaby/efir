@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 # Runs go test with coverage across all modules in the Go workspace.
-# Tests are run in two phases:
-#   1. Unit tests (fast, no external deps)
-#   2. Integration tests (require Docker via testcontainers)
+# Uses -tags integration to run both unit and integration tests in a single pass.
 # Merges per-module coverage profiles into a single coverage.out at repo root.
 set -euo pipefail
 
@@ -23,26 +21,8 @@ merge_coverage() {
   fi
 }
 
-echo "=== Phase 1: Unit tests ==="
 for dir in $(go list -m -f '{{.Dir}}'); do
-  echo "→ Unit testing $dir"
-  tmp=$(mktemp)
-
-  (
-    cd "$dir"
-    go test -coverprofile="$tmp" -covermode=atomic ./...
-  ) || {
-    rm -f "$tmp"
-    exit 1
-  }
-
-  merge_coverage "$tmp"
-  rm -f "$tmp"
-done
-
-echo "=== Phase 2: Integration tests (requires Docker) ==="
-for dir in $(go list -m -f '{{.Dir}}'); do
-  echo "→ Integration testing $dir"
+  echo "-> Testing $dir"
   tmp=$(mktemp)
 
   (
@@ -53,10 +33,7 @@ for dir in $(go list -m -f '{{.Dir}}'); do
     exit 1
   }
 
-  # Only append integration coverage (skip duplicate mode line)
-  if [ -s "$tmp" ]; then
-    tail -n +2 "$tmp" >> "$OUTPUT"
-  fi
+  merge_coverage "$tmp"
   rm -f "$tmp"
 done
 

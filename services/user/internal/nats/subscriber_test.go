@@ -12,10 +12,10 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	usernats "github.com/sudobytemebaby/efir/services/user/internal/nats"
-	svcmocks "github.com/sudobytemebaby/efir/services/user/internal/service/mocks"
 	sharednats "github.com/sudobytemebaby/efir/services/shared/pkg/nats"
 	"github.com/sudobytemebaby/efir/services/shared/pkg/testutil"
+	usernats "github.com/sudobytemebaby/efir/services/user/internal/nats"
+	svcmocks "github.com/sudobytemebaby/efir/services/user/internal/service/mocks"
 )
 
 // provisionAuthStream creates the AUTH stream required by the subscriber.

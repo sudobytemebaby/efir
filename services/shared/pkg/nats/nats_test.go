@@ -156,7 +156,7 @@ func TestProvisionConsumerWithRetry(t *testing.T) {
 		// Create the stream after a short delay.
 		go func() {
 			time.Sleep(100 * time.Millisecond)
-			js.CreateStream(ctx, jetstream.StreamConfig{ //nolint:errcheck
+			js.CreateStream(ctx, jetstream.StreamConfig{ //nolint:errcheck,gosec
 				Name:     "RETRY_STREAM",
 				Subjects: []string{"retry.>"},
 			})

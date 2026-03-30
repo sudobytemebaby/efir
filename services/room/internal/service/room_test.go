@@ -2,6 +2,7 @@ package service_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -415,5 +416,273 @@ func TestIsMember(t *testing.T) {
 
 		require.NoError(t, err)
 		assert.False(t, isMember)
+	})
+}
+
+// --- Error path tests ---
+
+func TestCreateRoom_RepoError(t *testing.T) {
+	t.Run("create room fails", func(t *testing.T) {
+		svc, mockRepo, _ := newSvc(t)
+		ctx := context.Background()
+
+		mockRepo.On("CreateRoom", ctx, "Room", repository.RoomTypeGroup, mock.Anything).
+			Return(nil, errors.New("db down")).Once()
+
+		_, err := svc.CreateRoom(ctx, "Room", service.RoomTypeGroup, uuid.New(), uuid.Nil)
+		assert.Error(t, err)
+	})
+
+	t.Run("add owner fails", func(t *testing.T) {
+		svc, mockRepo, _ := newSvc(t)
+		ctx := context.Background()
+		roomID := uuid.New()
+		userID := uuid.New()
+
+		mockRepo.On("CreateRoom", ctx, "Room", repository.RoomTypeGroup, userID).
+			Return(repoRoom(roomID, userID, "Room", repository.RoomTypeGroup), nil).Once()
+		mockRepo.On("AddMember", ctx, roomID, userID, repository.MemberRoleOwner).
+			Return(nil, errors.New("constraint error")).Once()
+
+		_, err := svc.CreateRoom(ctx, "Room", service.RoomTypeGroup, userID, uuid.Nil)
+		assert.Error(t, err)
+	})
+
+	t.Run("get direct room fails", func(t *testing.T) {
+		svc, mockRepo, _ := newSvc(t)
+		ctx := context.Background()
+		userID := uuid.New()
+		participantID := uuid.New()
+
+		mockRepo.On("GetDirectRoomByUsers", ctx, userID, participantID).
+			Return(nil, errors.New("db error")).Once()
+
+		_, err := svc.CreateRoom(ctx, "Room", service.RoomTypeDirect, userID, participantID)
+		assert.Error(t, err)
+	})
+}
+
+func TestUpdateRoom_ErrorPaths(t *testing.T) {
+	t.Run("room not found", func(t *testing.T) {
+		svc, mockRepo, _ := newSvc(t)
+		ctx := context.Background()
+
+		mockRepo.On("GetRoomByID", ctx, mock.Anything).Return(nil, repository.ErrRoomNotFound).Once()
+
+		_, err := svc.UpdateRoom(ctx, uuid.New(), uuid.New(), "New")
+		require.ErrorIs(t, err, service.ErrRoomNotFound)
+	})
+
+	t.Run("update repo error", func(t *testing.T) {
+		svc, mockRepo, _ := newSvc(t)
+		ctx := context.Background()
+		roomID := uuid.New()
+		requesterID := uuid.New()
+
+		mockRepo.On("GetRoomByID", ctx, roomID).
+			Return(repoRoom(roomID, requesterID, "Old", repository.RoomTypeGroup), nil).Once()
+		mockRepo.On("GetMemberRole", ctx, roomID, requesterID).Return(repository.MemberRoleOwner, nil).Once()
+		mockRepo.On("UpdateRoom", ctx, roomID, "New").Return(nil, errors.New("db error")).Once()
+
+		_, err := svc.UpdateRoom(ctx, roomID, requesterID, "New")
+		assert.Error(t, err)
+	})
+
+	t.Run("get members error still returns room", func(t *testing.T) {
+		svc, mockRepo, _ := newSvc(t)
+		ctx := context.Background()
+		roomID := uuid.New()
+		requesterID := uuid.New()
+
+		mockRepo.On("GetRoomByID", ctx, roomID).
+			Return(repoRoom(roomID, requesterID, "Old", repository.RoomTypeGroup), nil).Once()
+		mockRepo.On("GetMemberRole", ctx, roomID, requesterID).Return(repository.MemberRoleOwner, nil).Once()
+		mockRepo.On("UpdateRoom", ctx, roomID, "New").
+			Return(repoRoom(roomID, requesterID, "New", repository.RoomTypeGroup), nil).Once()
+		mockRepo.On("GetRoomMembers", ctx, roomID).Return(nil, errors.New("db error")).Once()
+
+		result, err := svc.UpdateRoom(ctx, roomID, requesterID, "New")
+		require.NoError(t, err)
+		assert.Equal(t, "New", result.Name)
+	})
+
+	t.Run("publish error still returns room", func(t *testing.T) {
+		svc, mockRepo, pub := newSvc(t)
+		ctx := context.Background()
+		roomID := uuid.New()
+		requesterID := uuid.New()
+
+		mockRepo.On("GetRoomByID", ctx, roomID).
+			Return(repoRoom(roomID, requesterID, "Old", repository.RoomTypeGroup), nil).Once()
+		mockRepo.On("GetMemberRole", ctx, roomID, requesterID).Return(repository.MemberRoleOwner, nil).Once()
+		mockRepo.On("UpdateRoom", ctx, roomID, "New").
+			Return(repoRoom(roomID, requesterID, "New", repository.RoomTypeGroup), nil).Once()
+		mockRepo.On("GetRoomMembers", ctx, roomID).Return([]repository.RoomMember{}, nil).Once()
+		pub.On("PublishRoomUpdated", ctx, roomID, "New", []uuid.UUID{}).Return(errors.New("nats down")).Once()
+
+		result, err := svc.UpdateRoom(ctx, roomID, requesterID, "New")
+		require.NoError(t, err)
+		assert.Equal(t, "New", result.Name)
+	})
+}
+
+func TestDeleteRoom_RepoError(t *testing.T) {
+	svc, mockRepo, _ := newSvc(t)
+	ctx := context.Background()
+	roomID := uuid.New()
+	requesterID := uuid.New()
+
+	mockRepo.On("GetRoomByID", ctx, roomID).
+		Return(repoRoom(roomID, requesterID, "Room", repository.RoomTypeGroup), nil).Once()
+	mockRepo.On("GetMemberRole", ctx, roomID, requesterID).Return(repository.MemberRoleOwner, nil).Once()
+	mockRepo.On("DeleteRoom", ctx, roomID).Return(errors.New("db error")).Once()
+
+	err := svc.DeleteRoom(ctx, roomID, requesterID)
+	assert.Error(t, err)
+}
+
+func TestAddMember_ErrorPaths(t *testing.T) {
+	t.Run("room not found", func(t *testing.T) {
+		svc, mockRepo, _ := newSvc(t)
+		ctx := context.Background()
+
+		mockRepo.On("GetRoomByID", ctx, mock.Anything).Return(nil, repository.ErrRoomNotFound).Once()
+
+		err := svc.AddMember(ctx, uuid.New(), uuid.New(), uuid.New())
+		require.ErrorIs(t, err, service.ErrRoomNotFound)
+	})
+
+	t.Run("requester not member", func(t *testing.T) {
+		svc, mockRepo, _ := newSvc(t)
+		ctx := context.Background()
+		roomID := uuid.New()
+		requesterID := uuid.New()
+
+		mockRepo.On("GetRoomByID", ctx, roomID).
+			Return(repoRoom(roomID, requesterID, "Room", repository.RoomTypeGroup), nil).Once()
+		mockRepo.On("IsMember", ctx, roomID, requesterID).Return(false, nil).Once()
+
+		err := svc.AddMember(ctx, roomID, uuid.New(), requesterID)
+		require.ErrorIs(t, err, service.ErrNotMember)
+	})
+
+	t.Run("add member repo error", func(t *testing.T) {
+		svc, mockRepo, _ := newSvc(t)
+		ctx := context.Background()
+		roomID := uuid.New()
+		userID := uuid.New()
+		requesterID := uuid.New()
+
+		mockRepo.On("GetRoomByID", ctx, roomID).
+			Return(repoRoom(roomID, requesterID, "Room", repository.RoomTypeGroup), nil).Once()
+		mockRepo.On("IsMember", ctx, roomID, requesterID).Return(true, nil).Once()
+		mockRepo.On("AddMember", ctx, roomID, userID, repository.MemberRoleMember).
+			Return(nil, errors.New("db error")).Once()
+
+		err := svc.AddMember(ctx, roomID, userID, requesterID)
+		assert.Error(t, err)
+	})
+
+	t.Run("publish error still succeeds", func(t *testing.T) {
+		svc, mockRepo, pub := newSvc(t)
+		ctx := context.Background()
+		roomID := uuid.New()
+		userID := uuid.New()
+		requesterID := uuid.New()
+
+		mockRepo.On("GetRoomByID", ctx, roomID).
+			Return(repoRoom(roomID, requesterID, "Room", repository.RoomTypeGroup), nil).Once()
+		mockRepo.On("IsMember", ctx, roomID, requesterID).Return(true, nil).Once()
+		mockRepo.On("AddMember", ctx, roomID, userID, repository.MemberRoleMember).
+			Return(&repository.RoomMember{}, nil).Once()
+		mockRepo.On("GetRoomMembers", ctx, roomID).Return([]repository.RoomMember{}, nil).Once()
+		pub.On("PublishMembershipChanged", ctx, roomID, userID, "added", mock.Anything).
+			Return(errors.New("nats down")).Once()
+
+		err := svc.AddMember(ctx, roomID, userID, requesterID)
+		require.NoError(t, err)
+	})
+}
+
+func TestRemoveMember_ErrorPaths(t *testing.T) {
+	t.Run("room not found", func(t *testing.T) {
+		svc, mockRepo, _ := newSvc(t)
+		ctx := context.Background()
+
+		mockRepo.On("GetRoomByID", ctx, mock.Anything).Return(nil, repository.ErrRoomNotFound).Once()
+
+		err := svc.RemoveMember(ctx, uuid.New(), uuid.New(), uuid.New())
+		require.ErrorIs(t, err, service.ErrRoomNotFound)
+	})
+
+	t.Run("remove member repo error", func(t *testing.T) {
+		svc, mockRepo, _ := newSvc(t)
+		ctx := context.Background()
+		roomID := uuid.New()
+		userID := uuid.New()
+		requesterID := uuid.New()
+
+		mockRepo.On("GetRoomByID", ctx, roomID).
+			Return(repoRoom(roomID, requesterID, "Room", repository.RoomTypeGroup), nil).Once()
+		mockRepo.On("GetMemberRole", ctx, roomID, requesterID).Return(repository.MemberRoleOwner, nil).Once()
+		mockRepo.On("GetMemberRole", ctx, roomID, userID).Return(repository.MemberRoleMember, nil).Once()
+		mockRepo.On("RemoveMember", ctx, roomID, userID).Return(errors.New("db error")).Once()
+
+		err := svc.RemoveMember(ctx, roomID, userID, requesterID)
+		assert.Error(t, err)
+	})
+
+	t.Run("publish error still succeeds", func(t *testing.T) {
+		svc, mockRepo, pub := newSvc(t)
+		ctx := context.Background()
+		roomID := uuid.New()
+		userID := uuid.New()
+		requesterID := uuid.New()
+
+		mockRepo.On("GetRoomByID", ctx, roomID).
+			Return(repoRoom(roomID, requesterID, "Room", repository.RoomTypeGroup), nil).Once()
+		mockRepo.On("GetMemberRole", ctx, roomID, requesterID).Return(repository.MemberRoleOwner, nil).Once()
+		mockRepo.On("GetMemberRole", ctx, roomID, userID).Return(repository.MemberRoleMember, nil).Once()
+		mockRepo.On("RemoveMember", ctx, roomID, userID).Return(nil).Once()
+		mockRepo.On("GetRoomMembers", ctx, roomID).Return([]repository.RoomMember{}, nil).Once()
+		pub.On("PublishMembershipChanged", ctx, roomID, userID, "removed", mock.Anything).
+			Return(errors.New("nats down")).Once()
+
+		err := svc.RemoveMember(ctx, roomID, userID, requesterID)
+		require.NoError(t, err)
+	})
+}
+
+func TestGetRoomMembers_ErrorPaths(t *testing.T) {
+	t.Run("room not found", func(t *testing.T) {
+		svc, mockRepo, _ := newSvc(t)
+		ctx := context.Background()
+
+		mockRepo.On("GetRoomByID", ctx, mock.Anything).Return(nil, repository.ErrRoomNotFound).Once()
+
+		_, err := svc.GetRoomMembers(ctx, uuid.New())
+		require.ErrorIs(t, err, service.ErrRoomNotFound)
+	})
+
+	t.Run("get room repo error", func(t *testing.T) {
+		svc, mockRepo, _ := newSvc(t)
+		ctx := context.Background()
+
+		mockRepo.On("GetRoomByID", ctx, mock.Anything).Return(nil, errors.New("db error")).Once()
+
+		_, err := svc.GetRoomMembers(ctx, uuid.New())
+		assert.Error(t, err)
+	})
+
+	t.Run("get members repo error", func(t *testing.T) {
+		svc, mockRepo, _ := newSvc(t)
+		ctx := context.Background()
+		roomID := uuid.New()
+
+		mockRepo.On("GetRoomByID", ctx, roomID).Return(&repository.Room{ID: roomID}, nil).Once()
+		mockRepo.On("GetRoomMembers", ctx, roomID).Return(nil, errors.New("db error")).Once()
+
+		_, err := svc.GetRoomMembers(ctx, roomID)
+		assert.Error(t, err)
 	})
 }

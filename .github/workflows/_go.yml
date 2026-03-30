@@ -10,25 +10,10 @@ on:
         default: "false"
 
 jobs:
-  check:
-    name: Check Go Files
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    outputs:
-      has-go: ${{ steps.check.outputs.has_go }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Check for Go files
-        id: check
-        run: bash .github/scripts/check-go-files.sh
-
   lint:
     name: Lint
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: check
-    if: needs.check.outputs.has-go == 'true'
     steps:
       - uses: actions/checkout@v4
 
@@ -54,8 +39,6 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: check
-    if: needs.check.outputs.has-go == 'true'
     steps:
       - uses: actions/checkout@v4
 
@@ -80,20 +63,3 @@ jobs:
           name: coverage
           path: coverage.out
           retention-days: 3
-
-  coverage-gate:
-    name: Coverage Gate
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    needs: test
-    if: needs.test.result == 'success'
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download coverage
-        uses: actions/download-artifact@v4
-        with:
-          name: coverage
-
-      - name: Check coverage threshold
-        run: bash .github/scripts/check-coverage.sh

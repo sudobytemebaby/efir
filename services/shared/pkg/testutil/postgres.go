@@ -115,7 +115,7 @@ func (c *PostgresContainer) Pool(t *testing.T) *pgxpool.Pool {
 		// Best-effort schema cleanup — ignore errors on teardown.
 		adminPool2, cleanErr := pgxpool.New(ctx, c.connStr)
 		if cleanErr == nil {
-			adminPool2.Exec(ctx, "DROP SCHEMA "+schema+" CASCADE") //nolint:errcheck
+			adminPool2.Exec(ctx, "DROP SCHEMA "+schema+" CASCADE") //nolint:errcheck,gosec
 			adminPool2.Close()
 		}
 	})

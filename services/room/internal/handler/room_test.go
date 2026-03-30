@@ -16,12 +16,18 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+func newHandler(t *testing.T) (roomv1.RoomServiceServer, *roommocks.RoomService) {
+	t.Helper()
+	mockSvc := roommocks.NewRoomService(t)
+	h, err := handler.NewRoomHandler(mockSvc)
+	require.NoError(t, err)
+	return h, mockSvc
+}
+
 func TestCreateRoom(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		mockSvc := roommocks.NewRoomService(t)
-		h, err := handler.NewRoomHandler(mockSvc)
-		require.NoError(t, err)
-
+		t.Parallel()
+		h, mockSvc := newHandler(t)
 		ctx := context.Background()
 		roomID := uuid.New()
 		userID := uuid.New()
@@ -50,13 +56,11 @@ func TestCreateRoom(t *testing.T) {
 	})
 
 	t.Run("invalid created_by", func(t *testing.T) {
-		mockSvc := roommocks.NewRoomService(t)
-		h, err := handler.NewRoomHandler(mockSvc)
-		require.NoError(t, err)
-
+		t.Parallel()
+		h, mockSvc := newHandler(t)
 		ctx := context.Background()
 
-		_, err = h.CreateRoom(ctx, &roomv1.CreateRoomRequest{
+		_, err := h.CreateRoom(ctx, &roomv1.CreateRoomRequest{
 			Name:      "Test Room",
 			Type:      roomv1.RoomType_ROOM_TYPE_GROUP,
 			CreatedBy: "invalid",
@@ -68,17 +72,15 @@ func TestCreateRoom(t *testing.T) {
 	})
 
 	t.Run("direct room already exists", func(t *testing.T) {
-		mockSvc := roommocks.NewRoomService(t)
-		h, err := handler.NewRoomHandler(mockSvc)
-		require.NoError(t, err)
-
+		t.Parallel()
+		h, mockSvc := newHandler(t)
 		ctx := context.Background()
 		userID := uuid.New()
 		participantID := uuid.New()
 
 		mockSvc.On("CreateRoom", ctx, "Test", service.RoomTypeDirect, userID, participantID).Return(nil, service.ErrDirectRoomExists).Once()
 
-		_, err = h.CreateRoom(ctx, &roomv1.CreateRoomRequest{
+		_, err := h.CreateRoom(ctx, &roomv1.CreateRoomRequest{
 			Name:          "Test",
 			Type:          roomv1.RoomType_ROOM_TYPE_DIRECT,
 			CreatedBy:     userID.String(),
@@ -93,10 +95,8 @@ func TestCreateRoom(t *testing.T) {
 
 func TestGetRoom(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		mockSvc := roommocks.NewRoomService(t)
-		h, err := handler.NewRoomHandler(mockSvc)
-		require.NoError(t, err)
-
+		t.Parallel()
+		h, mockSvc := newHandler(t)
 		ctx := context.Background()
 		roomID := uuid.New()
 
@@ -119,16 +119,14 @@ func TestGetRoom(t *testing.T) {
 	})
 
 	t.Run("not found", func(t *testing.T) {
-		mockSvc := roommocks.NewRoomService(t)
-		h, err := handler.NewRoomHandler(mockSvc)
-		require.NoError(t, err)
-
+		t.Parallel()
+		h, mockSvc := newHandler(t)
 		ctx := context.Background()
 		roomID := uuid.New()
 
 		mockSvc.On("GetRoom", ctx, roomID).Return(nil, service.ErrRoomNotFound).Once()
 
-		_, err = h.GetRoom(ctx, &roomv1.GetRoomRequest{RoomId: roomID.String()})
+		_, err := h.GetRoom(ctx, &roomv1.GetRoomRequest{RoomId: roomID.String()})
 
 		require.Error(t, err)
 		assert.Equal(t, codes.NotFound, status.Code(err))
@@ -138,10 +136,8 @@ func TestGetRoom(t *testing.T) {
 
 func TestUpdateRoom(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		mockSvc := roommocks.NewRoomService(t)
-		h, err := handler.NewRoomHandler(mockSvc)
-		require.NoError(t, err)
-
+		t.Parallel()
+		h, mockSvc := newHandler(t)
 		ctx := context.Background()
 		roomID := uuid.New()
 		requesterID := uuid.New()
@@ -170,10 +166,8 @@ func TestUpdateRoom(t *testing.T) {
 	})
 
 	t.Run("not owner", func(t *testing.T) {
-		mockSvc := roommocks.NewRoomService(t)
-		h, err := handler.NewRoomHandler(mockSvc)
-		require.NoError(t, err)
-
+		t.Parallel()
+		h, mockSvc := newHandler(t)
 		ctx := context.Background()
 		roomID := uuid.New()
 		requesterID := uuid.New()
@@ -181,7 +175,7 @@ func TestUpdateRoom(t *testing.T) {
 
 		mockSvc.On("UpdateRoom", ctx, roomID, requesterID, name).Return(nil, service.ErrNotOwner).Once()
 
-		_, err = h.UpdateRoom(ctx, &roomv1.UpdateRoomRequest{
+		_, err := h.UpdateRoom(ctx, &roomv1.UpdateRoomRequest{
 			RoomId:      roomID.String(),
 			RequesterId: requesterID.String(),
 			Name:        &name,
@@ -195,17 +189,15 @@ func TestUpdateRoom(t *testing.T) {
 
 func TestDeleteRoom(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		mockSvc := roommocks.NewRoomService(t)
-		h, err := handler.NewRoomHandler(mockSvc)
-		require.NoError(t, err)
-
+		t.Parallel()
+		h, mockSvc := newHandler(t)
 		ctx := context.Background()
 		roomID := uuid.New()
 		requesterID := uuid.New()
 
 		mockSvc.On("DeleteRoom", ctx, roomID, requesterID).Return(nil).Once()
 
-		_, err = h.DeleteRoom(ctx, &roomv1.DeleteRoomRequest{
+		_, err := h.DeleteRoom(ctx, &roomv1.DeleteRoomRequest{
 			RoomId:      roomID.String(),
 			RequesterId: requesterID.String(),
 		})
@@ -217,10 +209,8 @@ func TestDeleteRoom(t *testing.T) {
 
 func TestAddMember(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		mockSvc := roommocks.NewRoomService(t)
-		h, err := handler.NewRoomHandler(mockSvc)
-		require.NoError(t, err)
-
+		t.Parallel()
+		h, mockSvc := newHandler(t)
 		ctx := context.Background()
 		roomID := uuid.New()
 		userID := uuid.New()
@@ -228,7 +218,7 @@ func TestAddMember(t *testing.T) {
 
 		mockSvc.On("AddMember", ctx, roomID, userID, requesterID).Return(nil).Once()
 
-		_, err = h.AddMember(ctx, &roomv1.AddMemberRequest{
+		_, err := h.AddMember(ctx, &roomv1.AddMemberRequest{
 			RoomId:      roomID.String(),
 			UserId:      userID.String(),
 			RequesterId: requesterID.String(),
@@ -239,10 +229,8 @@ func TestAddMember(t *testing.T) {
 	})
 
 	t.Run("not member", func(t *testing.T) {
-		mockSvc := roommocks.NewRoomService(t)
-		h, err := handler.NewRoomHandler(mockSvc)
-		require.NoError(t, err)
-
+		t.Parallel()
+		h, mockSvc := newHandler(t)
 		ctx := context.Background()
 		roomID := uuid.New()
 		userID := uuid.New()
@@ -250,7 +238,7 @@ func TestAddMember(t *testing.T) {
 
 		mockSvc.On("AddMember", ctx, roomID, userID, requesterID).Return(service.ErrNotMember).Once()
 
-		_, err = h.AddMember(ctx, &roomv1.AddMemberRequest{
+		_, err := h.AddMember(ctx, &roomv1.AddMemberRequest{
 			RoomId:      roomID.String(),
 			UserId:      userID.String(),
 			RequesterId: requesterID.String(),
@@ -264,10 +252,8 @@ func TestAddMember(t *testing.T) {
 
 func TestGetRoomMembers(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		mockSvc := roommocks.NewRoomService(t)
-		h, err := handler.NewRoomHandler(mockSvc)
-		require.NoError(t, err)
-
+		t.Parallel()
+		h, mockSvc := newHandler(t)
 		ctx := context.Background()
 		roomID := uuid.New()
 
@@ -286,12 +272,165 @@ func TestGetRoomMembers(t *testing.T) {
 	})
 }
 
+func TestDeleteRoom_NotFound(t *testing.T) {
+	t.Parallel()
+	h, mockSvc := newHandler(t)
+	ctx := context.Background()
+	roomID := uuid.New()
+	requesterID := uuid.New()
+
+	mockSvc.On("DeleteRoom", ctx, roomID, requesterID).Return(service.ErrRoomNotFound).Once()
+
+	_, err := h.DeleteRoom(ctx, &roomv1.DeleteRoomRequest{
+		RoomId:      roomID.String(),
+		RequesterId: requesterID.String(),
+	})
+
+	require.Error(t, err)
+	assert.Equal(t, codes.NotFound, status.Code(err))
+}
+
+func TestDeleteRoom_NotOwner(t *testing.T) {
+	t.Parallel()
+	h, mockSvc := newHandler(t)
+	ctx := context.Background()
+	roomID := uuid.New()
+	requesterID := uuid.New()
+
+	mockSvc.On("DeleteRoom", ctx, roomID, requesterID).Return(service.ErrNotOwner).Once()
+
+	_, err := h.DeleteRoom(ctx, &roomv1.DeleteRoomRequest{
+		RoomId:      roomID.String(),
+		RequesterId: requesterID.String(),
+	})
+
+	require.Error(t, err)
+	assert.Equal(t, codes.PermissionDenied, status.Code(err))
+}
+
+func TestDeleteRoom_NotMember(t *testing.T) {
+	t.Parallel()
+	h, mockSvc := newHandler(t)
+	ctx := context.Background()
+	roomID := uuid.New()
+	requesterID := uuid.New()
+
+	mockSvc.On("DeleteRoom", ctx, roomID, requesterID).Return(service.ErrNotMember).Once()
+
+	_, err := h.DeleteRoom(ctx, &roomv1.DeleteRoomRequest{
+		RoomId:      roomID.String(),
+		RequesterId: requesterID.String(),
+	})
+
+	require.Error(t, err)
+	assert.Equal(t, codes.PermissionDenied, status.Code(err))
+}
+
+func TestRemoveMember(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
+		h, mockSvc := newHandler(t)
+		ctx := context.Background()
+		roomID := uuid.New()
+		userID := uuid.New()
+		requesterID := uuid.New()
+
+		mockSvc.On("RemoveMember", ctx, roomID, userID, requesterID).Return(nil).Once()
+
+		_, err := h.RemoveMember(ctx, &roomv1.RemoveMemberRequest{
+			RoomId:      roomID.String(),
+			UserId:      userID.String(),
+			RequesterId: requesterID.String(),
+		})
+
+		require.NoError(t, err)
+	})
+
+	t.Run("room not found", func(t *testing.T) {
+		t.Parallel()
+		h, mockSvc := newHandler(t)
+		ctx := context.Background()
+		roomID := uuid.New()
+		userID := uuid.New()
+		requesterID := uuid.New()
+
+		mockSvc.On("RemoveMember", ctx, roomID, userID, requesterID).Return(service.ErrRoomNotFound).Once()
+
+		_, err := h.RemoveMember(ctx, &roomv1.RemoveMemberRequest{
+			RoomId:      roomID.String(),
+			UserId:      userID.String(),
+			RequesterId: requesterID.String(),
+		})
+
+		require.Error(t, err)
+		assert.Equal(t, codes.NotFound, status.Code(err))
+	})
+
+	t.Run("not owner", func(t *testing.T) {
+		t.Parallel()
+		h, mockSvc := newHandler(t)
+		ctx := context.Background()
+		roomID := uuid.New()
+		userID := uuid.New()
+		requesterID := uuid.New()
+
+		mockSvc.On("RemoveMember", ctx, roomID, userID, requesterID).Return(service.ErrNotOwner).Once()
+
+		_, err := h.RemoveMember(ctx, &roomv1.RemoveMemberRequest{
+			RoomId:      roomID.String(),
+			UserId:      userID.String(),
+			RequesterId: requesterID.String(),
+		})
+
+		require.Error(t, err)
+		assert.Equal(t, codes.PermissionDenied, status.Code(err))
+	})
+
+	t.Run("member not found", func(t *testing.T) {
+		t.Parallel()
+		h, mockSvc := newHandler(t)
+		ctx := context.Background()
+		roomID := uuid.New()
+		userID := uuid.New()
+		requesterID := uuid.New()
+
+		mockSvc.On("RemoveMember", ctx, roomID, userID, requesterID).Return(service.ErrMemberNotFound).Once()
+
+		_, err := h.RemoveMember(ctx, &roomv1.RemoveMemberRequest{
+			RoomId:      roomID.String(),
+			UserId:      userID.String(),
+			RequesterId: requesterID.String(),
+		})
+
+		require.Error(t, err)
+		assert.Equal(t, codes.NotFound, status.Code(err))
+	})
+
+	t.Run("cannot remove owner", func(t *testing.T) {
+		t.Parallel()
+		h, mockSvc := newHandler(t)
+		ctx := context.Background()
+		roomID := uuid.New()
+		userID := uuid.New()
+		requesterID := uuid.New()
+
+		mockSvc.On("RemoveMember", ctx, roomID, userID, requesterID).Return(service.ErrCannotRemoveOwner).Once()
+
+		_, err := h.RemoveMember(ctx, &roomv1.RemoveMemberRequest{
+			RoomId:      roomID.String(),
+			UserId:      userID.String(),
+			RequesterId: requesterID.String(),
+		})
+
+		require.Error(t, err)
+		assert.Equal(t, codes.PermissionDenied, status.Code(err))
+	})
+}
+
 func TestIsMember(t *testing.T) {
 	t.Run("is member", func(t *testing.T) {
-		mockSvc := roommocks.NewRoomService(t)
-		h, err := handler.NewRoomHandler(mockSvc)
-		require.NoError(t, err)
-
+		t.Parallel()
+		h, mockSvc := newHandler(t)
 		ctx := context.Background()
 		roomID := uuid.New()
 		userID := uuid.New()
