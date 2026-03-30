@@ -33,5 +33,6 @@ if [ -z "$DSN" ]; then
 fi
 
 echo "→ Rolling back last migration for $SERVICE..."
-GOOSE_DRIVER=postgres GOOSE_DBSTRING="$DSN" GOOSE_MIGRATION_DIR="$DIR" goose down
+DSN_HOST="$(echo "$DSN" | sed 's|@postgres:|@localhost:|')"
+GOOSE_DRIVER=postgres GOOSE_DBSTRING="$DSN_HOST" GOOSE_MIGRATION_DIR="$DIR" goose down
 echo "✓ Done."

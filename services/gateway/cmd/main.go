@@ -115,6 +115,8 @@ func run(ctx context.Context) error {
 	messageHandler := message.NewHandler(messagev1.NewMessageServiceClient(messageConn))
 	wsAuthHandler := wsauth.NewHandler(valkeyClient, cfg.Auth.WSTicketTTL)
 
+	healthHandler.SetReady(true)
+
 	r := chi.NewRouter()
 
 	r.Group(func(r chi.Router) {

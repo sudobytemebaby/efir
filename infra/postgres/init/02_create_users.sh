@@ -4,50 +4,31 @@ set -euo pipefail
 create_user() {
   local username="$1"
   local password="$2"
+  local quoted_username="\"$username\""
 
-  psql \
-    -v ON_ERROR_STOP=1 \
-    --username "$POSTGRES_USER" \
-    --dbname postgres \
-    --set app_user="$username" \
-    --set app_password="$password" \
-    <<-'EOSQL'
-    DO $$
+  psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname postgres -c "
+    DO \$\$
     BEGIN
-      IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'app_user') THEN
-        EXECUTE format('CREATE USER %I WITH PASSWORD %L', :'app_user', :'app_password');
+      IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '$quoted_username') THEN
+        CREATE USER $quoted_username WITH PASSWORD '$password';
       END IF;
     END
-    $$;
-EOSQL
+    \$\$;"
 }
 
 grant_database() {
   local database="$1"
   local username="$2"
+  local quoted_username="\"$username\""
 
-  psql \
-    -v ON_ERROR_STOP=1 \
-    --username "$POSTGRES_USER" \
-    --dbname postgres \
-    --set app_db="$database" \
-    --set app_user="$username" \
-    <<-'EOSQL'
-    GRANT ALL PRIVILEGES ON DATABASE :"app_db" TO :"app_user";
-EOSQL
+  psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname postgres -c "GRANT ALL PRIVILEGES ON DATABASE $database TO $quoted_username;"
 
-  psql \
-    -v ON_ERROR_STOP=1 \
-    --username "$POSTGRES_USER" \
-    --dbname "$database" \
-    --set app_user="$username" \
-    <<-'EOSQL'
-    GRANT ALL ON SCHEMA public TO :"app_user";
-    GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO :"app_user";
-    GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO :"app_user";
-    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO :"app_user";
-    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO :"app_user";
-EOSQL
+  psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$database" -c "
+    GRANT ALL ON SCHEMA public TO $quoted_username;
+    GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO $quoted_username;
+    GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO $quoted_username;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO $quoted_username;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO $quoted_username;"
 }
 
 services=(

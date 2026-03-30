@@ -25,7 +25,9 @@ print_status() {
   fi
 
   echo "=== $svc ==="
-  GOOSE_DRIVER=postgres GOOSE_DBSTRING="$dsn" GOOSE_MIGRATION_DIR="$dir" goose status
+  local dsn_host
+  dsn_host="$(echo "$dsn" | sed 's|@postgres:|@localhost:|')"
+  GOOSE_DRIVER=postgres GOOSE_DBSTRING="$dsn_host" GOOSE_MIGRATION_DIR="$dir" goose status
   echo ""
 }
 
