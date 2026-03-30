@@ -4,6 +4,8 @@ api:
 ping: {}
 
 entryPoints:
+  traefik:
+    address: ":8090"
   web:
     address: ":80"
     # NOTE: HTTP->HTTPS redirect is intentionally disabled for local development.
@@ -25,9 +27,6 @@ entryPoints:
     #   tls: {}
 
 providers:
-  docker:
-    network: efir-network
-    exposedByDefault: false
   file:
     directory: /etc/traefik/dynamic
     watch: true

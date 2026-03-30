@@ -21,7 +21,7 @@ rate_limit:
   window: 60s
 
 services:
-  auth: "localhost:50051"
-  user: "localhost:50052"
-  room: "localhost:50053"
-  message: "localhost:50054"
+  auth: "auth:50051"
+  user: "user:50052"
+  room: "room:50053"
+  message: "message:50054"

@@ -40,7 +40,9 @@ http:
 
   routers:
     dashboard:
-      rule: "Host(`traefik.localhost`)"
+      rule: "Host(`localhost`)"
       service: api@internal
-      middlewares:
-        - dashboard-auth
+      entryPoints:
+        - traefik
+
+

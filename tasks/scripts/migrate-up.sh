@@ -25,7 +25,9 @@ run_up() {
   fi
 
   echo "→ Applying migrations for $svc..."
-  GOOSE_DRIVER=postgres GOOSE_DBSTRING="$dsn" GOOSE_MIGRATION_DIR="$dir" goose up
+  local dsn_host
+  dsn_host="$(echo "$dsn" | sed 's|@postgres:|@localhost:|')"
+  GOOSE_DRIVER=postgres GOOSE_DBSTRING="$dsn_host" GOOSE_MIGRATION_DIR="$dir" goose up
   echo "✓ $svc done."
 }
 
