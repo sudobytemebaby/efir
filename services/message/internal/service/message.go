@@ -22,6 +22,7 @@ type Publisher interface {
 	PublishMessageCreated(ctx context.Context, msg *Message, recipientIDs []uuid.UUID) error
 }
 
+//go:generate mockery --name MessageService
 type MessageService interface {
 	SendMessage(ctx context.Context, input *SendMessageInput) (*Message, error)
 	GetMessages(ctx context.Context, roomID, requesterID uuid.UUID, cursor *uuid.UUID, limit int) ([]*Message, *uuid.UUID, error)
@@ -29,6 +30,7 @@ type MessageService interface {
 	DeleteMessage(ctx context.Context, messageID, requesterID uuid.UUID) error
 }
 
+//go:generate mockery --name RoomClient
 type RoomClient interface {
 	IsMember(ctx context.Context, roomID, userID uuid.UUID) (bool, error)
 	GetRoomMembers(ctx context.Context, roomID uuid.UUID) ([]uuid.UUID, error)

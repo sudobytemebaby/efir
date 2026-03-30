@@ -7,50 +7,17 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/sudobytemebaby/efir/services/message/internal/service"
+	svcmocks "github.com/sudobytemebaby/efir/services/message/internal/service/mocks"
 	messagev1 "github.com/sudobytemebaby/efir/services/shared/gen/message"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
-type mockMessageService struct {
-	SendMessageFunc    func(ctx context.Context, input *service.SendMessageInput) (*service.Message, error)
-	GetMessagesFunc    func(ctx context.Context, roomID, requesterID uuid.UUID, cursor *uuid.UUID, limit int) ([]*service.Message, *uuid.UUID, error)
-	GetMessageByIDFunc func(ctx context.Context, messageID, requesterID uuid.UUID) (*service.Message, error)
-	DeleteMessageFunc  func(ctx context.Context, messageID, requesterID uuid.UUID) error
-}
-
-func (m *mockMessageService) SendMessage(ctx context.Context, input *service.SendMessageInput) (*service.Message, error) {
-	if m.SendMessageFunc != nil {
-		return m.SendMessageFunc(ctx, input)
-	}
-	return nil, nil
-}
-
-func (m *mockMessageService) GetMessages(ctx context.Context, roomID, requesterID uuid.UUID, cursor *uuid.UUID, limit int) ([]*service.Message, *uuid.UUID, error) {
-	if m.GetMessagesFunc != nil {
-		return m.GetMessagesFunc(ctx, roomID, requesterID, cursor, limit)
-	}
-	return nil, nil, nil
-}
-
-func (m *mockMessageService) GetMessageByID(ctx context.Context, messageID, requesterID uuid.UUID) (*service.Message, error) {
-	if m.GetMessageByIDFunc != nil {
-		return m.GetMessageByIDFunc(ctx, messageID, requesterID)
-	}
-	return nil, nil
-}
-
-func (m *mockMessageService) DeleteMessage(ctx context.Context, messageID, requesterID uuid.UUID) error {
-	if m.DeleteMessageFunc != nil {
-		return m.DeleteMessageFunc(ctx, messageID, requesterID)
-	}
-	return nil
-}
-
 func TestSendMessage_Validation(t *testing.T) {
-	h, err := NewMessageHandler(&mockMessageService{})
+	h, err := NewMessageHandler(svcmocks.NewMessageService(t))
 	require.NoError(t, err)
 
 	_, err = h.SendMessage(context.Background(), &messagev1.SendMessageRequest{
@@ -65,7 +32,7 @@ func TestSendMessage_Validation(t *testing.T) {
 }
 
 func TestSendMessage_EmptyContent(t *testing.T) {
-	h, err := NewMessageHandler(&mockMessageService{})
+	h, err := NewMessageHandler(svcmocks.NewMessageService(t))
 	require.NoError(t, err)
 
 	_, err = h.SendMessage(context.Background(), &messagev1.SendMessageRequest{
@@ -80,13 +47,12 @@ func TestSendMessage_EmptyContent(t *testing.T) {
 }
 
 func TestSendMessage_ErrorMapping(t *testing.T) {
-	svc := &mockMessageService{
-		SendMessageFunc: func(ctx context.Context, input *service.SendMessageInput) (*service.Message, error) {
-			return nil, service.ErrNotMember
-		},
-	}
+	mockSvc := svcmocks.NewMessageService(t)
+	mockSvc.On("SendMessage", context.Background(), mock.MatchedBy(func(in *service.SendMessageInput) bool {
+		return in.Type == service.MessageTypeText && in.Content == service.TextContent{Text: "Hello"}
+	})).Return(nil, service.ErrNotMember)
 
-	h, err := NewMessageHandler(svc)
+	h, err := NewMessageHandler(mockSvc)
 	require.NoError(t, err)
 
 	_, err = h.SendMessage(context.Background(), &messagev1.SendMessageRequest{
@@ -105,13 +71,10 @@ func TestSendMessage_ErrorMapping(t *testing.T) {
 }
 
 func TestSendMessage_InvalidReplyTargetMapping(t *testing.T) {
-	svc := &mockMessageService{
-		SendMessageFunc: func(ctx context.Context, input *service.SendMessageInput) (*service.Message, error) {
-			return nil, service.ErrInvalidReplyTarget
-		},
-	}
+	mockSvc := svcmocks.NewMessageService(t)
+	mockSvc.On("SendMessage", context.Background(), mock.Anything).Return(nil, service.ErrInvalidReplyTarget)
 
-	h, err := NewMessageHandler(svc)
+	h, err := NewMessageHandler(mockSvc)
 	require.NoError(t, err)
 
 	replyToID := uuid.New().String()
@@ -132,7 +95,7 @@ func TestSendMessage_InvalidReplyTargetMapping(t *testing.T) {
 }
 
 func TestGetMessages_Validation(t *testing.T) {
-	h, err := NewMessageHandler(&mockMessageService{})
+	h, err := NewMessageHandler(svcmocks.NewMessageService(t))
 	require.NoError(t, err)
 
 	_, err = h.GetMessages(context.Background(), &messagev1.GetMessagesRequest{
@@ -148,13 +111,10 @@ func TestGetMessages_Validation(t *testing.T) {
 }
 
 func TestDeleteMessage_ErrorMapping_NotOwner(t *testing.T) {
-	svc := &mockMessageService{
-		DeleteMessageFunc: func(ctx context.Context, messageID, requesterID uuid.UUID) error {
-			return service.ErrNotOwner
-		},
-	}
+	mockSvc := svcmocks.NewMessageService(t)
+	mockSvc.On("DeleteMessage", context.Background(), mock.Anything, mock.Anything).Return(service.ErrNotOwner)
 
-	h, err := NewMessageHandler(svc)
+	h, err := NewMessageHandler(mockSvc)
 	require.NoError(t, err)
 
 	_, err = h.DeleteMessage(context.Background(), &messagev1.DeleteMessageRequest{
@@ -169,13 +129,10 @@ func TestDeleteMessage_ErrorMapping_NotOwner(t *testing.T) {
 }
 
 func TestDeleteMessage_ErrorMapping_NotFound(t *testing.T) {
-	svc := &mockMessageService{
-		DeleteMessageFunc: func(ctx context.Context, messageID, requesterID uuid.UUID) error {
-			return service.ErrMessageNotFound
-		},
-	}
+	mockSvc := svcmocks.NewMessageService(t)
+	mockSvc.On("DeleteMessage", context.Background(), mock.Anything, mock.Anything).Return(service.ErrMessageNotFound)
 
-	h, err := NewMessageHandler(svc)
+	h, err := NewMessageHandler(mockSvc)
 	require.NoError(t, err)
 
 	_, err = h.DeleteMessage(context.Background(), &messagev1.DeleteMessageRequest{
@@ -252,4 +209,117 @@ func TestMapPreviewToProto(t *testing.T) {
 
 func strPtr(s string) *string {
 	return &s
+}
+
+func int32Ptr(v int32) *int32 { return &v }
+
+func TestMessageToProto_AllContentTypes(t *testing.T) {
+	now := time.Now()
+	base := func(content service.MessageContent, msgType service.MessageType) *service.Message {
+		return &service.Message{
+			ID: uuid.New(), RoomID: uuid.New(), SenderID: uuid.New(),
+			Type: msgType, Content: content, CreatedAt: now, UpdatedAt: now,
+		}
+	}
+
+	tests := []struct {
+		name    string
+		msg     *service.Message
+		checkFn func(t *testing.T, p *messagev1.Message)
+	}{
+		{"text", base(service.TextContent{Text: "hi"}, service.MessageTypeText), func(t *testing.T, p *messagev1.Message) {
+			require.NotNil(t, p.GetText())
+			assert.Equal(t, "hi", p.GetText().Text)
+		}},
+		{"media", base(service.MediaContent{
+			FileID: "f1", MimeType: "image/png", FileSize: 100, Width: 800, Height: 600,
+			ThumbnailID: strPtr("thumb"), DurationSec: int32Ptr(10),
+		}, service.MessageTypeImage), func(t *testing.T, p *messagev1.Message) {
+			require.NotNil(t, p.GetMedia())
+			assert.Equal(t, "f1", p.GetMedia().FileId)
+			assert.Equal(t, "thumb", *p.GetMedia().ThumbnailId)
+			assert.Equal(t, int32(10), *p.GetMedia().DurationSec)
+		}},
+		{"file", base(service.FileContent{
+			FileID: "f2", MimeType: "application/pdf", FileSize: 200, FileName: "doc.pdf",
+			DurationSec: int32Ptr(5),
+		}, service.MessageTypeFile), func(t *testing.T, p *messagev1.Message) {
+			require.NotNil(t, p.GetFile())
+			assert.Equal(t, "doc.pdf", p.GetFile().FileName)
+			assert.Equal(t, int32(5), *p.GetFile().DurationSec)
+		}},
+		{"voice", base(service.VoiceContent{
+			FileID: "f3", MimeType: "audio/ogg", FileSize: 300, DurationSec: 15, Waveform: []byte{1, 2},
+		}, service.MessageTypeVoice), func(t *testing.T, p *messagev1.Message) {
+			require.NotNil(t, p.GetVoice())
+			assert.Equal(t, int32(15), p.GetVoice().DurationSec)
+			assert.Equal(t, []byte{1, 2}, p.GetVoice().Waveform)
+		}},
+		{"video_note", base(service.VideoNoteContent{
+			FileID: "f4", MimeType: "video/mp4", FileSize: 400, DurationSec: 20,
+			Width: 240, Height: 240, ThumbnailID: strPtr("vthumb"),
+		}, service.MessageTypeVideoNote), func(t *testing.T, p *messagev1.Message) {
+			require.NotNil(t, p.GetVideoNote())
+			assert.Equal(t, int32(240), p.GetVideoNote().Width)
+			assert.Equal(t, "vthumb", *p.GetVideoNote().ThumbnailId)
+		}},
+		{"sticker", base(service.StickerContent{
+			FileID: "f5", MimeType: "image/webp", Emoji: strPtr("😀"), SetName: strPtr("set1"),
+		}, service.MessageTypeSticker), func(t *testing.T, p *messagev1.Message) {
+			require.NotNil(t, p.GetSticker())
+			assert.Equal(t, "😀", *p.GetSticker().Emoji)
+			assert.Equal(t, "set1", *p.GetSticker().SetName)
+		}},
+		{"event", base(service.EventContent{Text: "joined"}, service.MessageTypeEvent), func(t *testing.T, p *messagev1.Message) {
+			require.NotNil(t, p.GetEvent())
+			assert.Equal(t, "joined", p.GetEvent().Text)
+		}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := messageToProto(tt.msg)
+			assert.False(t, result.IsDeleted)
+			tt.checkFn(t, result)
+		})
+	}
+}
+
+func TestMessageToProto_WithEditedAt(t *testing.T) {
+	now := time.Now()
+	msg := &service.Message{
+		ID: uuid.New(), RoomID: uuid.New(), SenderID: uuid.New(),
+		Type: service.MessageTypeText, Content: service.TextContent{Text: "edited"},
+		EditedAt: &now, CreatedAt: now, UpdatedAt: now,
+	}
+	result := messageToProto(msg)
+	assert.NotNil(t, result.EditedAt)
+}
+
+func TestProtoToMessageType(t *testing.T) {
+	tests := []struct {
+		proto messagev1.MessageType
+		want  service.MessageType
+		ok    bool
+	}{
+		{messagev1.MessageType_MESSAGE_TYPE_TEXT, service.MessageTypeText, true},
+		{messagev1.MessageType_MESSAGE_TYPE_IMAGE, service.MessageTypeImage, true},
+		{messagev1.MessageType_MESSAGE_TYPE_VIDEO, service.MessageTypeVideo, true},
+		{messagev1.MessageType_MESSAGE_TYPE_VIDEO_NOTE, service.MessageTypeVideoNote, true},
+		{messagev1.MessageType_MESSAGE_TYPE_VOICE, service.MessageTypeVoice, true},
+		{messagev1.MessageType_MESSAGE_TYPE_AUDIO, service.MessageTypeAudio, true},
+		{messagev1.MessageType_MESSAGE_TYPE_FILE, service.MessageTypeFile, true},
+		{messagev1.MessageType_MESSAGE_TYPE_STICKER, service.MessageTypeSticker, true},
+		{messagev1.MessageType_MESSAGE_TYPE_UNSPECIFIED, "", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.proto.String(), func(t *testing.T) {
+			got, ok := protoToMessageType(tt.proto)
+			assert.Equal(t, tt.ok, ok)
+			if tt.ok {
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
 }

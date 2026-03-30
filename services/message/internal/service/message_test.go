@@ -1,4 +1,4 @@
-package service
+package service_test
 
 import (
 	"context"
@@ -8,357 +8,301 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
 	"github.com/sudobytemebaby/efir/services/message/internal/repository"
+	repomocks "github.com/sudobytemebaby/efir/services/message/internal/repository/mocks"
+	"github.com/sudobytemebaby/efir/services/message/internal/service"
+	svcmocks "github.com/sudobytemebaby/efir/services/message/internal/service/mocks"
 )
 
-type mockRepository struct {
-	CreateMessageFunc       func(ctx context.Context, input *repository.CreateMessageInput) (*repository.Message, error)
-	GetMessagesByRoomIDFunc func(ctx context.Context, roomID uuid.UUID, cursor *uuid.UUID, limit int) ([]*repository.Message, *uuid.UUID, error)
-	GetMessageByIDFunc      func(ctx context.Context, messageID uuid.UUID) (*repository.Message, error)
-	SoftDeleteMessageFunc   func(ctx context.Context, messageID uuid.UUID) error
+func newSvc(t *testing.T) (service.MessageService, *repomocks.MessageRepository, *svcmocks.RoomClient, *svcmocks.Publisher) {
+	t.Helper()
+	repo := repomocks.NewMessageRepository(t)
+	roomClient := svcmocks.NewRoomClient(t)
+	publisher := svcmocks.NewPublisher(t)
+	svc := service.NewMessageService(repo, roomClient, publisher)
+	return svc, repo, roomClient, publisher
 }
 
-func (m *mockRepository) CreateMessage(ctx context.Context, input *repository.CreateMessageInput) (*repository.Message, error) {
-	if m.CreateMessageFunc != nil {
-		return m.CreateMessageFunc(ctx, input)
+func repoMsg(msgID, roomID, senderID uuid.UUID) *repository.Message {
+	now := time.Now()
+	return &repository.Message{
+		ID:        msgID,
+		RoomID:    roomID,
+		SenderID:  senderID,
+		Type:      repository.MessageTypeText,
+		Content:   repository.TextContent{Text: "Hello"},
+		CreatedAt: now,
+		UpdatedAt: now,
 	}
-	return nil, nil
-}
-
-func (m *mockRepository) GetMessagesByRoomID(ctx context.Context, roomID uuid.UUID, cursor *uuid.UUID, limit int) ([]*repository.Message, *uuid.UUID, error) {
-	if m.GetMessagesByRoomIDFunc != nil {
-		return m.GetMessagesByRoomIDFunc(ctx, roomID, cursor, limit)
-	}
-	return nil, nil, nil
-}
-
-func (m *mockRepository) GetMessageByID(ctx context.Context, messageID uuid.UUID) (*repository.Message, error) {
-	if m.GetMessageByIDFunc != nil {
-		return m.GetMessageByIDFunc(ctx, messageID)
-	}
-	return nil, nil
-}
-
-func (m *mockRepository) SoftDeleteMessage(ctx context.Context, messageID uuid.UUID) error {
-	if m.SoftDeleteMessageFunc != nil {
-		return m.SoftDeleteMessageFunc(ctx, messageID)
-	}
-	return nil
-}
-
-type mockRoomClient struct {
-	IsMemberFunc       func(ctx context.Context, roomID, userID uuid.UUID) (bool, error)
-	GetRoomMembersFunc func(ctx context.Context, roomID uuid.UUID) ([]uuid.UUID, error)
-}
-
-func (m *mockRoomClient) IsMember(ctx context.Context, roomID, userID uuid.UUID) (bool, error) {
-	if m.IsMemberFunc != nil {
-		return m.IsMemberFunc(ctx, roomID, userID)
-	}
-	return false, nil
-}
-
-func (m *mockRoomClient) GetRoomMembers(ctx context.Context, roomID uuid.UUID) ([]uuid.UUID, error) {
-	if m.GetRoomMembersFunc != nil {
-		return m.GetRoomMembersFunc(ctx, roomID)
-	}
-	return nil, nil
-}
-
-type mockPublisher struct {
-	PublishMessageCreatedFunc func(ctx context.Context, msg *Message, recipientIDs []uuid.UUID) error
-}
-
-func (m *mockPublisher) PublishMessageCreated(ctx context.Context, msg *Message, recipientIDs []uuid.UUID) error {
-	if m.PublishMessageCreatedFunc != nil {
-		return m.PublishMessageCreatedFunc(ctx, msg, recipientIDs)
-	}
-	return nil
 }
 
 func TestSendMessage_HappyPath(t *testing.T) {
-	roomID := uuid.New()
-	senderID := uuid.New()
-	msgID := uuid.New()
-	now := time.Now()
+	t.Parallel()
+	roomID, senderID, msgID := uuid.New(), uuid.New(), uuid.New()
 
-	repo := &mockRepository{
-		CreateMessageFunc: func(ctx context.Context, input *repository.CreateMessageInput) (*repository.Message, error) {
-			return &repository.Message{
-				ID:        msgID,
-				RoomID:    roomID,
-				SenderID:  senderID,
-				Type:      repository.MessageTypeText,
-				Content:   repository.TextContent{Text: "Hello"},
-				CreatedAt: now,
-				UpdatedAt: now,
-			}, nil
-		},
-	}
+	svc, repo, roomClient, publisher := newSvc(t)
+	roomClient.On("IsMember", mock.Anything, roomID, senderID).Return(true, nil)
+	repo.On("CreateMessage", mock.Anything, mock.MatchedBy(func(in *repository.CreateMessageInput) bool {
+		return in.RoomID == roomID && in.SenderID == senderID
+	})).Return(repoMsg(msgID, roomID, senderID), nil)
+	roomClient.On("GetRoomMembers", mock.Anything, roomID).Return([]uuid.UUID{senderID}, nil)
+	publisher.On("PublishMessageCreated", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	roomClient := &mockRoomClient{
-		IsMemberFunc: func(ctx context.Context, rid, uid uuid.UUID) (bool, error) {
-			return true, nil
-		},
-		GetRoomMembersFunc: func(ctx context.Context, rid uuid.UUID) ([]uuid.UUID, error) {
-			return []uuid.UUID{senderID}, nil
-		},
-	}
-
-	publisher := &mockPublisher{
-		PublishMessageCreatedFunc: func(ctx context.Context, msg *Message, recipientIDs []uuid.UUID) error {
-			return nil
-		},
-	}
-
-	svc := NewMessageService(repo, roomClient, publisher)
-	input := &SendMessageInput{
+	msg, err := svc.SendMessage(context.Background(), &service.SendMessageInput{
 		RoomID:   roomID,
 		SenderID: senderID,
-		Type:     MessageTypeText,
-		Content:  TextContent{Text: "Hello"},
-	}
-
-	msg, err := svc.SendMessage(context.Background(), input)
+		Type:     service.MessageTypeText,
+		Content:  service.TextContent{Text: "Hello"},
+	})
 	require.NoError(t, err)
 	assert.Equal(t, msgID, msg.ID)
 	assert.Equal(t, roomID, msg.RoomID)
 }
 
 func TestSendMessage_NotMember(t *testing.T) {
-	roomID := uuid.New()
-	senderID := uuid.New()
+	t.Parallel()
+	roomID, senderID := uuid.New(), uuid.New()
 
-	roomClient := &mockRoomClient{
-		IsMemberFunc: func(ctx context.Context, rid, uid uuid.UUID) (bool, error) {
-			return false, nil
-		},
-	}
+	svc, _, roomClient, _ := newSvc(t)
+	roomClient.On("IsMember", mock.Anything, roomID, senderID).Return(false, nil)
 
-	svc := NewMessageService(&mockRepository{}, roomClient, &mockPublisher{})
-	input := &SendMessageInput{
+	_, err := svc.SendMessage(context.Background(), &service.SendMessageInput{
 		RoomID:   roomID,
 		SenderID: senderID,
-		Type:     MessageTypeText,
-		Content:  TextContent{Text: "Hello"},
-	}
-
-	_, err := svc.SendMessage(context.Background(), input)
-	assert.ErrorIs(t, err, ErrNotMember)
+		Type:     service.MessageTypeText,
+		Content:  service.TextContent{Text: "Hello"},
+	})
+	assert.ErrorIs(t, err, service.ErrNotMember)
 }
 
-func TestSendMessage_InvalidReplyTarget(t *testing.T) {
-	roomID := uuid.New()
-	senderID := uuid.New()
-	replyToID := uuid.New()
+func TestSendMessage_InvalidReplyTarget_NotFound(t *testing.T) {
+	t.Parallel()
+	roomID, senderID, replyToID := uuid.New(), uuid.New(), uuid.New()
 
-	roomClient := &mockRoomClient{
-		IsMemberFunc: func(ctx context.Context, rid, uid uuid.UUID) (bool, error) {
-			return true, nil
-		},
-	}
+	svc, repo, roomClient, _ := newSvc(t)
+	roomClient.On("IsMember", mock.Anything, roomID, senderID).Return(true, nil)
+	repo.On("GetMessageByID", mock.Anything, replyToID).Return(nil, repository.ErrMessageNotFound)
 
-	repo := &mockRepository{
-		GetMessageByIDFunc: func(ctx context.Context, mid uuid.UUID) (*repository.Message, error) {
-			return nil, repository.ErrMessageNotFound
-		},
-	}
-
-	svc := NewMessageService(repo, roomClient, &mockPublisher{})
-	input := &SendMessageInput{
+	_, err := svc.SendMessage(context.Background(), &service.SendMessageInput{
 		RoomID:    roomID,
 		SenderID:  senderID,
-		Type:      MessageTypeText,
-		Content:   TextContent{Text: "Hello"},
+		Type:      service.MessageTypeText,
+		Content:   service.TextContent{Text: "Hello"},
 		ReplyToID: &replyToID,
-	}
-
-	_, err := svc.SendMessage(context.Background(), input)
-	assert.ErrorIs(t, err, ErrInvalidReplyTarget)
+	})
+	assert.ErrorIs(t, err, service.ErrInvalidReplyTarget)
 }
 
-func TestSendMessage_ReplyFromDifferentRoom(t *testing.T) {
-	roomID := uuid.New()
-	senderID := uuid.New()
-	replyToID := uuid.New()
-	otherRoomID := uuid.New()
+func TestSendMessage_InvalidReplyTarget_DeletedMessage(t *testing.T) {
+	t.Parallel()
+	roomID, senderID, replyToID := uuid.New(), uuid.New(), uuid.New()
+	deletedAt := time.Now()
+	original := repoMsg(replyToID, roomID, senderID)
+	original.DeletedAt = &deletedAt
 
-	roomClient := &mockRoomClient{
-		IsMemberFunc: func(ctx context.Context, rid, uid uuid.UUID) (bool, error) {
-			return true, nil
-		},
-	}
+	svc, repo, roomClient, _ := newSvc(t)
+	roomClient.On("IsMember", mock.Anything, roomID, senderID).Return(true, nil)
+	repo.On("GetMessageByID", mock.Anything, replyToID).Return(original, nil)
 
-	repo := &mockRepository{
-		GetMessageByIDFunc: func(ctx context.Context, mid uuid.UUID) (*repository.Message, error) {
-			return &repository.Message{
-				ID:     replyToID,
-				RoomID: otherRoomID,
-			}, nil
-		},
-	}
-
-	svc := NewMessageService(repo, roomClient, &mockPublisher{})
-	input := &SendMessageInput{
+	_, err := svc.SendMessage(context.Background(), &service.SendMessageInput{
 		RoomID:    roomID,
 		SenderID:  senderID,
-		Type:      MessageTypeText,
-		Content:   TextContent{Text: "Hello"},
+		Type:      service.MessageTypeText,
+		Content:   service.TextContent{Text: "reply"},
 		ReplyToID: &replyToID,
-	}
+	})
+	assert.ErrorIs(t, err, service.ErrInvalidReplyTarget)
+}
 
-	_, err := svc.SendMessage(context.Background(), input)
-	assert.ErrorIs(t, err, ErrInvalidReplyTarget)
+func TestSendMessage_InvalidReplyTarget_DifferentRoom(t *testing.T) {
+	t.Parallel()
+	roomID, senderID, replyToID, otherRoom := uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	original := repoMsg(replyToID, otherRoom, senderID)
+
+	svc, repo, roomClient, _ := newSvc(t)
+	roomClient.On("IsMember", mock.Anything, roomID, senderID).Return(true, nil)
+	repo.On("GetMessageByID", mock.Anything, replyToID).Return(original, nil)
+
+	_, err := svc.SendMessage(context.Background(), &service.SendMessageInput{
+		RoomID:    roomID,
+		SenderID:  senderID,
+		Type:      service.MessageTypeText,
+		Content:   service.TextContent{Text: "Hello"},
+		ReplyToID: &replyToID,
+	})
+	assert.ErrorIs(t, err, service.ErrInvalidReplyTarget)
 }
 
 func TestSendMessage_NATSFailure_NoError(t *testing.T) {
-	roomID := uuid.New()
-	senderID := uuid.New()
-	msgID := uuid.New()
-	now := time.Now()
+	t.Parallel()
+	roomID, senderID, msgID := uuid.New(), uuid.New(), uuid.New()
 
-	repo := &mockRepository{
-		CreateMessageFunc: func(ctx context.Context, input *repository.CreateMessageInput) (*repository.Message, error) {
-			return &repository.Message{
-				ID:        msgID,
-				RoomID:    roomID,
-				SenderID:  senderID,
-				Type:      repository.MessageTypeText,
-				Content:   repository.TextContent{Text: "Hello"},
-				CreatedAt: now,
-				UpdatedAt: now,
-			}, nil
-		},
-	}
+	svc, repo, roomClient, publisher := newSvc(t)
+	roomClient.On("IsMember", mock.Anything, roomID, senderID).Return(true, nil)
+	repo.On("CreateMessage", mock.Anything, mock.Anything).Return(repoMsg(msgID, roomID, senderID), nil)
+	roomClient.On("GetRoomMembers", mock.Anything, roomID).Return([]uuid.UUID{senderID}, nil)
+	publisher.On("PublishMessageCreated", mock.Anything, mock.Anything, mock.Anything).
+		Return(errors.New("nats unavailable"))
 
-	roomClient := &mockRoomClient{
-		IsMemberFunc: func(ctx context.Context, rid, uid uuid.UUID) (bool, error) {
-			return true, nil
-		},
-		GetRoomMembersFunc: func(ctx context.Context, rid uuid.UUID) ([]uuid.UUID, error) {
-			return []uuid.UUID{senderID}, nil
-		},
-	}
-
-	publisher := &mockPublisher{
-		PublishMessageCreatedFunc: func(ctx context.Context, msg *Message, recipientIDs []uuid.UUID) error {
-			return errors.New("nats unavailable")
-		},
-	}
-
-	svc := NewMessageService(repo, roomClient, publisher)
-	input := &SendMessageInput{
+	msg, err := svc.SendMessage(context.Background(), &service.SendMessageInput{
 		RoomID:   roomID,
 		SenderID: senderID,
-		Type:     MessageTypeText,
-		Content:  TextContent{Text: "Hello"},
-	}
-
-	msg, err := svc.SendMessage(context.Background(), input)
+		Type:     service.MessageTypeText,
+		Content:  service.TextContent{Text: "Hello"},
+	})
 	require.NoError(t, err)
 	assert.Equal(t, msgID, msg.ID)
 }
 
 func TestSendMessage_GetRoomMembersFailure_PublishSkipped(t *testing.T) {
-	roomID := uuid.New()
-	senderID := uuid.New()
-	msgID := uuid.New()
-	now := time.Now()
-	publishCalled := false
+	t.Parallel()
+	roomID, senderID, msgID := uuid.New(), uuid.New(), uuid.New()
 
-	repo := &mockRepository{
-		CreateMessageFunc: func(ctx context.Context, input *repository.CreateMessageInput) (*repository.Message, error) {
-			return &repository.Message{
-				ID:        msgID,
-				RoomID:    roomID,
-				SenderID:  senderID,
-				Type:      repository.MessageTypeText,
-				Content:   repository.TextContent{Text: "Hello"},
-				CreatedAt: now,
-				UpdatedAt: now,
-			}, nil
-		},
-	}
+	svc, repo, roomClient, _ := newSvc(t)
+	roomClient.On("IsMember", mock.Anything, roomID, senderID).Return(true, nil)
+	repo.On("CreateMessage", mock.Anything, mock.Anything).Return(repoMsg(msgID, roomID, senderID), nil)
+	roomClient.On("GetRoomMembers", mock.Anything, roomID).Return(nil, errors.New("room service unavailable"))
+	// Publisher must NOT be called — mockery will fail the test if an unexpected call occurs.
 
-	roomClient := &mockRoomClient{
-		IsMemberFunc: func(ctx context.Context, rid, uid uuid.UUID) (bool, error) {
-			return true, nil
-		},
-		GetRoomMembersFunc: func(ctx context.Context, rid uuid.UUID) ([]uuid.UUID, error) {
-			return nil, errors.New("room service unavailable")
-		},
-	}
-
-	publisher := &mockPublisher{
-		PublishMessageCreatedFunc: func(ctx context.Context, msg *Message, recipientIDs []uuid.UUID) error {
-			publishCalled = true
-			return nil
-		},
-	}
-
-	svc := NewMessageService(repo, roomClient, publisher)
-	input := &SendMessageInput{
+	msg, err := svc.SendMessage(context.Background(), &service.SendMessageInput{
 		RoomID:   roomID,
 		SenderID: senderID,
-		Type:     MessageTypeText,
-		Content:  TextContent{Text: "Hello"},
-	}
-
-	msg, err := svc.SendMessage(context.Background(), input)
+		Type:     service.MessageTypeText,
+		Content:  service.TextContent{Text: "Hello"},
+	})
 	require.NoError(t, err)
 	assert.Equal(t, msgID, msg.ID)
-	assert.False(t, publishCalled)
+}
+
+func TestSendMessage_MediaType(t *testing.T) {
+	t.Parallel()
+	roomID, senderID, msgID := uuid.New(), uuid.New(), uuid.New()
+	thumb := "thumb_01"
+	now := time.Now()
+	mediaMsg := &repository.Message{
+		ID:        msgID,
+		RoomID:    roomID,
+		SenderID:  senderID,
+		Type:      repository.MessageTypeImage,
+		Content:   repository.MediaContent{FileID: "file_01", MimeType: "image/jpeg", FileSize: 102400, Width: 800, Height: 600, ThumbnailID: &thumb},
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+
+	svc, repo, roomClient, publisher := newSvc(t)
+	roomClient.On("IsMember", mock.Anything, roomID, senderID).Return(true, nil)
+	repo.On("CreateMessage", mock.Anything, mock.Anything).Return(mediaMsg, nil)
+	roomClient.On("GetRoomMembers", mock.Anything, roomID).Return([]uuid.UUID{senderID}, nil)
+	publisher.On("PublishMessageCreated", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	msg, err := svc.SendMessage(context.Background(), &service.SendMessageInput{
+		RoomID:   roomID,
+		SenderID: senderID,
+		Type:     service.MessageTypeImage,
+		Content:  service.MediaContent{FileID: "file_01", MimeType: "image/jpeg", FileSize: 102400, Width: 800, Height: 600},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, service.MessageTypeImage, msg.Type)
+}
+
+func TestGetMessages_Success(t *testing.T) {
+	t.Parallel()
+	roomID, requesterID := uuid.New(), uuid.New()
+	msgs := []*repository.Message{repoMsg(uuid.New(), roomID, requesterID)}
+
+	svc, repo, roomClient, _ := newSvc(t)
+	roomClient.On("IsMember", mock.Anything, roomID, requesterID).Return(true, nil)
+	repo.On("GetMessagesByRoomID", mock.Anything, roomID, (*uuid.UUID)(nil), 50).
+		Return(msgs, (*uuid.UUID)(nil), nil)
+
+	got, cursor, err := svc.GetMessages(context.Background(), roomID, requesterID, nil, 50)
+	require.NoError(t, err)
+	assert.Len(t, got, 1)
+	assert.Nil(t, cursor)
 }
 
 func TestGetMessages_NotMember(t *testing.T) {
-	roomID := uuid.New()
-	requesterID := uuid.New()
+	t.Parallel()
+	roomID, requesterID := uuid.New(), uuid.New()
 
-	roomClient := &mockRoomClient{
-		IsMemberFunc: func(ctx context.Context, rid, uid uuid.UUID) (bool, error) {
-			return false, nil
-		},
-	}
-
-	svc := NewMessageService(&mockRepository{}, roomClient, &mockPublisher{})
+	svc, _, roomClient, _ := newSvc(t)
+	roomClient.On("IsMember", mock.Anything, roomID, requesterID).Return(false, nil)
 
 	_, _, err := svc.GetMessages(context.Background(), roomID, requesterID, nil, 50)
-	assert.ErrorIs(t, err, ErrNotMember)
+	assert.ErrorIs(t, err, service.ErrNotMember)
+}
+
+func TestGetMessageByID_Success(t *testing.T) {
+	t.Parallel()
+	msgID, roomID, requesterID := uuid.New(), uuid.New(), uuid.New()
+
+	svc, repo, roomClient, _ := newSvc(t)
+	repo.On("GetMessageByID", mock.Anything, msgID).Return(repoMsg(msgID, roomID, requesterID), nil)
+	roomClient.On("IsMember", mock.Anything, roomID, requesterID).Return(true, nil)
+
+	msg, err := svc.GetMessageByID(context.Background(), msgID, requesterID)
+	require.NoError(t, err)
+	assert.Equal(t, msgID, msg.ID)
+}
+
+func TestGetMessageByID_NotFound(t *testing.T) {
+	t.Parallel()
+	msgID, requesterID := uuid.New(), uuid.New()
+
+	svc, repo, _, _ := newSvc(t)
+	repo.On("GetMessageByID", mock.Anything, msgID).Return(nil, repository.ErrMessageNotFound)
+
+	_, err := svc.GetMessageByID(context.Background(), msgID, requesterID)
+	assert.ErrorIs(t, err, service.ErrMessageNotFound)
+}
+
+func TestGetMessageByID_NotMember(t *testing.T) {
+	t.Parallel()
+	msgID, roomID, senderID, requesterID := uuid.New(), uuid.New(), uuid.New(), uuid.New()
+
+	svc, repo, roomClient, _ := newSvc(t)
+	repo.On("GetMessageByID", mock.Anything, msgID).Return(repoMsg(msgID, roomID, senderID), nil)
+	roomClient.On("IsMember", mock.Anything, roomID, requesterID).Return(false, nil)
+
+	_, err := svc.GetMessageByID(context.Background(), msgID, requesterID)
+	assert.ErrorIs(t, err, service.ErrNotMember)
 }
 
 func TestDeleteMessage_NotOwner(t *testing.T) {
-	msgID := uuid.New()
-	senderID := uuid.New()
-	requesterID := uuid.New()
+	t.Parallel()
+	msgID, senderID, requesterID := uuid.New(), uuid.New(), uuid.New()
 
-	repo := &mockRepository{
-		GetMessageByIDFunc: func(ctx context.Context, mid uuid.UUID) (*repository.Message, error) {
-			return &repository.Message{
-				ID:       msgID,
-				SenderID: senderID,
-			}, nil
-		},
-	}
-
-	svc := NewMessageService(repo, &mockRoomClient{}, &mockPublisher{})
+	svc, repo, _, _ := newSvc(t)
+	repo.On("GetMessageByID", mock.Anything, msgID).Return(repoMsg(msgID, uuid.New(), senderID), nil)
 
 	err := svc.DeleteMessage(context.Background(), msgID, requesterID)
-	assert.ErrorIs(t, err, ErrNotOwner)
+	assert.ErrorIs(t, err, service.ErrNotOwner)
 }
 
 func TestDeleteMessage_NotFound(t *testing.T) {
-	msgID := uuid.New()
-	requesterID := uuid.New()
+	t.Parallel()
+	msgID, requesterID := uuid.New(), uuid.New()
 
-	repo := &mockRepository{
-		GetMessageByIDFunc: func(ctx context.Context, mid uuid.UUID) (*repository.Message, error) {
-			return nil, repository.ErrMessageNotFound
-		},
-	}
-
-	svc := NewMessageService(repo, &mockRoomClient{}, &mockPublisher{})
+	svc, repo, _, _ := newSvc(t)
+	repo.On("GetMessageByID", mock.Anything, msgID).Return(nil, repository.ErrMessageNotFound)
 
 	err := svc.DeleteMessage(context.Background(), msgID, requesterID)
-	assert.ErrorIs(t, err, ErrMessageNotFound)
+	assert.ErrorIs(t, err, service.ErrMessageNotFound)
+}
+
+func TestDeleteMessage_AfterLeaving(t *testing.T) {
+	t.Parallel()
+	// A user who left the room can still delete their own message (no membership check on delete).
+	msgID, senderID := uuid.New(), uuid.New()
+	roomID := uuid.New()
+
+	svc, repo, _, _ := newSvc(t)
+	repo.On("GetMessageByID", mock.Anything, msgID).Return(repoMsg(msgID, roomID, senderID), nil)
+	repo.On("SoftDeleteMessage", mock.Anything, msgID).Return(nil)
+
+	err := svc.DeleteMessage(context.Background(), msgID, senderID)
+	require.NoError(t, err)
 }

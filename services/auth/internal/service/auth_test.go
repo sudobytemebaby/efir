@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"github.com/sudobytemebaby/efir/services/auth/internal/ratelimit"
 	ratelimitmocks "github.com/sudobytemebaby/efir/services/auth/internal/ratelimit/mocks"
 	"github.com/sudobytemebaby/efir/services/auth/internal/repository"
@@ -29,12 +30,14 @@ func newSvc(t *testing.T) (service.AuthService, *repomocks.AccountRepository, *r
 }
 
 func TestAuthService_Register(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	email := "test@example.com"
 	password := "password"
 	userID := uuid.New()
 
 	t.Run("success", func(t *testing.T) {
+		t.Parallel()
 		svc, accountRepo, tokenRepo, publisher, limiter := newSvc(t)
 
 		limiter.On("Allow", ctx, ratelimit.ActionRegister, email).Return(nil).Once()
@@ -57,6 +60,7 @@ func TestAuthService_Register(t *testing.T) {
 	})
 
 	t.Run("rate limit exceeded", func(t *testing.T) {
+		t.Parallel()
 		svc, _, _, _, limiter := newSvc(t)
 
 		limiter.On("Allow", ctx, ratelimit.ActionRegister, email).
@@ -70,6 +74,7 @@ func TestAuthService_Register(t *testing.T) {
 	})
 
 	t.Run("account already exists", func(t *testing.T) {
+		t.Parallel()
 		svc, accountRepo, _, _, limiter := newSvc(t)
 
 		limiter.On("Allow", ctx, ratelimit.ActionRegister, email).Return(nil).Once()
@@ -83,6 +88,7 @@ func TestAuthService_Register(t *testing.T) {
 	})
 
 	t.Run("nats publish fails but registration succeeds", func(t *testing.T) {
+		t.Parallel()
 		svc, accountRepo, tokenRepo, publisher, limiter := newSvc(t)
 
 		limiter.On("Allow", ctx, ratelimit.ActionRegister, email).Return(nil).Once()
@@ -104,6 +110,7 @@ func TestAuthService_Register(t *testing.T) {
 }
 
 func TestAuthService_Login(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	email := "test@example.com"
 	password := "password"
@@ -111,6 +118,7 @@ func TestAuthService_Login(t *testing.T) {
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 
 	t.Run("success", func(t *testing.T) {
+		t.Parallel()
 		svc, accountRepo, tokenRepo, _, limiter := newSvc(t)
 
 		limiter.On("Allow", ctx, ratelimit.ActionLogin, email).Return(nil).Once()
@@ -130,6 +138,7 @@ func TestAuthService_Login(t *testing.T) {
 	})
 
 	t.Run("rate limit exceeded", func(t *testing.T) {
+		t.Parallel()
 		svc, _, _, _, limiter := newSvc(t)
 
 		limiter.On("Allow", ctx, ratelimit.ActionLogin, email).
@@ -143,6 +152,7 @@ func TestAuthService_Login(t *testing.T) {
 	})
 
 	t.Run("invalid credentials", func(t *testing.T) {
+		t.Parallel()
 		svc, accountRepo, _, _, limiter := newSvc(t)
 
 		limiter.On("Allow", ctx, ratelimit.ActionLogin, email).Return(nil).Once()
@@ -161,13 +171,59 @@ func TestAuthService_Login(t *testing.T) {
 }
 
 func TestAuthService_Logout(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
-	svc, _, tokenRepo, _, _ := newSvc(t)
 	token := "refresh_token"
 
 	t.Run("success", func(t *testing.T) {
+		t.Parallel()
+		svc, _, tokenRepo, _, _ := newSvc(t)
 		tokenRepo.On("DeleteRefreshToken", ctx, token).Return(nil).Once()
 		err := svc.Logout(ctx, token)
 		assert.NoError(t, err)
+	})
+
+	t.Run("error", func(t *testing.T) {
+		t.Parallel()
+		svc, _, tokenRepo, _, _ := newSvc(t)
+		tokenRepo.On("DeleteRefreshToken", ctx, token).Return(errors.New("redis down")).Once()
+		err := svc.Logout(ctx, token)
+		assert.Error(t, err)
+	})
+}
+
+func TestAuthService_RefreshToken(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	userID := uuid.New()
+	oldToken := "old_refresh_token"
+
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
+		svc, _, tokenRepo, _, _ := newSvc(t)
+
+		tokenRepo.On("GetUserIDByRefreshToken", ctx, oldToken).Return(userID, nil).Once()
+		tokenRepo.On("SaveRefreshToken", ctx, userID, mock.AnythingOfType("string"), time.Hour).Return(nil).Once()
+		tokenRepo.On("DeleteRefreshToken", ctx, oldToken).Return(nil).Once()
+
+		tokens, err := svc.RefreshToken(ctx, oldToken)
+
+		assert.NoError(t, err)
+		require.NotNil(t, tokens)
+		assert.NotEmpty(t, tokens.AccessToken)
+		assert.NotEmpty(t, tokens.RefreshToken)
+		assert.NotEqual(t, oldToken, tokens.RefreshToken)
+	})
+
+	t.Run("invalid token returns ErrInvalidToken", func(t *testing.T) {
+		t.Parallel()
+		svc, _, tokenRepo, _, _ := newSvc(t)
+
+		tokenRepo.On("GetUserIDByRefreshToken", ctx, oldToken).Return(uuid.UUID{}, repository.ErrTokenNotFound).Once()
+
+		tokens, err := svc.RefreshToken(ctx, oldToken)
+
+		assert.ErrorIs(t, err, service.ErrInvalidToken)
+		assert.Nil(t, tokens)
 	})
 }
