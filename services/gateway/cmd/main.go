@@ -102,7 +102,6 @@ func run(ctx context.Context) error {
 	defer func() { _ = messageConn.Close() }()
 
 	jwtMiddleware := middleware.JWTAuth(cfg.Auth.Secret)
-	ipRateLimiter := middleware.IPRateLimiter(valkeyClient, cfg.RateLimit.Requests, cfg.RateLimit.Window)
 	userRateLimiter := middleware.UserRateLimiter(valkeyClient, cfg.RateLimit.Requests, cfg.RateLimit.Window)
 
 	healthHandler := healthcheck.New()
@@ -120,7 +119,6 @@ func run(ctx context.Context) error {
 	r := chi.NewRouter()
 
 	r.Group(func(r chi.Router) {
-		r.Use(ipRateLimiter)
 		authHandler.Register(r)
 	})
 
@@ -134,7 +132,6 @@ func run(ctx context.Context) error {
 	})
 
 	r.Group(func(r chi.Router) {
-		r.Use(ipRateLimiter)
 		r.Get("/auth/validate", wsAuthHandler.ValidateTicket)
 	})
 
