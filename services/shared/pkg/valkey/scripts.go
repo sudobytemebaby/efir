@@ -7,3 +7,11 @@ if current == 1 then
 end
 return current
 `
+
+const GetAndDeleteScript = `
+local value = redis.call('GET', KEYS[1])
+if value then
+    redis.call('DEL', KEYS[1])
+end
+return value
+`

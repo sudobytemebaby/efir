@@ -74,3 +74,35 @@ func TestIncrWithExpiryScript(t *testing.T) {
 		assert.True(t, vk.IsValkeyNil(err), "key should have expired")
 	})
 }
+
+func TestGetAndDeleteScript(t *testing.T) {
+	client := valkeyContainer.Client(t)
+	ctx := context.Background()
+
+	t.Run("returns value and deletes key atomically", func(t *testing.T) {
+		key := "test:get-del:" + strconv.FormatInt(time.Now().UnixNano(), 36)
+		expectedValue := "user-123"
+
+		err := client.Do(ctx, client.B().Set().Key(key).Value(expectedValue).Build()).Error()
+		require.NoError(t, err)
+
+		result, err := client.Do(ctx,
+			client.B().Eval().Script(valkey.GetAndDeleteScript).Numkeys(1).Key(key).Build(),
+		).ToString()
+		require.NoError(t, err)
+		assert.Equal(t, expectedValue, result)
+
+		err = client.Do(ctx, client.B().Get().Key(key).Build()).Error()
+		assert.True(t, vk.IsValkeyNil(err), "key should be deleted after get-and-delete")
+	})
+
+	t.Run("returns nil for non-existent key", func(t *testing.T) {
+		key := "test:get-del:nonexistent:" + strconv.FormatInt(time.Now().UnixNano(), 36)
+
+		resp := client.Do(ctx,
+			client.B().Eval().Script(valkey.GetAndDeleteScript).Numkeys(1).Key(key).Build(),
+		)
+		err := resp.Error()
+		assert.True(t, vk.IsValkeyNil(err), "error should be valkey nil for non-existent key")
+	})
+}
