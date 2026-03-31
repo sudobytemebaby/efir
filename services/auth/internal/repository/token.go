@@ -20,6 +20,7 @@ type TokenRepository interface {
 	SaveRefreshToken(ctx context.Context, userID uuid.UUID, token string, ttl time.Duration) error
 	GetUserIDByRefreshToken(ctx context.Context, token string) (uuid.UUID, error)
 	DeleteRefreshToken(ctx context.Context, token string) error
+	ReviveRefreshToken(ctx context.Context, token string) (uuid.UUID, error)
 }
 
 type valkeyTokenRepository struct {
@@ -71,4 +72,27 @@ func (r *valkeyTokenRepository) DeleteRefreshToken(ctx context.Context, token st
 	}
 
 	return nil
+}
+
+func (r *valkeyTokenRepository) ReviveRefreshToken(ctx context.Context, token string) (uuid.UUID, error) {
+	key := valkey.AuthRefreshKey(token)
+	resp := r.client.Do(ctx, r.client.B().Eval().Script(valkey.GetAndDeleteScript).Numkeys(1).Key(key).Build())
+	if err := resp.Error(); err != nil {
+		if vk.IsValkeyNil(err) {
+			return uuid.Nil, ErrTokenNotFound
+		}
+		return uuid.Nil, fmt.Errorf("consume refresh token from valkey: %w", err)
+	}
+
+	userIDStr, err := resp.ToString()
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("parse user id from valkey: %w", err)
+	}
+
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("parse uuid: %w", err)
+	}
+
+	return userID, nil
 }

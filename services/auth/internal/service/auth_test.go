@@ -202,9 +202,8 @@ func TestAuthService_RefreshToken(t *testing.T) {
 		t.Parallel()
 		svc, _, tokenRepo, _, _ := newSvc(t)
 
-		tokenRepo.On("GetUserIDByRefreshToken", ctx, oldToken).Return(userID, nil).Once()
+		tokenRepo.On("ReviveRefreshToken", ctx, oldToken).Return(userID, nil).Once()
 		tokenRepo.On("SaveRefreshToken", ctx, userID, mock.AnythingOfType("string"), time.Hour).Return(nil).Once()
-		tokenRepo.On("DeleteRefreshToken", ctx, oldToken).Return(nil).Once()
 
 		tokens, err := svc.RefreshToken(ctx, oldToken)
 
@@ -219,7 +218,7 @@ func TestAuthService_RefreshToken(t *testing.T) {
 		t.Parallel()
 		svc, _, tokenRepo, _, _ := newSvc(t)
 
-		tokenRepo.On("GetUserIDByRefreshToken", ctx, oldToken).Return(uuid.UUID{}, repository.ErrTokenNotFound).Once()
+		tokenRepo.On("ReviveRefreshToken", ctx, oldToken).Return(uuid.UUID{}, repository.ErrTokenNotFound).Once()
 
 		tokens, err := svc.RefreshToken(ctx, oldToken)
 

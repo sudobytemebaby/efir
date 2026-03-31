@@ -170,21 +170,17 @@ func (s *authService) Logout(ctx context.Context, refreshToken string) error {
 }
 
 func (s *authService) RefreshToken(ctx context.Context, refreshToken string) (*TokenPair, error) {
-	userID, err := s.tokenRepo.GetUserIDByRefreshToken(ctx, refreshToken)
+	userID, err := s.tokenRepo.ReviveRefreshToken(ctx, refreshToken)
 	if err != nil {
 		if errors.Is(err, repository.ErrTokenNotFound) {
 			return nil, ErrInvalidToken
 		}
-		return nil, fmt.Errorf("get user id by refresh token: %w", err)
+		return nil, fmt.Errorf("consume refresh token: %w", err)
 	}
 
 	tokenPair, err := s.generateTokenPair(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("generate tokens: %w", err)
-	}
-
-	if err := s.tokenRepo.DeleteRefreshToken(ctx, refreshToken); err != nil {
-		return nil, fmt.Errorf("delete old refresh token: %w", err)
 	}
 
 	return tokenPair, nil
