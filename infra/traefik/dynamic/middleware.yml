@@ -44,5 +44,3 @@ http:
       service: api@internal
       entryPoints:
         - traefik
-
-

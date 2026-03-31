@@ -42,7 +42,7 @@ type ValkeyContainer struct {
 
 // NewValkeyContainer starts a Valkey container. Panics on error.
 func NewValkeyContainer(ctx context.Context) *ValkeyContainer {
-	ctr, err := tcvalkey.Run(ctx, "valkey/valkey:8-alpine",
+	ctr, err := tcvalkey.Run(ctx, "valkey/valkey:9-alpine",
 		testcontainers.WithWaitStrategy(
 			wait.ForLog("Ready to accept connections"),
 		),

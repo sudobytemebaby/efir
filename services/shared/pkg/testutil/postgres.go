@@ -51,7 +51,7 @@ type PostgresContainer struct {
 // migration files for the service under test (e.g. "../../migrations").
 // Panics on error — this is called from TestMain where panic is appropriate.
 func NewPostgresContainer(ctx context.Context, migrationsDir string) *PostgresContainer {
-	ctr, err := tcpostgres.Run(ctx, "postgres:17-alpine",
+	ctr, err := tcpostgres.Run(ctx, "postgres:18-alpine",
 		tcpostgres.WithDatabase("testdb"),
 		tcpostgres.WithUsername("testuser"),
 		tcpostgres.WithPassword("testpass"),
