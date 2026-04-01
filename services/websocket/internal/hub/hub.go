@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"slices"
 )
 
 const (
@@ -162,10 +163,8 @@ func (h *Hub) addConn(conn Conn, userID, roomID string) {
 	}
 
 	userConns := h.rooms[roomID][userID]
-	for _, existing := range userConns {
-		if existing == conn {
-			return
-		}
+	if slices.Contains(userConns, conn) {
+		return
 	}
 	h.rooms[roomID][userID] = append(userConns, conn)
 
