@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -37,6 +38,22 @@ type Config struct {
 	} `yaml:"rate_limit"`
 }
 
+func (c *Config) Validate() error {
+	if len(c.Auth.Secret) < 32 {
+		return fmt.Errorf("JWT_SECRET must be at least 32 bytes, got %d", len(c.Auth.Secret))
+	}
+	if c.Auth.AccessTTL <= 0 {
+		return errors.New("JWT_ACCESS_TTL must be positive")
+	}
+	if c.Auth.RefreshTTL <= 0 {
+		return errors.New("JWT_REFRESH_TTL must be positive")
+	}
+	if c.RateLimit.Requests <= 0 {
+		return errors.New("RATE_LIMIT_REQUESTS must be positive")
+	}
+	return nil
+}
+
 func Load(path string) (*Config, error) {
 	cfg := &Config{}
 	if err := cleanenv.ReadConfig(path, cfg); err != nil {
@@ -44,6 +61,9 @@ func Load(path string) (*Config, error) {
 	}
 	if err := cfg.Env.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid environment: %w", err)
+	}
+	if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid config: %w", err)
 	}
 	return cfg, nil
 }
