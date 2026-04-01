@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
-	"sync"
 )
 
 const (
@@ -59,8 +58,8 @@ type StatusCode int
 const StatusAbnormalClosure StatusCode = 1006
 
 type Conn interface {
-	WriteJSON(v any) error
 	Close(code StatusCode, reason string) error
+	Send(data []byte) bool
 }
 
 type Hub struct {
@@ -163,6 +162,11 @@ func (h *Hub) addConn(conn Conn, userID, roomID string) {
 	}
 
 	userConns := h.rooms[roomID][userID]
+	for _, existing := range userConns {
+		if existing == conn {
+			return
+		}
+	}
 	h.rooms[roomID][userID] = append(userConns, conn)
 
 	if h.connRooms[conn] == nil {
@@ -232,22 +236,21 @@ func (h *Hub) sendToRoom(roomID string, envelope Envelope) {
 		return
 	}
 
-	var wg sync.WaitGroup
+	data, err := json.Marshal(envelope)
+	if err != nil {
+		slog.Error("failed to marshal envelope", "error", err)
+		return
+	}
+
 	for _, conns := range room {
 		for _, conn := range conns {
-			wg.Add(1)
-			go func(c Conn) {
-				defer wg.Done()
-				if err := c.WriteJSON(envelope); err != nil {
-					slog.Error("failed to write to conn", "error", err)
-					if closeErr := c.Close(StatusAbnormalClosure, "write error"); closeErr != nil {
-						slog.Error("failed to close conn", "error", closeErr)
-					}
-				}
-			}(conn)
+			if !conn.Send(data) {
+				go func(c Conn) {
+					c.Close(StatusAbnormalClosure, "slow write")
+				}(conn)
+			}
 		}
 	}
-	wg.Wait()
 }
 
 func (h *Hub) getRoomUserCount(roomID string) int {

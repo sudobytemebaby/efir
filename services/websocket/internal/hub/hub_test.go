@@ -2,6 +2,7 @@ package hub
 
 import (
 	"context"
+	"encoding/json"
 	"sync"
 	"testing"
 	"time"
@@ -25,17 +26,18 @@ func newMockConn() *mockConn {
 	}
 }
 
-func (m *mockConn) WriteJSON(v any) error {
+func (m *mockConn) Send(data []byte) bool {
 	m.mu.Lock()
-	if env, ok := v.(Envelope); ok {
+	defer m.mu.Unlock()
+	var env Envelope
+	if err := json.Unmarshal(data, &env); err == nil {
 		m.writes = append(m.writes, env)
 		select {
 		case m.writeSignal <- struct{}{}:
 		default:
 		}
 	}
-	m.mu.Unlock()
-	return nil
+	return true
 }
 
 func (m *mockConn) Close(code StatusCode, reason string) error {
@@ -317,8 +319,8 @@ type errorMockConn struct {
 	closeReason string
 }
 
-func (m *errorMockConn) WriteJSON(v any) error {
-	return assert.AnError
+func (m *errorMockConn) Send(data []byte) bool {
+	return false
 }
 
 func (m *errorMockConn) Close(code StatusCode, reason string) error {
