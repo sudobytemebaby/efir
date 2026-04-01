@@ -11,12 +11,14 @@ import (
 )
 
 var (
-	ErrRoomNotFound      = errors.New("room not found")
-	ErrNotOwner          = errors.New("only owner can perform this action")
-	ErrNotMember         = errors.New("must be a room member to perform this action")
-	ErrDirectRoomExists  = errors.New("direct room already exists between these users")
-	ErrMemberNotFound    = errors.New("member not found")
-	ErrCannotRemoveOwner = errors.New("owner cannot be removed from the room")
+	ErrRoomNotFound        = errors.New("room not found")
+	ErrNotOwner            = errors.New("only owner can perform this action")
+	ErrNotMember           = errors.New("must be a room member to perform this action")
+	ErrDirectRoomExists    = errors.New("direct room already exists between these users")
+	ErrMemberNotFound      = errors.New("member not found")
+	ErrCannotRemoveOwner   = errors.New("owner cannot be removed from the room")
+	ErrInvalidDirectRoom   = errors.New("invalid direct room parameters")
+	ErrDirectRoomImmutable = errors.New("direct rooms cannot be modified")
 )
 
 //go:generate mockery --name Publisher
@@ -51,6 +53,15 @@ func NewRoomService(roomRepo repository.RoomRepository, publisher Publisher) Roo
 
 func (s *roomService) CreateRoom(ctx context.Context, name string, roomType RoomType, createdBy, participantID uuid.UUID) (*Room, error) {
 	repoType := repository.RoomType(roomType)
+
+	if repoType == repository.RoomTypeDirect {
+		if participantID == uuid.Nil {
+			return nil, ErrInvalidDirectRoom
+		}
+		if createdBy == participantID {
+			return nil, ErrInvalidDirectRoom
+		}
+	}
 
 	room, err := s.roomRepo.CreateRoom(ctx, name, repoType, createdBy, participantID)
 	if err != nil {
@@ -155,12 +166,16 @@ func (s *roomService) DeleteRoom(ctx context.Context, roomID uuid.UUID, requeste
 }
 
 func (s *roomService) AddMember(ctx context.Context, roomID, userID, requesterID uuid.UUID) error {
-	_, err := s.roomRepo.GetRoomByID(ctx, roomID)
+	room, err := s.roomRepo.GetRoomByID(ctx, roomID)
 	if err != nil {
 		if errors.Is(err, repository.ErrRoomNotFound) {
 			return ErrRoomNotFound
 		}
 		return fmt.Errorf("get room: %w", err)
+	}
+
+	if room.Type == repository.RoomTypeDirect {
+		return ErrDirectRoomImmutable
 	}
 
 	isMember, err := s.roomRepo.IsMember(ctx, roomID, requesterID)
@@ -200,12 +215,16 @@ func (s *roomService) AddMember(ctx context.Context, roomID, userID, requesterID
 }
 
 func (s *roomService) RemoveMember(ctx context.Context, roomID, userID, requesterID uuid.UUID) error {
-	_, err := s.roomRepo.GetRoomByID(ctx, roomID)
+	room, err := s.roomRepo.GetRoomByID(ctx, roomID)
 	if err != nil {
 		if errors.Is(err, repository.ErrRoomNotFound) {
 			return ErrRoomNotFound
 		}
 		return fmt.Errorf("get room: %w", err)
+	}
+
+	if room.Type == repository.RoomTypeDirect {
+		return ErrDirectRoomImmutable
 	}
 
 	requesterRole, err := s.roomRepo.GetMemberRole(ctx, roomID, requesterID)
