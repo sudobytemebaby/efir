@@ -2,6 +2,8 @@ package nats
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"log/slog"
 	"time"
@@ -11,6 +13,11 @@ import (
 	"github.com/sudobytemebaby/efir/services/shared/pkg/nats"
 	"github.com/sudobytemebaby/efir/services/user/internal/service"
 )
+
+func hashEmail(email string) string {
+	h := sha256.Sum256([]byte(email))
+	return hex.EncodeToString(h[:4])
+}
 
 type SubscriberConfig struct {
 	MaxDeliver int
@@ -82,7 +89,7 @@ func (s *subscriber) handleMessage(ctx context.Context, msg jetstream.Msg) {
 		return
 	}
 
-	slog.Info("user created from NATS event", "user_id", userID, "email", payload.Email)
+	slog.Info("user created from NATS event", "user_id", userID, "email_hash", hashEmail(payload.Email))
 	if err := msg.Ack(); err != nil {
 		slog.Error("failed to ack message", "error", err)
 	}
