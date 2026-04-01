@@ -24,13 +24,13 @@ func TestCreateUser(t *testing.T) {
 
 		expectedUser := &repository.User{
 			ID:          userID,
-			Username:    "john",
-			DisplayName: "john",
+			Username:    "brave-wolf",
+			DisplayName: "brave-wolf",
 			CreatedAt:   time.Now(),
 			UpdatedAt:   time.Now(),
 		}
 
-		mockRepo.On("CreateUser", ctx, userID, "john", "john").Return(expectedUser, nil).Once()
+		mockRepo.On("CreateUser", ctx, userID, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(expectedUser, nil).Once()
 
 		user, err := svc.CreateUser(ctx, userID, email)
 
@@ -50,13 +50,13 @@ func TestCreateUser(t *testing.T) {
 
 		existingUser := &repository.User{
 			ID:          userID,
-			Username:    "john",
-			DisplayName: "john",
+			Username:    "brave-wolf",
+			DisplayName: "brave-wolf",
 			CreatedAt:   time.Now(),
 			UpdatedAt:   time.Now(),
 		}
 
-		mockRepo.On("CreateUser", ctx, userID, "john", "john").Return(nil, repository.ErrUserAlreadyExists).Once()
+		mockRepo.On("CreateUser", ctx, userID, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil, repository.ErrUserAlreadyExists).Once()
 		mockRepo.On("GetUserByID", ctx, userID).Return(existingUser, nil).Once()
 
 		user, err := svc.CreateUser(ctx, userID, email)
@@ -64,6 +64,33 @@ func TestCreateUser(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, existingUser.ID, user.ID)
 		assert.Equal(t, existingUser.Username, user.Username)
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("username collision retries and succeeds", func(t *testing.T) {
+		mockRepo := mocks.NewUserRepository(t)
+		svc := NewUserService(mockRepo)
+
+		ctx := context.Background()
+		userID := uuid.New()
+		email := "alice@example.com"
+
+		expectedUser := &repository.User{
+			ID:          userID,
+			Username:    "calm-duck",
+			DisplayName: "calm-duck",
+			CreatedAt:   time.Now(),
+			UpdatedAt:   time.Now(),
+		}
+
+		mockRepo.On("CreateUser", ctx, userID, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil, repository.ErrUsernameAlreadyExists).Once()
+		mockRepo.On("CreateUser", ctx, userID, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(expectedUser, nil).Once()
+
+		user, err := svc.CreateUser(ctx, userID, email)
+
+		require.NoError(t, err)
+		assert.Equal(t, expectedUser.ID, user.ID)
+		assert.Equal(t, expectedUser.Username, user.Username)
 		mockRepo.AssertExpectations(t)
 	})
 }
@@ -214,29 +241,4 @@ func TestUpdateUser(t *testing.T) {
 		assert.Nil(t, user)
 		mockRepo.AssertExpectations(t)
 	})
-}
-
-func TestGenerateUsernameFromEmail(t *testing.T) {
-	tests := []struct {
-		email    string
-		expected string
-	}{
-		{"john@example.com", "john"},
-		{"Jane.Doe@company.org", "jane.doe"},
-		{"user+tag@domain.com", "user+tag"},
-		{"just-a-name", "just-a-name"},
-	}
-
-	for _, tt := range tests {
-		result := generateUsernameFromEmail(tt.email)
-		assert.Equal(t, tt.expected, result)
-	}
-}
-
-func TestGenerateUsernameFromEmail_EdgeCases(t *testing.T) {
-	result := generateUsernameFromEmail("")
-	assert.Regexp(t, `^user-[a-f0-9]{8}$`, result)
-
-	result = generateUsernameFromEmail("@example.com")
-	assert.Regexp(t, `^user-[a-f0-9]{8}$`, result)
 }

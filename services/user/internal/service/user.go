@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/google/uuid"
+	"github.com/sudobytemebaby/efir/services/shared/pkg"
 	"github.com/sudobytemebaby/efir/services/user/internal/repository"
 )
 
@@ -29,11 +29,19 @@ func NewUserService(userRepo repository.UserRepository) UserService {
 }
 
 func (s *userService) CreateUser(ctx context.Context, userID uuid.UUID, email string) (*User, error) {
-	username := generateUsernameFromEmail(email)
-	displayName := username
+	const maxAttempts = 3
 
-	user, err := s.userRepo.CreateUser(ctx, userID, username, displayName)
-	if err != nil {
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		username, err := pkg.GenerateUsername()
+		if err != nil {
+			return nil, fmt.Errorf("generate username: %w", err)
+		}
+
+		user, err := s.userRepo.CreateUser(ctx, userID, username, username)
+		if err == nil {
+			return toUser(user), nil
+		}
+
 		if errors.Is(err, repository.ErrUserAlreadyExists) {
 			existing, err := s.userRepo.GetUserByID(ctx, userID)
 			if err != nil {
@@ -41,10 +49,15 @@ func (s *userService) CreateUser(ctx context.Context, userID uuid.UUID, email st
 			}
 			return toUser(existing), nil
 		}
+
+		if errors.Is(err, repository.ErrUsernameAlreadyExists) {
+			continue
+		}
+
 		return nil, fmt.Errorf("create user: %w", err)
 	}
 
-	return toUser(user), nil
+	return nil, fmt.Errorf("failed to generate unique username after %d attempts", maxAttempts)
 }
 
 func (s *userService) GetUser(ctx context.Context, userID uuid.UUID) (*User, error) {
@@ -83,12 +96,4 @@ func (s *userService) UpdateUser(ctx context.Context, userID uuid.UUID, displayN
 	}
 
 	return toUser(user), nil
-}
-
-func generateUsernameFromEmail(email string) string {
-	username := strings.ToLower(strings.SplitN(email, "@", 2)[0])
-	if username == "" {
-		return "user-" + uuid.New().String()[:8]
-	}
-	return username
 }
