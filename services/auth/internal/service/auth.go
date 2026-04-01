@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -13,6 +15,11 @@ import (
 	"github.com/sudobytemebaby/efir/services/auth/internal/repository"
 	"golang.org/x/crypto/bcrypt"
 )
+
+func hashEmail(email string) string {
+	h := sha256.Sum256([]byte(email))
+	return hex.EncodeToString(h[:4])
+}
 
 var (
 	ErrAccountAlreadyExists = errors.New("account already exists")
@@ -82,7 +89,7 @@ func (s *authService) Register(ctx context.Context, email, password string) (*Ac
 		if errors.As(err, &rateLimitErr) {
 			slog.WarnContext(ctx, "rate limit exceeded",
 				"action", ratelimit.ActionRegister,
-				"email", email,
+				"email_hash", hashEmail(email),
 			)
 			return nil, nil, ErrRateLimitExceeded
 		}
@@ -120,7 +127,7 @@ func (s *authService) Register(ctx context.Context, email, password string) (*Ac
 		slog.Error("failed to publish user registered event, event may be lost",
 			"event_lost", true,
 			"user_id", acc.ID,
-			"email", acc.Email,
+			"email_hash", hashEmail(acc.Email),
 			"error", err,
 		)
 	}
@@ -134,7 +141,7 @@ func (s *authService) Login(ctx context.Context, email, password string) (*Accou
 		if errors.As(err, &rateLimitErr) {
 			slog.WarnContext(ctx, "rate limit exceeded",
 				"action", ratelimit.ActionLogin,
-				"email", email,
+				"email_hash", hashEmail(email),
 			)
 			return nil, nil, ErrRateLimitExceeded
 		}
