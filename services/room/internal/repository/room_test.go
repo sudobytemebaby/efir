@@ -25,12 +25,10 @@ func TestMain(m *testing.M) {
 	os.Exit(exitCode)
 }
 
-// createRoom creates a group room and adds the creator as owner.
+// createRoom creates a group room (owner is added automatically by CreateRoom).
 func createRoom(t *testing.T, repo repository.RoomRepository, createdBy uuid.UUID) *repository.Room {
 	t.Helper()
 	room, err := repo.CreateRoom(context.Background(), testutil.RandomRoomName(), repository.RoomTypeGroup, createdBy, uuid.Nil)
-	require.NoError(t, err)
-	_, err = repo.AddMember(context.Background(), room.ID, createdBy, repository.MemberRoleOwner)
 	require.NoError(t, err)
 	return room
 }
@@ -238,13 +236,13 @@ func TestGetRoomMembers(t *testing.T) {
 		assert.Len(t, members, 3)
 	})
 
-	t.Run("empty room returns empty slice", func(t *testing.T) {
-		emptyRoom, err := repo.CreateRoom(ctx, testutil.RandomRoomName(), repository.RoomTypeGroup, ownerID, uuid.Nil)
+	t.Run("room has owner member", func(t *testing.T) {
+		room, err := repo.CreateRoom(ctx, testutil.RandomRoomName(), repository.RoomTypeGroup, ownerID, uuid.Nil)
 		require.NoError(t, err)
 
-		members, err := repo.GetRoomMembers(ctx, emptyRoom.ID)
+		members, err := repo.GetRoomMembers(ctx, room.ID)
 		require.NoError(t, err)
-		assert.Empty(t, members)
+		assert.Len(t, members, 1)
 	})
 }
 
