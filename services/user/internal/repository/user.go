@@ -12,8 +12,9 @@ import (
 )
 
 var (
-	ErrUserNotFound      = errors.New("user not found")
-	ErrUserAlreadyExists = errors.New("user already exists")
+	ErrUserNotFound          = errors.New("user not found")
+	ErrUserAlreadyExists     = errors.New("user already exists")
+	ErrUsernameAlreadyExists = errors.New("username already exists")
 )
 
 type User struct {
@@ -46,7 +47,8 @@ func (r *pgUserRepository) CreateUser(ctx context.Context, id uuid.UUID, usernam
 	const query = `
 		INSERT INTO users (id, username, display_name)
 		VALUES ($1, $2, $3)
-		ON CONFLICT (id) DO NOTHING
+		ON CONFLICT (id) DO UPDATE SET username = EXCLUDED.username
+		ON CONFLICT (username) DO NOTHING
 		RETURNING id, username, display_name, avatar_url, bio, created_at, updated_at
 	`
 
@@ -56,12 +58,30 @@ func (r *pgUserRepository) CreateUser(ctx context.Context, id uuid.UUID, usernam
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
+			exists, checkErr := r.checkUsernameExists(ctx, username)
+			if checkErr != nil {
+				return nil, fmt.Errorf("check username: %w", checkErr)
+			}
+			if exists {
+				return nil, ErrUsernameAlreadyExists
+			}
 			return nil, ErrUserAlreadyExists
 		}
 		return nil, fmt.Errorf("create user: %w", err)
 	}
 
 	return user, nil
+}
+
+func (r *pgUserRepository) checkUsernameExists(ctx context.Context, username string) (bool, error) {
+	const query = `SELECT EXISTS(SELECT 1 FROM users WHERE username = $1)`
+
+	var exists bool
+	err := r.pool.QueryRow(ctx, query, username).Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
 }
 
 func (r *pgUserRepository) GetUserByID(ctx context.Context, id uuid.UUID) (*User, error) {
