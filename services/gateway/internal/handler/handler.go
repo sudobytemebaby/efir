@@ -2,7 +2,6 @@ package handler
 
 import (
 	"encoding/json"
-	stderrors "errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -84,12 +83,12 @@ func WriteProto(w http.ResponseWriter, status int, msg proto.Message) {
 }
 
 func ReadProto(r *http.Request, msg proto.Message) error {
-	body, err := io.ReadAll(io.LimitReader(r.Body, maxBodySize))
+	body, err := io.ReadAll(io.LimitReader(r.Body, maxBodySize+1))
 	if err != nil {
-		if stderrors.Is(err, io.EOF) && int64(len(body)) >= maxBodySize {
-			return errors.CodeInvalidArgument.Error("request body too large")
-		}
 		return err
+	}
+	if int64(len(body)) > maxBodySize {
+		return errors.CodeInvalidArgument.Error("request body too large")
 	}
 	if err := unmarshaler.Unmarshal(body, msg); err != nil {
 		return errors.CodeInvalidArgument.Wrap(err)
