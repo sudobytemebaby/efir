@@ -33,6 +33,42 @@ func (_m *Publisher) PublishMembershipChanged(ctx context.Context, roomID uuid.U
 	return r0
 }
 
+// PublishRoomCreated provides a mock function with given fields: ctx, roomID, recipientIDs
+func (_m *Publisher) PublishRoomCreated(ctx context.Context, roomID uuid.UUID, recipientIDs []uuid.UUID) error {
+	ret := _m.Called(ctx, roomID, recipientIDs)
+
+	if len(ret) == 0 {
+		panic("no return value specified for PublishRoomCreated")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, []uuid.UUID) error); ok {
+		r0 = rf(ctx, roomID, recipientIDs)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// PublishRoomDeleted provides a mock function with given fields: ctx, roomID, recipientIDs
+func (_m *Publisher) PublishRoomDeleted(ctx context.Context, roomID uuid.UUID, recipientIDs []uuid.UUID) error {
+	ret := _m.Called(ctx, roomID, recipientIDs)
+
+	if len(ret) == 0 {
+		panic("no return value specified for PublishRoomDeleted")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, []uuid.UUID) error); ok {
+		r0 = rf(ctx, roomID, recipientIDs)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // PublishRoomUpdated provides a mock function with given fields: ctx, roomID, name, recipientIDs
 func (_m *Publisher) PublishRoomUpdated(ctx context.Context, roomID uuid.UUID, name string, recipientIDs []uuid.UUID) error {
 	ret := _m.Called(ctx, roomID, name, recipientIDs)

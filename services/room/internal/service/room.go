@@ -23,8 +23,10 @@ var (
 
 //go:generate mockery --name Publisher
 type Publisher interface {
+	PublishRoomCreated(ctx context.Context, roomID uuid.UUID, recipientIDs []uuid.UUID) error
 	PublishMembershipChanged(ctx context.Context, roomID, userID uuid.UUID, action string, recipientIDs []uuid.UUID) error
 	PublishRoomUpdated(ctx context.Context, roomID uuid.UUID, name string, recipientIDs []uuid.UUID) error
+	PublishRoomDeleted(ctx context.Context, roomID uuid.UUID, recipientIDs []uuid.UUID) error
 }
 
 //go:generate mockery --name RoomService
@@ -69,6 +71,25 @@ func (s *roomService) CreateRoom(ctx context.Context, name string, roomType Room
 			return nil, ErrDirectRoomExists
 		}
 		return nil, fmt.Errorf("create room: %w", err)
+	}
+
+	members, err := s.roomRepo.GetRoomMembers(ctx, room.ID)
+	if err != nil {
+		slog.Error("failed to get room members for room.created event",
+			"room_id", room.ID,
+			"error", err,
+		)
+		return toRoom(room), nil
+	}
+
+	recipientIDs := memberUserIDs(members)
+
+	if err := s.publisher.PublishRoomCreated(ctx, room.ID, recipientIDs); err != nil {
+		slog.Error("failed to publish room created event, event may be lost",
+			"event_lost", true,
+			"room_id", room.ID,
+			"error", err,
+		)
 	}
 
 	return toRoom(room), nil
@@ -158,6 +179,23 @@ func (s *roomService) DeleteRoom(ctx context.Context, roomID uuid.UUID, requeste
 		return ErrNotOwner
 	}
 
+	members, err := s.roomRepo.GetRoomMembers(ctx, roomID)
+	if err != nil {
+		slog.Error("failed to get room members for room.deleted event",
+			"room_id", roomID,
+			"error", err,
+		)
+	} else {
+		recipientIDs := memberUserIDs(members)
+		if err := s.publisher.PublishRoomDeleted(ctx, roomID, recipientIDs); err != nil {
+			slog.Error("failed to publish room deleted event, event may be lost",
+				"event_lost", true,
+				"room_id", roomID,
+				"error", err,
+			)
+		}
+	}
+
 	if err := s.roomRepo.DeleteRoom(ctx, roomID); err != nil {
 		return fmt.Errorf("delete room: %w", err)
 	}
@@ -196,7 +234,12 @@ func (s *roomService) AddMember(ctx context.Context, roomID, userID, requesterID
 
 	members, err := s.roomRepo.GetRoomMembers(ctx, roomID)
 	if err != nil {
-		return fmt.Errorf("get members for event: %w", err)
+		slog.Error("failed to get room members for membership.changed event",
+			"room_id", roomID,
+			"user_id", userID,
+			"error", err,
+		)
+		return nil
 	}
 
 	recipientIDs := memberUserIDs(members)
@@ -265,7 +308,12 @@ func (s *roomService) RemoveMember(ctx context.Context, roomID, userID, requeste
 
 	members, err := s.roomRepo.GetRoomMembers(ctx, roomID)
 	if err != nil {
-		return fmt.Errorf("get members for event: %w", err)
+		slog.Error("failed to get room members for membership.changed event",
+			"room_id", roomID,
+			"user_id", userID,
+			"error", err,
+		)
+		return nil
 	}
 
 	recipientIDs := memberUserIDs(members)
