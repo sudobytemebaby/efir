@@ -25,12 +25,10 @@ func TestMain(m *testing.M) {
 	os.Exit(exitCode)
 }
 
-// createRoom creates a group room and adds the creator as owner.
+// createRoom creates a group room (owner is added automatically by CreateRoom).
 func createRoom(t *testing.T, repo repository.RoomRepository, createdBy uuid.UUID) *repository.Room {
 	t.Helper()
-	room, err := repo.CreateRoom(context.Background(), testutil.RandomRoomName(), repository.RoomTypeGroup, createdBy)
-	require.NoError(t, err)
-	_, err = repo.AddMember(context.Background(), room.ID, createdBy, repository.MemberRoleOwner)
+	room, err := repo.CreateRoom(context.Background(), testutil.RandomRoomName(), repository.RoomTypeGroup, createdBy, uuid.Nil)
 	require.NoError(t, err)
 	return room
 }
@@ -52,7 +50,11 @@ func TestCreateRoom(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			room, err := repo.CreateRoom(ctx, testutil.RandomRoomName(), tc.roomType, ownerID)
+			participantID := uuid.Nil
+			if tc.roomType == repository.RoomTypeDirect {
+				participantID = testutil.RandomUUID()
+			}
+			room, err := repo.CreateRoom(ctx, testutil.RandomRoomName(), tc.roomType, ownerID, participantID)
 			require.NoError(t, err)
 			require.NotNil(t, room)
 			assert.NotEmpty(t, room.ID)
@@ -234,13 +236,13 @@ func TestGetRoomMembers(t *testing.T) {
 		assert.Len(t, members, 3)
 	})
 
-	t.Run("empty room returns empty slice", func(t *testing.T) {
-		emptyRoom, err := repo.CreateRoom(ctx, testutil.RandomRoomName(), repository.RoomTypeGroup, ownerID)
+	t.Run("room has owner member", func(t *testing.T) {
+		room, err := repo.CreateRoom(ctx, testutil.RandomRoomName(), repository.RoomTypeGroup, ownerID, uuid.Nil)
 		require.NoError(t, err)
 
-		members, err := repo.GetRoomMembers(ctx, emptyRoom.ID)
+		members, err := repo.GetRoomMembers(ctx, room.ID)
 		require.NoError(t, err)
-		assert.Empty(t, members)
+		assert.Len(t, members, 1)
 	})
 }
 
@@ -317,11 +319,7 @@ func TestGetDirectRoomByUsers(t *testing.T) {
 	userB := testutil.RandomUUID()
 
 	// Create a direct room between A and B.
-	direct, err := repo.CreateRoom(ctx, "direct", repository.RoomTypeDirect, userA)
-	require.NoError(t, err)
-	_, err = repo.AddMember(ctx, direct.ID, userA, repository.MemberRoleOwner)
-	require.NoError(t, err)
-	_, err = repo.AddMember(ctx, direct.ID, userB, repository.MemberRoleMember)
+	direct, err := repo.CreateRoom(ctx, "direct", repository.RoomTypeDirect, userA, userB)
 	require.NoError(t, err)
 
 	// Create a group room that both A and B belong to — should NOT be returned.

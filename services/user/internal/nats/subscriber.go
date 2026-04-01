@@ -65,8 +65,8 @@ func (s *subscriber) handleMessage(ctx context.Context, msg jetstream.Msg) {
 
 	if err := json.Unmarshal(msg.Data(), &payload); err != nil {
 		slog.Error("failed to unmarshal user registered event", "error", err)
-		if err := msg.Nak(); err != nil {
-			slog.Error("failed to nak message", "error", err)
+		if err := msg.Term(); err != nil {
+			slog.Error("failed to term message", "error", err)
 		}
 		return
 	}
@@ -74,8 +74,8 @@ func (s *subscriber) handleMessage(ctx context.Context, msg jetstream.Msg) {
 	userID, err := uuid.Parse(payload.UserID)
 	if err != nil {
 		slog.Error("failed to parse user_id", "user_id", payload.UserID, "error", err)
-		if err := msg.Nak(); err != nil {
-			slog.Error("failed to nak message", "error", err)
+		if err := msg.Term(); err != nil {
+			slog.Error("failed to term message", "error", err)
 		}
 		return
 	}

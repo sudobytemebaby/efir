@@ -11,6 +11,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/sudobytemebaby/efir/services/auth/internal/ratelimit"
 	"github.com/sudobytemebaby/efir/services/auth/internal/repository"
 	"golang.org/x/crypto/bcrypt"
@@ -111,6 +112,9 @@ func (s *authService) Register(ctx context.Context, email, password string) (*Ac
 
 	acc, err := s.accountRepo.CreateAccount(ctx, email, string(hashedPassword))
 	if err != nil {
+		if isUniqueViolation(err) {
+			return nil, nil, ErrAccountAlreadyExists
+		}
 		return nil, nil, fmt.Errorf("create account: %w", err)
 	}
 
@@ -191,6 +195,14 @@ func (s *authService) RefreshToken(ctx context.Context, refreshToken string) (*T
 	}
 
 	return tokenPair, nil
+}
+
+func isUniqueViolation(err error) bool {
+	var pgxErr *pgconn.PgError
+	if errors.As(err, &pgxErr) && pgxErr.Code == "23505" {
+		return true
+	}
+	return false
 }
 
 func (s *authService) generateTokenPair(ctx context.Context, userID uuid.UUID) (*TokenPair, error) {

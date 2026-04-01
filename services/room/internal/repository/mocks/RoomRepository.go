@@ -46,9 +46,9 @@ func (_m *RoomRepository) AddMember(ctx context.Context, roomID uuid.UUID, userI
 	return r0, r1
 }
 
-// CreateRoom provides a mock function with given fields: ctx, name, roomType, createdBy
-func (_m *RoomRepository) CreateRoom(ctx context.Context, name string, roomType repository.RoomType, createdBy uuid.UUID) (*repository.Room, error) {
-	ret := _m.Called(ctx, name, roomType, createdBy)
+// CreateRoom provides a mock function with given fields: ctx, name, roomType, createdBy, participantID
+func (_m *RoomRepository) CreateRoom(ctx context.Context, name string, roomType repository.RoomType, createdBy uuid.UUID, participantID uuid.UUID) (*repository.Room, error) {
+	ret := _m.Called(ctx, name, roomType, createdBy, participantID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for CreateRoom")
@@ -56,19 +56,19 @@ func (_m *RoomRepository) CreateRoom(ctx context.Context, name string, roomType 
 
 	var r0 *repository.Room
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, repository.RoomType, uuid.UUID) (*repository.Room, error)); ok {
-		return rf(ctx, name, roomType, createdBy)
+	if rf, ok := ret.Get(0).(func(context.Context, string, repository.RoomType, uuid.UUID, uuid.UUID) (*repository.Room, error)); ok {
+		return rf(ctx, name, roomType, createdBy, participantID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, repository.RoomType, uuid.UUID) *repository.Room); ok {
-		r0 = rf(ctx, name, roomType, createdBy)
+	if rf, ok := ret.Get(0).(func(context.Context, string, repository.RoomType, uuid.UUID, uuid.UUID) *repository.Room); ok {
+		r0 = rf(ctx, name, roomType, createdBy, participantID)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*repository.Room)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string, repository.RoomType, uuid.UUID) error); ok {
-		r1 = rf(ctx, name, roomType, createdBy)
+	if rf, ok := ret.Get(1).(func(context.Context, string, repository.RoomType, uuid.UUID, uuid.UUID) error); ok {
+		r1 = rf(ctx, name, roomType, createdBy, participantID)
 	} else {
 		r1 = ret.Error(1)
 	}

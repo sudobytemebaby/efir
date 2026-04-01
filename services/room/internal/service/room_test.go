@@ -42,10 +42,8 @@ func TestCreateRoom(t *testing.T) {
 		roomID := uuid.New()
 		userID := uuid.New()
 
-		mockRepo.On("CreateRoom", ctx, "Test Room", repository.RoomTypeGroup, userID).
+		mockRepo.On("CreateRoom", ctx, "Test Room", repository.RoomTypeGroup, userID, uuid.Nil).
 			Return(repoRoom(roomID, userID, "Test Room", repository.RoomTypeGroup), nil).Once()
-		mockRepo.On("AddMember", ctx, roomID, userID, repository.MemberRoleOwner).
-			Return(&repository.RoomMember{}, nil).Once()
 
 		room, err := svc.CreateRoom(ctx, "Test Room", service.RoomTypeGroup, userID, uuid.Nil)
 
@@ -60,10 +58,9 @@ func TestCreateRoom(t *testing.T) {
 		ctx := context.Background()
 		userID := uuid.New()
 		participantID := uuid.New()
-		existingRoomID := uuid.New()
 
-		mockRepo.On("GetDirectRoomByUsers", ctx, userID, participantID).
-			Return(repoRoom(existingRoomID, userID, "Existing", repository.RoomTypeDirect), nil).Once()
+		mockRepo.On("CreateRoom", ctx, "New Room", repository.RoomTypeDirect, userID, participantID).
+			Return(nil, repository.ErrDirectRoomExists).Once()
 
 		room, err := svc.CreateRoom(ctx, "New Room", service.RoomTypeDirect, userID, participantID)
 
@@ -78,14 +75,8 @@ func TestCreateRoom(t *testing.T) {
 		userID := uuid.New()
 		participantID := uuid.New()
 
-		mockRepo.On("GetDirectRoomByUsers", ctx, userID, participantID).
-			Return(nil, repository.ErrRoomNotFound).Once()
-		mockRepo.On("CreateRoom", ctx, "Direct Room", repository.RoomTypeDirect, userID).
+		mockRepo.On("CreateRoom", ctx, "Direct Room", repository.RoomTypeDirect, userID, participantID).
 			Return(repoRoom(roomID, userID, "Direct Room", repository.RoomTypeDirect), nil).Once()
-		mockRepo.On("AddMember", ctx, roomID, userID, repository.MemberRoleOwner).
-			Return(&repository.RoomMember{}, nil).Once()
-		mockRepo.On("AddMember", ctx, roomID, participantID, repository.MemberRoleMember).
-			Return(&repository.RoomMember{}, nil).Once()
 
 		room, err := svc.CreateRoom(ctx, "Direct Room", service.RoomTypeDirect, userID, participantID)
 
@@ -425,36 +416,22 @@ func TestCreateRoom_RepoError(t *testing.T) {
 	t.Run("create room fails", func(t *testing.T) {
 		svc, mockRepo, _ := newSvc(t)
 		ctx := context.Background()
-
-		mockRepo.On("CreateRoom", ctx, "Room", repository.RoomTypeGroup, mock.Anything).
-			Return(nil, errors.New("db down")).Once()
-
-		_, err := svc.CreateRoom(ctx, "Room", service.RoomTypeGroup, uuid.New(), uuid.Nil)
-		assert.Error(t, err)
-	})
-
-	t.Run("add owner fails", func(t *testing.T) {
-		svc, mockRepo, _ := newSvc(t)
-		ctx := context.Background()
-		roomID := uuid.New()
 		userID := uuid.New()
 
-		mockRepo.On("CreateRoom", ctx, "Room", repository.RoomTypeGroup, userID).
-			Return(repoRoom(roomID, userID, "Room", repository.RoomTypeGroup), nil).Once()
-		mockRepo.On("AddMember", ctx, roomID, userID, repository.MemberRoleOwner).
-			Return(nil, errors.New("constraint error")).Once()
+		mockRepo.On("CreateRoom", ctx, "Room", repository.RoomTypeGroup, userID, uuid.Nil).
+			Return(nil, errors.New("db down")).Once()
 
 		_, err := svc.CreateRoom(ctx, "Room", service.RoomTypeGroup, userID, uuid.Nil)
 		assert.Error(t, err)
 	})
 
-	t.Run("get direct room fails", func(t *testing.T) {
+	t.Run("direct room exists check fails", func(t *testing.T) {
 		svc, mockRepo, _ := newSvc(t)
 		ctx := context.Background()
 		userID := uuid.New()
 		participantID := uuid.New()
 
-		mockRepo.On("GetDirectRoomByUsers", ctx, userID, participantID).
+		mockRepo.On("CreateRoom", ctx, "Room", repository.RoomTypeDirect, userID, participantID).
 			Return(nil, errors.New("db error")).Once()
 
 		_, err := svc.CreateRoom(ctx, "Room", service.RoomTypeDirect, userID, participantID)
