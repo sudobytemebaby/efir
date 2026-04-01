@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/sudobytemebaby/efir/services/gateway/internal/handler"
+	"github.com/sudobytemebaby/efir/services/gateway/internal/middleware"
 	authv1 "github.com/sudobytemebaby/efir/services/shared/gen/auth"
 )
 
@@ -29,7 +30,8 @@ func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
 		handler.WriteError(w, r, err, "invalid request body")
 		return
 	}
-	resp, err := h.client.Register(r.Context(), &req)
+	ctx := middleware.InjectRequestIDToOutgoingContext(r.Context())
+	resp, err := h.client.Register(ctx, &req)
 	if err != nil {
 		handler.WriteError(w, r, err, "failed to register")
 		return
@@ -43,7 +45,8 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 		handler.WriteError(w, r, err, "invalid request body")
 		return
 	}
-	resp, err := h.client.Login(r.Context(), &req)
+	ctx := middleware.InjectRequestIDToOutgoingContext(r.Context())
+	resp, err := h.client.Login(ctx, &req)
 	if err != nil {
 		handler.WriteError(w, r, err, "failed to login")
 		return
@@ -57,7 +60,8 @@ func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
 		handler.WriteError(w, r, err, "invalid request body")
 		return
 	}
-	if _, err := h.client.Logout(r.Context(), &req); err != nil {
+	ctx := middleware.InjectRequestIDToOutgoingContext(r.Context())
+	if _, err := h.client.Logout(ctx, &req); err != nil {
 		handler.WriteError(w, r, err, "failed to logout")
 		return
 	}
@@ -70,7 +74,8 @@ func (h *Handler) refresh(w http.ResponseWriter, r *http.Request) {
 		handler.WriteError(w, r, err, "invalid request body")
 		return
 	}
-	resp, err := h.client.RefreshToken(r.Context(), &req)
+	ctx := middleware.InjectRequestIDToOutgoingContext(r.Context())
+	resp, err := h.client.RefreshToken(ctx, &req)
 	if err != nil {
 		handler.WriteError(w, r, err, "failed to refresh token")
 		return

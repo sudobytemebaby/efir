@@ -49,7 +49,7 @@ type RoomMember struct {
 
 //go:generate mockery --name RoomRepository
 type RoomRepository interface {
-	CreateRoom(ctx context.Context, name string, roomType RoomType, createdBy uuid.UUID) (*Room, error)
+	CreateRoom(ctx context.Context, name string, roomType RoomType, createdBy, participantID uuid.UUID) (*Room, error)
 	GetRoomByID(ctx context.Context, id uuid.UUID) (*Room, error)
 	UpdateRoom(ctx context.Context, id uuid.UUID, name string) (*Room, error)
 	DeleteRoom(ctx context.Context, id uuid.UUID) error
@@ -69,7 +69,23 @@ func NewRoomRepository(pool *pgxpool.Pool) RoomRepository {
 	return &pgRoomRepository{pool: pool}
 }
 
-func (r *pgRoomRepository) CreateRoom(ctx context.Context, name string, roomType RoomType, createdBy uuid.UUID) (*Room, error) {
+func (r *pgRoomRepository) CreateRoom(ctx context.Context, name string, roomType RoomType, createdBy, participantID uuid.UUID) (*Room, error) {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+	if err != nil {
+		return nil, fmt.Errorf("begin transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if roomType == RoomTypeDirect && participantID != uuid.Nil {
+		existing, err := r.getDirectRoomByUsersTx(ctx, tx, createdBy, participantID)
+		if err != nil && !errors.Is(err, ErrRoomNotFound) {
+			return nil, fmt.Errorf("check existing direct room: %w", err)
+		}
+		if existing != nil {
+			return nil, ErrDirectRoomExists
+		}
+	}
+
 	const query = `
 		INSERT INTO rooms (name, type, created_by)
 		VALUES ($1, $2, $3)
@@ -77,11 +93,58 @@ func (r *pgRoomRepository) CreateRoom(ctx context.Context, name string, roomType
 	`
 
 	room := &Room{}
-	err := r.pool.QueryRow(ctx, query, name, roomType, createdBy).Scan(
+	err = tx.QueryRow(ctx, query, name, roomType, createdBy).Scan(
 		&room.ID, &room.Name, &room.Type, &room.CreatedBy, &room.CreatedAt, &room.UpdatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("create room: %w", err)
+	}
+
+	const addMemberQuery = `
+		INSERT INTO room_members (room_id, user_id, role)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (room_id, user_id) DO NOTHING
+		RETURNING room_id, user_id, role, joined_at
+	`
+
+	_, err = tx.Exec(ctx, addMemberQuery, room.ID, createdBy, MemberRoleOwner)
+	if err != nil {
+		return nil, fmt.Errorf("add owner as member: %w", err)
+	}
+
+	if roomType == RoomTypeDirect && participantID != uuid.Nil {
+		_, err = tx.Exec(ctx, addMemberQuery, room.ID, participantID, MemberRoleMember)
+		if err != nil {
+			return nil, fmt.Errorf("add participant as member: %w", err)
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit transaction: %w", err)
+	}
+
+	return room, nil
+}
+
+func (r *pgRoomRepository) getDirectRoomByUsersTx(ctx context.Context, tx pgx.Tx, userID1, userID2 uuid.UUID) (*Room, error) {
+	const query = `
+		SELECT r.id, r.name, r.type, r.created_by, r.created_at, r.updated_at
+		FROM rooms r
+		JOIN room_members rm1 ON r.id = rm1.room_id AND rm1.user_id = $1
+		JOIN room_members rm2 ON r.id = rm2.room_id AND rm2.user_id = $2
+		WHERE r.type = 'direct'
+		LIMIT 1
+	`
+
+	room := &Room{}
+	err := tx.QueryRow(ctx, query, userID1, userID2).Scan(
+		&room.ID, &room.Name, &room.Type, &room.CreatedBy, &room.CreatedAt, &room.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrRoomNotFound
+		}
+		return nil, fmt.Errorf("get direct room by users: %w", err)
 	}
 
 	return room, nil

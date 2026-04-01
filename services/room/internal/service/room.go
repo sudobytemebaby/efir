@@ -52,33 +52,12 @@ func NewRoomService(roomRepo repository.RoomRepository, publisher Publisher) Roo
 func (s *roomService) CreateRoom(ctx context.Context, name string, roomType RoomType, createdBy, participantID uuid.UUID) (*Room, error) {
 	repoType := repository.RoomType(roomType)
 
-	if repoType == repository.RoomTypeDirect && participantID != uuid.Nil {
-		existing, err := s.roomRepo.GetDirectRoomByUsers(ctx, createdBy, participantID)
-		if err != nil && !errors.Is(err, repository.ErrRoomNotFound) {
-			return nil, fmt.Errorf("check existing direct room: %w", err)
-		}
-		if existing != nil {
+	room, err := s.roomRepo.CreateRoom(ctx, name, repoType, createdBy, participantID)
+	if err != nil {
+		if errors.Is(err, repository.ErrDirectRoomExists) {
 			return nil, ErrDirectRoomExists
 		}
-	}
-
-	room, err := s.roomRepo.CreateRoom(ctx, name, repoType, createdBy)
-	if err != nil {
 		return nil, fmt.Errorf("create room: %w", err)
-	}
-
-	if _, err := s.roomRepo.AddMember(ctx, room.ID, createdBy, repository.MemberRoleOwner); err != nil {
-		if !errors.Is(err, repository.ErrMemberAlreadyExists) {
-			return nil, fmt.Errorf("add owner as member: %w", err)
-		}
-	}
-
-	if repoType == repository.RoomTypeDirect && participantID != uuid.Nil {
-		if _, err := s.roomRepo.AddMember(ctx, room.ID, participantID, repository.MemberRoleMember); err != nil {
-			if !errors.Is(err, repository.ErrMemberAlreadyExists) {
-				return nil, fmt.Errorf("add participant as member: %w", err)
-			}
-		}
 	}
 
 	return toRoom(room), nil
@@ -194,6 +173,9 @@ func (s *roomService) AddMember(ctx context.Context, roomID, userID, requesterID
 
 	_, err = s.roomRepo.AddMember(ctx, roomID, userID, repository.MemberRoleMember)
 	if err != nil {
+		if errors.Is(err, repository.ErrMemberAlreadyExists) {
+			return nil
+		}
 		return fmt.Errorf("add member: %w", err)
 	}
 

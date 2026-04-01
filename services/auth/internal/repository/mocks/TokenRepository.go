@@ -35,12 +35,12 @@ func (_m *TokenRepository) DeleteRefreshToken(ctx context.Context, token string)
 	return r0
 }
 
-// ReviveRefreshToken provides a mock function with given fields: ctx, token
-func (_m *TokenRepository) ReviveRefreshToken(ctx context.Context, token string) (uuid.UUID, error) {
+// GetUserIDByRefreshToken provides a mock function with given fields: ctx, token
+func (_m *TokenRepository) GetUserIDByRefreshToken(ctx context.Context, token string) (uuid.UUID, error) {
 	ret := _m.Called(ctx, token)
 
 	if len(ret) == 0 {
-		panic("no return value specified for ReviveRefreshToken")
+		panic("no return value specified for GetUserIDByRefreshToken")
 	}
 
 	var r0 uuid.UUID
@@ -65,12 +65,12 @@ func (_m *TokenRepository) ReviveRefreshToken(ctx context.Context, token string)
 	return r0, r1
 }
 
-// GetUserIDByRefreshToken provides a mock function with given fields: ctx, token
-func (_m *TokenRepository) GetUserIDByRefreshToken(ctx context.Context, token string) (uuid.UUID, error) {
+// ReviveRefreshToken provides a mock function with given fields: ctx, token
+func (_m *TokenRepository) ReviveRefreshToken(ctx context.Context, token string) (uuid.UUID, error) {
 	ret := _m.Called(ctx, token)
 
 	if len(ret) == 0 {
-		panic("no return value specified for GetUserIDByRefreshToken")
+		panic("no return value specified for ReviveRefreshToken")
 	}
 
 	var r0 uuid.UUID
