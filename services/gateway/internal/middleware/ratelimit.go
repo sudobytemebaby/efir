@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
@@ -25,7 +26,8 @@ func UserRateLimiter(client vk.Client, requests int, window time.Duration) func(
 
 			result, err := client.Do(r.Context(), client.B().Eval().Script(valkey.IncrWithExpiryScript).Numkeys(1).Key(key).Arg(ttlSeconds).Build()).ToInt64()
 			if err != nil {
-				handler.WriteCode(w, errors.CodeInternal)
+				slog.WarnContext(r.Context(), "rate limiter valkey error, allowing request through", "error", err, "user_id", userID)
+				next.ServeHTTP(w, r)
 				return
 			}
 
