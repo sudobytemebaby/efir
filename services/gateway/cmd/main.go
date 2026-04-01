@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/sudobytemebaby/efir/services/gateway/internal/config"
 	gatewayhandler "github.com/sudobytemebaby/efir/services/gateway/internal/handler"
 	"github.com/sudobytemebaby/efir/services/gateway/internal/handler/auth"
@@ -117,6 +118,7 @@ func run(ctx context.Context) error {
 	healthHandler.SetReady(true)
 
 	r := chi.NewRouter()
+	r.Use(chimiddleware.Recoverer)
 
 	r.Group(func(r chi.Router) {
 		authHandler.Register(r)

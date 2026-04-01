@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/sudobytemebaby/efir/services/shared/pkg/errors"
 	"github.com/sudobytemebaby/efir/services/shared/pkg/valkey"
 	"github.com/sudobytemebaby/efir/services/websocket/internal/config"
 	"github.com/sudobytemebaby/efir/services/websocket/internal/hub"
@@ -34,25 +35,25 @@ func NewWebSocketHandler(hub *hub.Hub, gatewayURL string, client vk.Client, cfg 
 func (h *WebSocketHandler) HandleWS(w http.ResponseWriter, r *http.Request) {
 	ticket := r.URL.Query().Get("ticket")
 	if ticket == "" {
-		http.Error(w, "missing ticket", http.StatusUnauthorized)
+		writeError(w, r, errors.CodeUnauthenticated, "missing ticket")
 		return
 	}
 	if len(ticket) > 256 {
-		http.Error(w, "ticket too long", http.StatusBadRequest)
+		writeError(w, r, errors.CodeInvalidArgument, "ticket too long")
 		return
 	}
 
 	userID, err := h.validateTicket(r.Context(), ticket)
 	if err != nil {
 		slog.ErrorContext(r.Context(), "failed to validate ticket", "error", err)
-		http.Error(w, "invalid or expired ticket", http.StatusUnauthorized)
+		writeError(w, r, errors.CodeUnauthenticated, "invalid or expired ticket")
 		return
 	}
 
 	initialRoomID := r.URL.Query().Get("room_id")
 	if initialRoomID != "" {
 		if _, err := uuid.Parse(initialRoomID); err != nil {
-			http.Error(w, "invalid room_id format", http.StatusBadRequest)
+			writeError(w, r, errors.CodeInvalidArgument, "invalid room_id format")
 			return
 		}
 	}
@@ -194,6 +195,15 @@ func (h *WebSocketHandler) sendError(conn *wsConnWrapper, code, message string) 
 		return
 	}
 	conn.Send(data)
+}
+
+func writeError(w http.ResponseWriter, r *http.Request, code errors.Code, msg string) {
+	slog.ErrorContext(r.Context(), msg, "code", code)
+
+	body := map[string]string{"error": msg, "code": string(code)}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code.ToHTTPCode())
+	_ = json.NewEncoder(w).Encode(body)
 }
 
 type wsConnWrapper struct {

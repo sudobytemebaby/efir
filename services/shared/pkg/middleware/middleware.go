@@ -5,6 +5,7 @@ import (
 	"context"
 	stderrors "errors"
 	"log/slog"
+	"runtime/debug"
 	"time"
 
 	"github.com/google/uuid"
@@ -92,6 +93,7 @@ func RecoveryInterceptor(logger *slog.Logger) grpc.UnaryServerInterceptor {
 					"method", info.FullMethod,
 					"request_id", requestID,
 					"panic", r,
+					"stack", string(debug.Stack()),
 				)
 				err = status.Errorf(grpcCodes.Internal, "internal server error")
 			}
@@ -126,5 +128,7 @@ func GetRequestID(ctx context.Context) (string, bool) {
 	return requestID, ok
 }
 
-type contextKeyUserID struct{}
-type contextKeyRequestID struct{}
+type (
+	contextKeyUserID    struct{}
+	contextKeyRequestID struct{}
+)

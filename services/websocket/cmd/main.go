@@ -9,6 +9,8 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/go-chi/chi/v5"
+	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/sudobytemebaby/efir/services/shared/pkg/healthcheck"
 	"github.com/sudobytemebaby/efir/services/shared/pkg/logger"
 	"github.com/sudobytemebaby/efir/services/shared/pkg/nats"
@@ -91,13 +93,15 @@ func run(ctx context.Context) error {
 
 	healthHandler := healthcheck.New()
 
-	mux := http.NewServeMux()
-	healthHandler.Register(mux)
-	mux.HandleFunc("/ws", wsHandler.HandleWS)
+	r := chi.NewRouter()
+	r.Use(chiMiddleware.Recoverer)
+	r.Get("/health", healthHandler.Health)
+	r.Get("/ready", healthHandler.Ready)
+	r.Get("/ws", wsHandler.HandleWS)
 
 	server := &http.Server{
 		Addr:              ":" + cfg.Server.Port,
-		Handler:           mux,
+		Handler:           r,
 		ReadHeaderTimeout: cfg.Timeouts.ReadHeader,
 	}
 
