@@ -30,8 +30,9 @@ func newCaptureConn() *captureConn {
 	return &captureConn{signal: make(chan struct{}, 16)}
 }
 
-func (c *captureConn) WriteJSON(v any) error {
-	if env, ok := v.(hub.Envelope); ok {
+func (c *captureConn) Send(data []byte) bool {
+	var env hub.Envelope
+	if err := json.Unmarshal(data, &env); err == nil {
 		c.mu.Lock()
 		c.messages = append(c.messages, env)
 		c.mu.Unlock()
@@ -40,7 +41,7 @@ func (c *captureConn) WriteJSON(v any) error {
 		default:
 		}
 	}
-	return nil
+	return true
 }
 
 func (c *captureConn) Close(_ hub.StatusCode, _ string) error { return nil }

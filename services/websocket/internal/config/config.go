@@ -34,11 +34,12 @@ type Config struct {
 	} `yaml:"services"`
 
 	WebSocket struct {
-		WriteLimit    int64         `yaml:"write_limit"   env:"WRITE_LIMIT"`
-		ReadLimit     int64         `yaml:"read_limit"    env:"READ_LIMIT"`
-		PingInterval  time.Duration `yaml:"ping_interval" env:"PING_INTERVAL"`
-		ReadDeadline  time.Duration `yaml:"read_deadline" env:"READ_DEADLINE"`
+		WriteLimit    int64         `yaml:"write_limit"    env:"WRITE_LIMIT"`
+		ReadLimit     int64         `yaml:"read_limit"     env:"READ_LIMIT"`
+		PingInterval  time.Duration `yaml:"ping_interval"  env:"PING_INTERVAL"`
+		ReadDeadline  time.Duration `yaml:"read_deadline"  env:"READ_DEADLINE"`
 		WriteDeadline time.Duration `yaml:"write_deadline" env:"WRITE_DEADLINE"`
+		WriteBuffer   int           `yaml:"write_buffer"   env:"WRITE_BUFFER"`
 	} `yaml:"websocket"`
 }
 

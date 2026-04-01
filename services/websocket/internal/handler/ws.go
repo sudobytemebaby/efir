@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -64,14 +63,16 @@ func (h *WebSocketHandler) HandleWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	wsConn := newWSConnWrapper(conn, h.cfg.WebSocket.WriteDeadline)
+	conn.SetReadLimit(h.cfg.WebSocket.ReadLimit)
+	wsConn := newWSConnWrapper(conn, h.cfg.WebSocket.WriteDeadline, h.cfg.WebSocket.WriteBuffer)
 
 	if initialRoomID != "" {
 		h.hub.Register(wsConn, userID, initialRoomID)
 	}
 
-	go h.readPump(wsConn, userID, h.cfg.WebSocket.ReadDeadline, h.cfg.WebSocket.PingInterval)
-	go h.pingPump(wsConn, userID, h.cfg.WebSocket.PingInterval)
+	go h.writePump(wsConn, userID)
+	go h.readPump(wsConn, userID)
+	go h.pingPump(wsConn, userID)
 }
 
 func (h *WebSocketHandler) validateTicket(ctx context.Context, ticket string) (string, error) {
@@ -84,7 +85,7 @@ func (h *WebSocketHandler) validateTicket(ctx context.Context, ticket string) (s
 	return userID, nil
 }
 
-func (h *WebSocketHandler) readPump(conn *wsConnWrapper, userID string, readTimeout, pingInterval time.Duration) {
+func (h *WebSocketHandler) readPump(conn *wsConnWrapper, userID string) {
 	defer func() {
 		h.hub.Disconnect(conn)
 		if err := conn.Close(hub.StatusCode(websocket.StatusNormalClosure), "closing"); err != nil {
@@ -93,24 +94,13 @@ func (h *WebSocketHandler) readPump(conn *wsConnWrapper, userID string, readTime
 	}()
 
 	for {
-		readCtx, cancel := context.WithTimeout(context.Background(), readTimeout)
-		_, msg, err := conn.Read(readCtx)
-		cancel()
+		_, msg, err := conn.Read(context.Background())
 		if err != nil {
 			if websocket.CloseStatus(err) == websocket.StatusNormalClosure {
 				return
 			}
-			if err == context.DeadlineExceeded {
-				slog.ErrorContext(context.Background(), "read timeout", "user_id", userID)
-			} else {
-				slog.ErrorContext(context.Background(), "failed to read message", "user_id", userID, "error", err)
-			}
+			slog.ErrorContext(context.Background(), "failed to read message", "user_id", userID, "error", err)
 			return
-		}
-
-		if len(msg) > int(h.cfg.WebSocket.ReadLimit) {
-			h.sendError(conn, "message_too_large", "message exceeds size limit")
-			continue
 		}
 
 		var env hub.Envelope
@@ -123,8 +113,21 @@ func (h *WebSocketHandler) readPump(conn *wsConnWrapper, userID string, readTime
 	}
 }
 
-func (h *WebSocketHandler) pingPump(conn *wsConnWrapper, userID string, interval time.Duration) {
-	ticker := time.NewTicker(interval)
+func (h *WebSocketHandler) writePump(conn *wsConnWrapper, userID string) {
+	for data := range conn.outbound {
+		ctx, cancel := context.WithTimeout(context.Background(), conn.writeTimeout)
+		err := conn.ws.Write(ctx, websocket.MessageText, data)
+		cancel()
+		if err != nil {
+			slog.ErrorContext(context.Background(), "failed to write message", "user_id", userID, "error", err)
+			h.hub.Disconnect(conn)
+			return
+		}
+	}
+}
+
+func (h *WebSocketHandler) pingPump(conn *wsConnWrapper, userID string) {
+	ticker := time.NewTicker(h.cfg.WebSocket.PingInterval)
 	defer ticker.Stop()
 
 	for range ticker.C {
@@ -160,9 +163,12 @@ func (h *WebSocketHandler) handleMessage(conn *wsConnWrapper, userID string, env
 
 	case hub.TypePing:
 		pong := hub.Envelope{Type: hub.TypePong}
-		if err := conn.WriteJSON(pong); err != nil {
-			slog.Error("failed to send pong", "error", err)
+		data, err := json.Marshal(pong)
+		if err != nil {
+			slog.Error("failed to marshal pong", "error", err)
+			return
 		}
+		conn.Send(data)
 
 	default:
 		h.sendError(conn, "unknown_type", "unknown message type")
@@ -182,46 +188,45 @@ func (h *WebSocketHandler) sendError(conn *wsConnWrapper, code, message string) 
 	}
 	env.Payload = payload
 
-	if err := conn.WriteJSON(env); err != nil {
-		slog.Error("failed to send error", "error", err)
+	data, err := json.Marshal(env)
+	if err != nil {
+		slog.Error("failed to marshal error envelope", "error", err)
+		return
 	}
+	conn.Send(data)
 }
 
 type wsConnWrapper struct {
 	ws           *websocket.Conn
 	writeTimeout time.Duration
-	mu           sync.Mutex
+	outbound     chan []byte
 }
 
-func newWSConnWrapper(ws *websocket.Conn, writeTimeout time.Duration) *wsConnWrapper {
+func newWSConnWrapper(ws *websocket.Conn, writeTimeout time.Duration, bufSize int) *wsConnWrapper {
 	return &wsConnWrapper{
 		ws:           ws,
 		writeTimeout: writeTimeout,
+		outbound:     make(chan []byte, bufSize),
 	}
+}
+
+func (c *wsConnWrapper) Send(data []byte) bool {
+	select {
+	case c.outbound <- data:
+		return true
+	default:
+		return false
+	}
+}
+
+func (c *wsConnWrapper) Ping() error {
+	ctx, cancel := context.WithTimeout(context.Background(), c.writeTimeout)
+	defer cancel()
+	return c.ws.Ping(ctx)
 }
 
 func (c *wsConnWrapper) Read(ctx context.Context) (websocket.MessageType, []byte, error) {
 	return c.ws.Read(ctx)
-}
-
-func (c *wsConnWrapper) WriteJSON(v any) error {
-	data, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	ctx, cancel := context.WithTimeout(context.Background(), c.writeTimeout)
-	defer cancel()
-	return c.ws.Write(ctx, websocket.MessageText, data)
-}
-
-func (c *wsConnWrapper) Ping() error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	ctx, cancel := context.WithTimeout(context.Background(), c.writeTimeout)
-	defer cancel()
-	return c.ws.Ping(ctx)
 }
 
 func (c *wsConnWrapper) Close(code hub.StatusCode, reason string) error {
