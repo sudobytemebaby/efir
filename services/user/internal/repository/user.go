@@ -44,25 +44,39 @@ func NewUserRepository(pool *pgxpool.Pool) UserRepository {
 }
 
 func (r *pgUserRepository) CreateUser(ctx context.Context, id uuid.UUID, username, displayName string) (*User, error) {
+	existingByID, err := r.checkUserExistsByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("check existing user: %w", err)
+	}
+	if existingByID {
+		return nil, ErrUserAlreadyExists
+	}
+
+	existingByUsername, err := r.checkUsernameExists(ctx, username)
+	if err != nil {
+		return nil, fmt.Errorf("check username: %w", err)
+	}
+	if existingByUsername {
+		return nil, ErrUsernameAlreadyExists
+	}
+
 	const query = `
 		INSERT INTO users (id, username, display_name)
 		VALUES ($1, $2, $3)
-		ON CONFLICT (id) DO UPDATE SET username = EXCLUDED.username
-		ON CONFLICT (username) DO NOTHING
 		RETURNING id, username, display_name, avatar_url, bio, created_at, updated_at
 	`
 
 	user := &User{}
-	err := r.pool.QueryRow(ctx, query, id, username, displayName).Scan(
+	err = r.pool.QueryRow(ctx, query, id, username, displayName).Scan(
 		&user.ID, &user.Username, &user.DisplayName, &user.AvatarURL, &user.Bio, &user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			exists, checkErr := r.checkUsernameExists(ctx, username)
+			collisionByUsername, checkErr := r.checkUsernameExists(ctx, username)
 			if checkErr != nil {
-				return nil, fmt.Errorf("check username: %w", checkErr)
+				return nil, fmt.Errorf("check username collision: %w", checkErr)
 			}
-			if exists {
+			if collisionByUsername {
 				return nil, ErrUsernameAlreadyExists
 			}
 			return nil, ErrUserAlreadyExists
@@ -71,6 +85,17 @@ func (r *pgUserRepository) CreateUser(ctx context.Context, id uuid.UUID, usernam
 	}
 
 	return user, nil
+}
+
+func (r *pgUserRepository) checkUserExistsByID(ctx context.Context, id uuid.UUID) (bool, error) {
+	const query = `SELECT EXISTS(SELECT 1 FROM users WHERE id = $1)`
+
+	var exists bool
+	err := r.pool.QueryRow(ctx, query, id).Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
 }
 
 func (r *pgUserRepository) checkUsernameExists(ctx context.Context, username string) (bool, error) {

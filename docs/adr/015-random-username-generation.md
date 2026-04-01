@@ -67,19 +67,31 @@ for attempt := 0; attempt < maxAttempts; attempt++ {
 
 ### Repository Changes
 
-Added `ErrUsernameAlreadyExists` error and updated SQL:
+Added `ErrUsernameAlreadyExists` error. The repository checks for existing users before insert:
 
 ```go
-const query = `
-    INSERT INTO users (id, username, display_name)
-    VALUES ($1, $2, $3)
-    ON CONFLICT (id) DO UPDATE SET username = EXCLUDED.username
-    ON CONFLICT (username) DO NOTHING
-    RETURNING ...
-`
+func (r *pgUserRepository) CreateUser(ctx context.Context, id uuid.UUID, username, displayName string) (*User, error) {
+    existingByID, err := r.checkUserExistsByID(ctx, id)
+    if err != nil {
+        return nil, fmt.Errorf("check existing user: %w", err)
+    }
+    if existingByID {
+        return nil, ErrUserAlreadyExists
+    }
+
+    existingByUsername, err := r.checkUsernameExists(ctx, username)
+    if err != nil {
+        return nil, fmt.Errorf("check username: %w", err)
+    }
+    if existingByUsername {
+        return nil, ErrUsernameAlreadyExists
+    }
+
+    // Insert new user...
+}
 ```
 
-Note: `ON CONFLICT (id) DO UPDATE SET username = EXCLUDED.username` ensures that if the same user ID is reused, the username is refreshed (e.g., if the username was previously taken, we can assign a new one).
+This approach is more explicit and allows the service layer to handle retry logic for username collisions.
 
 ## Alternatives Considered
 
