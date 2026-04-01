@@ -246,7 +246,7 @@ func (h *Hub) sendToRoom(roomID string, envelope Envelope) {
 		for _, conn := range conns {
 			if !conn.Send(data) {
 				go func(c Conn) {
-					c.Close(StatusAbnormalClosure, "slow write")
+					_ = c.Close(StatusAbnormalClosure, "slow write")
 				}(conn)
 			}
 		}
