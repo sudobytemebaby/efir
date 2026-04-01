@@ -37,13 +37,15 @@ func repoRoom(roomID, createdBy uuid.UUID, name string, typ repository.RoomType)
 
 func TestCreateRoom(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		svc, mockRepo, _ := newSvc(t)
+		svc, mockRepo, pub := newSvc(t)
 		ctx := context.Background()
 		roomID := uuid.New()
 		userID := uuid.New()
 
 		mockRepo.On("CreateRoom", ctx, "Test Room", repository.RoomTypeGroup, userID, uuid.Nil).
 			Return(repoRoom(roomID, userID, "Test Room", repository.RoomTypeGroup), nil).Once()
+		mockRepo.On("GetRoomMembers", ctx, roomID).Return([]repository.RoomMember{}, nil).Once()
+		pub.On("PublishRoomCreated", ctx, roomID, []uuid.UUID{}).Return(nil).Once()
 
 		room, err := svc.CreateRoom(ctx, "Test Room", service.RoomTypeGroup, userID, uuid.Nil)
 
@@ -69,7 +71,7 @@ func TestCreateRoom(t *testing.T) {
 	})
 
 	t.Run("direct room success", func(t *testing.T) {
-		svc, mockRepo, _ := newSvc(t)
+		svc, mockRepo, pub := newSvc(t)
 		ctx := context.Background()
 		roomID := uuid.New()
 		userID := uuid.New()
@@ -77,6 +79,8 @@ func TestCreateRoom(t *testing.T) {
 
 		mockRepo.On("CreateRoom", ctx, "Direct Room", repository.RoomTypeDirect, userID, participantID).
 			Return(repoRoom(roomID, userID, "Direct Room", repository.RoomTypeDirect), nil).Once()
+		mockRepo.On("GetRoomMembers", ctx, roomID).Return([]repository.RoomMember{}, nil).Once()
+		pub.On("PublishRoomCreated", ctx, roomID, []uuid.UUID{}).Return(nil).Once()
 
 		room, err := svc.CreateRoom(ctx, "Direct Room", service.RoomTypeDirect, userID, participantID)
 
@@ -171,7 +175,7 @@ func TestUpdateRoom(t *testing.T) {
 
 func TestDeleteRoom(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		svc, mockRepo, _ := newSvc(t)
+		svc, mockRepo, pub := newSvc(t)
 		ctx := context.Background()
 		roomID := uuid.New()
 		requesterID := uuid.New()
@@ -179,6 +183,8 @@ func TestDeleteRoom(t *testing.T) {
 		mockRepo.On("GetRoomByID", ctx, roomID).
 			Return(repoRoom(roomID, requesterID, "Test Room", repository.RoomTypeGroup), nil).Once()
 		mockRepo.On("GetMemberRole", ctx, roomID, requesterID).Return(repository.MemberRoleOwner, nil).Once()
+		mockRepo.On("GetRoomMembers", ctx, roomID).Return([]repository.RoomMember{}, nil).Once()
+		pub.On("PublishRoomDeleted", ctx, roomID, []uuid.UUID{}).Return(nil).Once()
 		mockRepo.On("DeleteRoom", ctx, roomID).Return(nil).Once()
 
 		err := svc.DeleteRoom(ctx, roomID, requesterID)
@@ -504,7 +510,7 @@ func TestUpdateRoom_ErrorPaths(t *testing.T) {
 }
 
 func TestDeleteRoom_RepoError(t *testing.T) {
-	svc, mockRepo, _ := newSvc(t)
+	svc, mockRepo, pub := newSvc(t)
 	ctx := context.Background()
 	roomID := uuid.New()
 	requesterID := uuid.New()
@@ -512,6 +518,8 @@ func TestDeleteRoom_RepoError(t *testing.T) {
 	mockRepo.On("GetRoomByID", ctx, roomID).
 		Return(repoRoom(roomID, requesterID, "Room", repository.RoomTypeGroup), nil).Once()
 	mockRepo.On("GetMemberRole", ctx, roomID, requesterID).Return(repository.MemberRoleOwner, nil).Once()
+	mockRepo.On("GetRoomMembers", ctx, roomID).Return([]repository.RoomMember{}, nil).Once()
+	pub.On("PublishRoomDeleted", ctx, roomID, []uuid.UUID{}).Return(nil).Once()
 	mockRepo.On("DeleteRoom", ctx, roomID).Return(errors.New("db error")).Once()
 
 	err := svc.DeleteRoom(ctx, roomID, requesterID)
