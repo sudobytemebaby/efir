@@ -138,7 +138,21 @@ func TestUpdateUser(t *testing.T) {
 	repo := repository.NewUserRepository(pool)
 	ctx := context.Background()
 
-	str := func(s string) *string { return &s }
+	strPtr := func(s string) *string { return &s }
+
+	createUserWithFields := func(t *testing.T) *repository.User {
+		t.Helper()
+		user, err := repo.CreateUser(context.Background(),
+			testutil.RandomUUID(),
+			testutil.RandomUsername(),
+			"Display Name",
+		)
+		require.NoError(t, err)
+
+		updated, err := repo.UpdateUser(context.Background(), user.ID, nil, strPtr("https://example.com/avatar.jpg"), strPtr("My bio"))
+		require.NoError(t, err)
+		return updated
+	}
 
 	tests := []struct {
 		name        string
@@ -152,7 +166,7 @@ func TestUpdateUser(t *testing.T) {
 		{
 			name:        "update display_name only",
 			id:          func() uuid.UUID { return createUser(t, repo).ID },
-			displayName: str("New Name"),
+			displayName: strPtr("New Name"),
 			checkFn: func(t *testing.T, u *repository.User) {
 				t.Helper()
 				assert.Equal(t, "New Name", u.DisplayName)
@@ -161,9 +175,9 @@ func TestUpdateUser(t *testing.T) {
 		{
 			name:        "update all fields",
 			id:          func() uuid.UUID { return createUser(t, repo).ID },
-			displayName: str("All Fields"),
-			avatarURL:   str("https://example.com/avatar.jpg"),
-			bio:         str("My bio"),
+			displayName: strPtr("All Fields"),
+			avatarURL:   strPtr("https://example.com/avatar.jpg"),
+			bio:         strPtr("My bio"),
 			checkFn: func(t *testing.T, u *repository.User) {
 				t.Helper()
 				assert.Equal(t, "All Fields", u.DisplayName)
@@ -171,6 +185,30 @@ func TestUpdateUser(t *testing.T) {
 				assert.Equal(t, "https://example.com/avatar.jpg", *u.AvatarURL)
 				require.NotNil(t, u.Bio)
 				assert.Equal(t, "My bio", *u.Bio)
+			},
+		},
+		{
+			name:        "clear avatar_url to NULL",
+			id:          func() uuid.UUID { return createUserWithFields(t).ID },
+			displayName: nil,
+			avatarURL:   strPtr(""),
+			checkFn: func(t *testing.T, u *repository.User) {
+				t.Helper()
+				assert.Equal(t, "All Fields", u.DisplayName)
+				require.Nil(t, u.AvatarURL, "avatar_url should be NULL")
+				require.NotNil(t, u.Bio)
+			},
+		},
+		{
+			name:        "clear bio to NULL",
+			id:          func() uuid.UUID { return createUserWithFields(t).ID },
+			displayName: nil,
+			bio:         strPtr(""),
+			checkFn: func(t *testing.T, u *repository.User) {
+				t.Helper()
+				assert.Equal(t, "All Fields", u.DisplayName)
+				require.NotNil(t, u.AvatarURL)
+				require.Nil(t, u.Bio, "bio should be NULL")
 			},
 		},
 		{
