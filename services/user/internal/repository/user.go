@@ -177,12 +177,20 @@ func (r *pgUserRepository) UpdateUser(ctx context.Context, id uuid.UUID, display
 	}
 	if avatarURL != nil {
 		query += fmt.Sprintf(", avatar_url = $%d", argIdx)
-		args = append(args, *avatarURL)
+		if *avatarURL == "" {
+			args = append(args, nil)
+		} else {
+			args = append(args, *avatarURL)
+		}
 		argIdx++
 	}
 	if bio != nil {
 		query += fmt.Sprintf(", bio = $%d", argIdx)
-		args = append(args, *bio)
+		if *bio == "" {
+			args = append(args, nil)
+		} else {
+			args = append(args, *bio)
+		}
 	}
 
 	query += " WHERE id = $1 RETURNING id, username, display_name, avatar_url, bio, created_at, updated_at"

@@ -194,7 +194,7 @@ func TestUpdateUser(t *testing.T) {
 			avatarURL:   strPtr(""),
 			checkFn: func(t *testing.T, u *repository.User) {
 				t.Helper()
-				assert.Equal(t, "All Fields", u.DisplayName)
+				assert.Equal(t, "Display Name", u.DisplayName)
 				require.Nil(t, u.AvatarURL, "avatar_url should be NULL")
 				require.NotNil(t, u.Bio)
 			},
@@ -206,7 +206,7 @@ func TestUpdateUser(t *testing.T) {
 			bio:         strPtr(""),
 			checkFn: func(t *testing.T, u *repository.User) {
 				t.Helper()
-				assert.Equal(t, "All Fields", u.DisplayName)
+				assert.Equal(t, "Display Name", u.DisplayName)
 				require.NotNil(t, u.AvatarURL)
 				require.Nil(t, u.Bio, "bio should be NULL")
 			},
