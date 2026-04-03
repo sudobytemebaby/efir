@@ -166,18 +166,37 @@ func (r *pgUserRepository) GetUsersByIDs(ctx context.Context, ids []uuid.UUID) (
 }
 
 func (r *pgUserRepository) UpdateUser(ctx context.Context, id uuid.UUID, displayName, avatarURL, bio *string) (*User, error) {
-	const query = `
-		UPDATE users
-		SET display_name = COALESCE($2, display_name),
-			avatar_url = COALESCE($3, avatar_url),
-			bio = COALESCE($4, bio),
-			updated_at = now()
-		WHERE id = $1
-		RETURNING id, username, display_name, avatar_url, bio, created_at, updated_at
-	`
+	query := "UPDATE users SET updated_at = now()"
+	args := []any{id}
+	argIdx := 2
+
+	if displayName != nil {
+		query += fmt.Sprintf(", display_name = $%d", argIdx)
+		args = append(args, *displayName)
+		argIdx++
+	}
+	if avatarURL != nil {
+		query += fmt.Sprintf(", avatar_url = $%d", argIdx)
+		if *avatarURL == "" {
+			args = append(args, nil)
+		} else {
+			args = append(args, *avatarURL)
+		}
+		argIdx++
+	}
+	if bio != nil {
+		query += fmt.Sprintf(", bio = $%d", argIdx)
+		if *bio == "" {
+			args = append(args, nil)
+		} else {
+			args = append(args, *bio)
+		}
+	}
+
+	query += " WHERE id = $1 RETURNING id, username, display_name, avatar_url, bio, created_at, updated_at"
 
 	user := &User{}
-	err := r.pool.QueryRow(ctx, query, id, displayName, avatarURL, bio).Scan(
+	err := r.pool.QueryRow(ctx, query, args...).Scan(
 		&user.ID, &user.Username, &user.DisplayName, &user.AvatarURL, &user.Bio, &user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
