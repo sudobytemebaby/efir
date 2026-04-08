@@ -246,7 +246,7 @@ func (c *wsConnWrapper) closeOutbound() {
 
 func (c *wsConnWrapper) Send(data []byte) bool {
 	defer func() {
-		recover()
+		_ = recover()
 	}()
 	select {
 	case c.outbound <- data:
