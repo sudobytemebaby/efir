@@ -12,7 +12,49 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-var ErrMessageNotFound = errors.New("message not found")
+var (
+	ErrMessageNotFound  = errors.New("message not found")
+	ErrInvalidCursor    = errors.New("invalid cursor: message not found")
+)
+
+func buildReplyPreview(rmID, rmSenderID *uuid.UUID, rmType *string, rmContentJSON []byte, rmDeletedAt *time.Time) *MessagePreview {
+	if rmID == nil {
+		return nil
+	}
+	preview := &MessagePreview{
+		MessageID: *rmID,
+		SenderID:  *rmSenderID,
+	}
+	if rmType != nil {
+		preview.Type = MessageType(*rmType)
+	}
+	if rmDeletedAt != nil {
+		return preview
+	}
+	if rmContentJSON != nil {
+		rmContent, err := unmarshalContent(MessageType(*rmType), rmContentJSON)
+		if err == nil {
+			switch c := rmContent.(type) {
+			case TextContent:
+				preview.TextPreview = &c.Text
+			case FileContent:
+				preview.FileName = &c.FileName
+				preview.MimeType = &c.MimeType
+			case MediaContent:
+				preview.MimeType = &c.MimeType
+			case VoiceContent:
+				preview.MimeType = &c.MimeType
+			case VideoNoteContent:
+				preview.MimeType = &c.MimeType
+			case StickerContent:
+				preview.MimeType = &c.MimeType
+			case EventContent:
+				preview.TextPreview = &c.Text
+			}
+		}
+	}
+	return preview
+}
 
 func marshalContent(content MessageContent) ([]byte, error) {
 	switch c := content.(type) {
@@ -67,7 +109,7 @@ func unmarshalContent(msgType MessageType, data []byte) (MessageContent, error) 
 			return nil, err
 		}
 		return c, nil
-	case MessageTypeSticker:
+	case MessageTypeSticker, MessageTypeVideoSticker:
 		var c StickerContent
 		if err := json.Unmarshal(data, &c); err != nil {
 			return nil, err
@@ -147,6 +189,13 @@ func (r *pgMessageRepository) GetMessagesByRoomID(ctx context.Context, roomID uu
 	`
 
 	if cursor != nil {
+		var cursorExists bool
+		if err := r.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM messages WHERE id = $1)`, cursor).Scan(&cursorExists); err != nil {
+			return nil, nil, fmt.Errorf("check cursor: %w", err)
+		}
+		if !cursorExists {
+			return nil, nil, ErrInvalidCursor
+		}
 		rows, err = r.pool.Query(ctx, baseQuery+`
 			AND (m.created_at, m.id) < (SELECT created_at, id FROM messages WHERE id = $2)
 			ORDER BY m.created_at DESC, m.id DESC
@@ -205,41 +254,7 @@ func (r *pgMessageRepository) GetMessagesByRoomID(ctx context.Context, roomID uu
 			UpdatedAt: updatedAt,
 		}
 
-		if rmID != nil {
-			preview := &MessagePreview{
-				MessageID: *rmID,
-				SenderID:  *rmSenderID,
-			}
-			if rmType != nil {
-				preview.Type = MessageType(*rmType)
-			}
-
-			if rmDeletedAt != nil {
-				msg.ReplyTo = preview
-			} else if rmContentJSON != nil {
-				rmContent, err := unmarshalContent(MessageType(*rmType), rmContentJSON)
-				if err == nil {
-					switch c := rmContent.(type) {
-					case TextContent:
-						preview.TextPreview = &c.Text
-					case FileContent:
-						preview.FileName = &c.FileName
-						preview.MimeType = &c.MimeType
-					case MediaContent:
-						preview.MimeType = &c.MimeType
-					case VoiceContent:
-						preview.MimeType = &c.MimeType
-					case VideoNoteContent:
-						preview.MimeType = &c.MimeType
-					case StickerContent:
-						preview.MimeType = &c.MimeType
-					case EventContent:
-						preview.TextPreview = &c.Text
-					}
-				}
-				msg.ReplyTo = preview
-			}
-		}
+		msg.ReplyTo = buildReplyPreview(rmID, rmSenderID, rmType, rmContentJSON, rmDeletedAt)
 
 		messages = append(messages, msg)
 	}
@@ -312,41 +327,7 @@ func (r *pgMessageRepository) GetMessageByID(ctx context.Context, messageID uuid
 		UpdatedAt: updatedAt,
 	}
 
-	if rmID != nil {
-		preview := &MessagePreview{
-			MessageID: *rmID,
-			SenderID:  *rmSenderID,
-		}
-		if rmType != nil {
-			preview.Type = MessageType(*rmType)
-		}
-
-		if rmDeletedAt != nil {
-			msg.ReplyTo = preview
-		} else if rmContentJSON != nil {
-			rmContent, err := unmarshalContent(MessageType(*rmType), rmContentJSON)
-			if err == nil {
-				switch c := rmContent.(type) {
-				case TextContent:
-					preview.TextPreview = &c.Text
-				case FileContent:
-					preview.FileName = &c.FileName
-					preview.MimeType = &c.MimeType
-				case MediaContent:
-					preview.MimeType = &c.MimeType
-				case VoiceContent:
-					preview.MimeType = &c.MimeType
-				case VideoNoteContent:
-					preview.MimeType = &c.MimeType
-				case StickerContent:
-					preview.MimeType = &c.MimeType
-				case EventContent:
-					preview.TextPreview = &c.Text
-				}
-			}
-			msg.ReplyTo = preview
-		}
-	}
+	msg.ReplyTo = buildReplyPreview(rmID, rmSenderID, rmType, rmContentJSON, rmDeletedAt)
 
 	return msg, nil
 }

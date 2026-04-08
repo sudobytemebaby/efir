@@ -58,6 +58,9 @@ func ProvisionConsumer(ctx context.Context, js jetstream.JetStream, stream strin
 }
 
 func ProvisionConsumerWithRetry(ctx context.Context, js jetstream.JetStream, stream string, cfg ConsumerConfig, retryInterval time.Duration) (jetstream.Consumer, error) {
+	if retryInterval <= 0 {
+		retryInterval = 100 * time.Millisecond
+	}
 	for {
 		c, err := js.CreateOrUpdateConsumer(ctx, stream, cfg)
 		if err == nil {

@@ -10,27 +10,31 @@ import (
 )
 
 var messageTypeToProto = map[service.MessageType]messagev1.MessageType{
-	service.MessageTypeText:      messagev1.MessageType_MESSAGE_TYPE_TEXT,
-	service.MessageTypeImage:     messagev1.MessageType_MESSAGE_TYPE_IMAGE,
-	service.MessageTypeVideo:     messagev1.MessageType_MESSAGE_TYPE_VIDEO,
-	service.MessageTypeVideoNote: messagev1.MessageType_MESSAGE_TYPE_VIDEO_NOTE,
-	service.MessageTypeVoice:     messagev1.MessageType_MESSAGE_TYPE_VOICE,
-	service.MessageTypeAudio:     messagev1.MessageType_MESSAGE_TYPE_AUDIO,
-	service.MessageTypeFile:      messagev1.MessageType_MESSAGE_TYPE_FILE,
-	service.MessageTypeSticker:   messagev1.MessageType_MESSAGE_TYPE_STICKER,
+	service.MessageTypeText:         messagev1.MessageType_MESSAGE_TYPE_TEXT,
+	service.MessageTypeImage:        messagev1.MessageType_MESSAGE_TYPE_IMAGE,
+	service.MessageTypeVideo:        messagev1.MessageType_MESSAGE_TYPE_VIDEO,
+	service.MessageTypeVideoNote:    messagev1.MessageType_MESSAGE_TYPE_VIDEO_NOTE,
+	service.MessageTypeVoice:        messagev1.MessageType_MESSAGE_TYPE_VOICE,
+	service.MessageTypeAudio:        messagev1.MessageType_MESSAGE_TYPE_AUDIO,
+	service.MessageTypeFile:         messagev1.MessageType_MESSAGE_TYPE_FILE,
+	service.MessageTypeSticker:      messagev1.MessageType_MESSAGE_TYPE_STICKER,
+	service.MessageTypeVideoSticker: messagev1.MessageType_MESSAGE_TYPE_VIDEO_STICKER,
+	service.MessageTypeEvent:        messagev1.MessageType_MESSAGE_TYPE_EVENT,
 }
 
 const messageTypeDefaultProto = messagev1.MessageType_MESSAGE_TYPE_UNSPECIFIED
 
 var protoToMessageTypeMap = map[messagev1.MessageType]service.MessageType{
-	messagev1.MessageType_MESSAGE_TYPE_TEXT:       service.MessageTypeText,
-	messagev1.MessageType_MESSAGE_TYPE_IMAGE:      service.MessageTypeImage,
-	messagev1.MessageType_MESSAGE_TYPE_VIDEO:      service.MessageTypeVideo,
-	messagev1.MessageType_MESSAGE_TYPE_VIDEO_NOTE: service.MessageTypeVideoNote,
-	messagev1.MessageType_MESSAGE_TYPE_VOICE:      service.MessageTypeVoice,
-	messagev1.MessageType_MESSAGE_TYPE_AUDIO:      service.MessageTypeAudio,
-	messagev1.MessageType_MESSAGE_TYPE_FILE:       service.MessageTypeFile,
-	messagev1.MessageType_MESSAGE_TYPE_STICKER:    service.MessageTypeSticker,
+	messagev1.MessageType_MESSAGE_TYPE_TEXT:          service.MessageTypeText,
+	messagev1.MessageType_MESSAGE_TYPE_IMAGE:         service.MessageTypeImage,
+	messagev1.MessageType_MESSAGE_TYPE_VIDEO:         service.MessageTypeVideo,
+	messagev1.MessageType_MESSAGE_TYPE_VIDEO_NOTE:    service.MessageTypeVideoNote,
+	messagev1.MessageType_MESSAGE_TYPE_VOICE:         service.MessageTypeVoice,
+	messagev1.MessageType_MESSAGE_TYPE_AUDIO:         service.MessageTypeAudio,
+	messagev1.MessageType_MESSAGE_TYPE_FILE:          service.MessageTypeFile,
+	messagev1.MessageType_MESSAGE_TYPE_STICKER:       service.MessageTypeSticker,
+	messagev1.MessageType_MESSAGE_TYPE_VIDEO_STICKER: service.MessageTypeVideoSticker,
+	messagev1.MessageType_MESSAGE_TYPE_EVENT:         service.MessageTypeEvent,
 }
 
 func messageToProto(msg *service.Message) *messagev1.Message {

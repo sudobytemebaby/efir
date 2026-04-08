@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -52,8 +53,36 @@ func Load(path string) (*Config, error) {
 	if err := cleanenv.ReadConfig(path, cfg); err != nil {
 		return nil, fmt.Errorf("read config: %w", err)
 	}
+	if cfg.Timeouts.Shutdown == 0 {
+		cfg.Timeouts.Shutdown = 15 * time.Second
+	}
+	if cfg.Timeouts.ReadHeader == 0 {
+		cfg.Timeouts.ReadHeader = 5 * time.Second
+	}
+	if cfg.Timeouts.GRPC == 0 {
+		cfg.Timeouts.GRPC = 10 * time.Second
+	}
+	if cfg.RateLimit.Requests == 0 {
+		cfg.RateLimit.Requests = 100
+	}
+	if cfg.RateLimit.Window == 0 {
+		cfg.RateLimit.Window = 60 * time.Second
+	}
 	if err := cfg.Env.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid environment: %w", err)
 	}
+	if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid config: %w", err)
+	}
 	return cfg, nil
+}
+
+func (c *Config) Validate() error {
+	if c.RateLimit.Requests <= 0 {
+		return errors.New("RATE_LIMIT_REQUESTS must be positive")
+	}
+	if c.RateLimit.Window < time.Second {
+		return errors.New("RATE_LIMIT_WINDOW must be at least 1 second")
+	}
+	return nil
 }

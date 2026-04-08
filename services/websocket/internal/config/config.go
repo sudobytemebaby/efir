@@ -48,6 +48,12 @@ func Load(path string) (*Config, error) {
 	if err := cleanenv.ReadConfig(path, cfg); err != nil {
 		return nil, fmt.Errorf("read config: %w", err)
 	}
+	if cfg.Timeouts.Shutdown == 0 {
+		cfg.Timeouts.Shutdown = 15 * time.Second
+	}
+	if cfg.Timeouts.ReadHeader == 0 {
+		cfg.Timeouts.ReadHeader = 5 * time.Second
+	}
 	if err := cfg.Env.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid environment: %w", err)
 	}

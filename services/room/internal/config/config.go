@@ -25,6 +25,7 @@ func Load(path string) (*Config, error) {
 	if err := cleanenv.ReadConfig(path, cfg); err != nil {
 		return nil, fmt.Errorf("read config: %w", err)
 	}
+	cfg.Timeouts.WithDefaults()
 	if err := cfg.Env.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid environment: %w", err)
 	}

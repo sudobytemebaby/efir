@@ -17,8 +17,9 @@ const (
 	MessageTypeVoice     MessageType = "voice"
 	MessageTypeAudio     MessageType = "audio"
 	MessageTypeFile      MessageType = "file"
-	MessageTypeSticker   MessageType = "sticker"
-	MessageTypeEvent     MessageType = "event"
+	MessageTypeSticker      MessageType = "sticker"
+	MessageTypeVideoSticker MessageType = "video_sticker"
+	MessageTypeEvent        MessageType = "event"
 )
 
 type MessageContent interface {
