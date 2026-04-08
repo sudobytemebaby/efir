@@ -153,21 +153,23 @@ func TestEnvironment_Validate(t *testing.T) {
 
 func TestConfig_Validate(t *testing.T) {
 	tests := []struct {
-		name        string
-		secret      string
-		accessTTL   time.Duration
-		refreshTTL  time.Duration
-		rateLimReqs int
-		wantErr     bool
-		errContains string
+		name          string
+		secret        string
+		accessTTL     time.Duration
+		refreshTTL    time.Duration
+		rateLimReqs   int
+		rateLimWindow time.Duration
+		wantErr       bool
+		errContains   string
 	}{
 		{
-			name:        "valid config",
-			secret:      "this-is-a-valid-secret-key-32chars",
-			accessTTL:   15 * time.Minute,
-			refreshTTL:  24 * time.Hour,
-			rateLimReqs: 100,
-			wantErr:     false,
+			name:          "valid config",
+			secret:        "this-is-a-valid-secret-key-32chars",
+			accessTTL:     15 * time.Minute,
+			refreshTTL:    24 * time.Hour,
+			rateLimReqs:   100,
+			rateLimWindow: 60 * time.Second,
+			wantErr:       false,
 		},
 		{
 			name:        "empty secret",
@@ -242,6 +244,7 @@ func TestConfig_Validate(t *testing.T) {
 					Window   time.Duration `yaml:"window"   env:"RATE_LIMIT_WINDOW"`
 				}{
 					Requests: tt.rateLimReqs,
+					Window:   tt.rateLimWindow,
 				},
 			}
 			err := cfg.Validate()

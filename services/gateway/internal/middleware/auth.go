@@ -83,7 +83,10 @@ func GetUserID(ctx context.Context) (string, bool) {
 // MustGetUserID returns the user ID from context.
 // Safe to call in handlers behind the JWTAuth middleware.
 func MustGetUserID(ctx context.Context) string {
-	userID, _ := ctx.Value(contextKeyUserID{}).(string)
+	userID, ok := ctx.Value(contextKeyUserID{}).(string)
+	if !ok {
+		panic("user ID not found in context")
+	}
 	return userID
 }
 

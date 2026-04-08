@@ -26,6 +26,8 @@ func NewHandler(client vk.Client, ticketTTL time.Duration) *Handler {
 	}
 }
 
+// Register wires only ValidateTicket. CreateTicket requires JWT+rate-limit middleware
+// and must be registered separately by the caller (as main.go does).
 func (h *Handler) Register(r chi.Router) {
 	r.Get("/auth/validate", h.ValidateTicket)
 }

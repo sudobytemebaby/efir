@@ -32,6 +32,18 @@ type TimeoutsConfig struct {
 	GRPCGraceful time.Duration `yaml:"grpc_graceful" env:"GRPC_GRACEFUL_TIMEOUT"`
 }
 
+func (t *TimeoutsConfig) WithDefaults() {
+	if t.Shutdown == 0 {
+		t.Shutdown = 15 * time.Second
+	}
+	if t.ReadHeader == 0 {
+		t.ReadHeader = 5 * time.Second
+	}
+	if t.GRPCGraceful == 0 {
+		t.GRPCGraceful = 10 * time.Second
+	}
+}
+
 type NATSConfig struct {
 	URL               string        `yaml:"url"               env:"NATS_URL"`
 	User              string        `yaml:"user"              env:"NATS_USER"`

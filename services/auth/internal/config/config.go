@@ -51,6 +51,9 @@ func (c *Config) Validate() error {
 	if c.RateLimit.Requests <= 0 {
 		return errors.New("RATE_LIMIT_REQUESTS must be positive")
 	}
+	if c.RateLimit.Window < time.Second {
+		return errors.New("RATE_LIMIT_WINDOW must be at least 1 second")
+	}
 	return nil
 }
 
@@ -58,6 +61,10 @@ func Load(path string) (*Config, error) {
 	cfg := &Config{}
 	if err := cleanenv.ReadConfig(path, cfg); err != nil {
 		return nil, fmt.Errorf("read config: %w", err)
+	}
+	cfg.Timeouts.WithDefaults()
+	if cfg.RateLimit.Window == 0 {
+		cfg.RateLimit.Window = 60 * time.Second
 	}
 	if err := cfg.Env.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid environment: %w", err)

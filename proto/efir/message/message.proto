@@ -24,6 +24,8 @@ enum MessageType {
   MESSAGE_TYPE_AUDIO = 6;
   MESSAGE_TYPE_FILE = 7;
   MESSAGE_TYPE_STICKER = 8;
+  MESSAGE_TYPE_VIDEO_STICKER = 9;
+  MESSAGE_TYPE_EVENT = 10;
 }
 
 message TextContent {
