@@ -13,8 +13,8 @@ import (
 )
 
 var (
-	ErrMessageNotFound  = errors.New("message not found")
-	ErrInvalidCursor    = errors.New("invalid cursor: message not found")
+	ErrMessageNotFound = errors.New("message not found")
+	ErrInvalidCursor   = errors.New("invalid cursor: message not found")
 )
 
 func buildReplyPreview(rmID, rmSenderID *uuid.UUID, rmType *string, rmContentJSON []byte, rmDeletedAt *time.Time) *MessagePreview {

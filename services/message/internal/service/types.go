@@ -9,13 +9,13 @@ import (
 type MessageType string
 
 const (
-	MessageTypeText      MessageType = "text"
-	MessageTypeImage     MessageType = "image"
-	MessageTypeVideo     MessageType = "video"
-	MessageTypeVideoNote MessageType = "video_note"
-	MessageTypeVoice     MessageType = "voice"
-	MessageTypeAudio     MessageType = "audio"
-	MessageTypeFile      MessageType = "file"
+	MessageTypeText         MessageType = "text"
+	MessageTypeImage        MessageType = "image"
+	MessageTypeVideo        MessageType = "video"
+	MessageTypeVideoNote    MessageType = "video_note"
+	MessageTypeVoice        MessageType = "voice"
+	MessageTypeAudio        MessageType = "audio"
+	MessageTypeFile         MessageType = "file"
 	MessageTypeSticker      MessageType = "sticker"
 	MessageTypeVideoSticker MessageType = "video_sticker"
 	MessageTypeEvent        MessageType = "event"
