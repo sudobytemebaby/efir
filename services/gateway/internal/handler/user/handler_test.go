@@ -43,7 +43,7 @@ func TestGetMe_Success(t *testing.T) {
 		}, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/users/me", nil)
-	req.Header.Set("Authorization", testutil.AuthHeader(userID))
+	testutil.SetAccessCookie(req, userID)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -76,7 +76,7 @@ func TestGetByID_Success(t *testing.T) {
 		}, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/users/"+targetID, nil)
-	req.Header.Set("Authorization", testutil.AuthHeader(callerID))
+	testutil.SetAccessCookie(req, callerID)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -93,7 +93,7 @@ func TestGetByID_NotFound(t *testing.T) {
 		Return(nil, status.Error(codes.NotFound, "user not found"))
 
 	req := httptest.NewRequest(http.MethodGet, "/users/"+targetID, nil)
-	req.Header.Set("Authorization", testutil.AuthHeader(callerID))
+	testutil.SetAccessCookie(req, callerID)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -113,7 +113,7 @@ func TestUpdateMe_Success(t *testing.T) {
 
 	body := bytes.NewBufferString(`{"display_name":"New Name"}`)
 	req := httptest.NewRequest(http.MethodPatch, "/users/me", body)
-	req.Header.Set("Authorization", testutil.AuthHeader(userID))
+	testutil.SetAccessCookie(req, userID)
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -131,7 +131,7 @@ func TestUpdateMe_InvalidBody(t *testing.T) {
 	_, r := newRouter(t)
 
 	req := httptest.NewRequest(http.MethodPatch, "/users/me", bytes.NewBufferString(`{invalid`))
-	req.Header.Set("Authorization", testutil.AuthHeader(userID))
+	testutil.SetAccessCookie(req, userID)
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -149,7 +149,7 @@ func TestUpdateMe_GrpcError(t *testing.T) {
 
 	body := bytes.NewBufferString(`{"display_name":"New"}`)
 	req := httptest.NewRequest(http.MethodPatch, "/users/me", body)
-	req.Header.Set("Authorization", testutil.AuthHeader(userID))
+	testutil.SetAccessCookie(req, userID)
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)

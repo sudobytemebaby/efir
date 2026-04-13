@@ -125,7 +125,7 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.gateway.rule=Host(`api.localhost`)"
       - "traefik.http.routers.gateway.entrypoints=web"
-      - "traefik.http.routers.gateway.middlewares=rate-limit"
+      - "traefik.http.routers.gateway.middlewares=cors,rate-limit"
       - "traefik.http.services.gateway.loadbalancer.server.port=8080"
 
 networks:

@@ -15,12 +15,10 @@ http:
           - DELETE
           - OPTIONS
         accessControlAllowOriginList:
-          - "*"
+          - "http://localhost:1700"
         accessControlAllowHeaders:
-          - "Authorization"
           - "Content-Type"
-        accessControlExposeHeaders:
-          - "*"
+        accessControlAllowCredentials: true
         accessControlMaxAge: 86400
 
     # Forward auth for WebSocket ticket validation

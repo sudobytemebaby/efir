@@ -37,8 +37,10 @@ func newRouter(t *testing.T) chi.Router {
 	client := valkeyContainer.Client(t)
 	h := wsauth.NewHandler(client, 5*time.Minute)
 	r := chi.NewRouter()
-	r.With(middleware.JWTAuth(testutil.TestSecret)).Post("/ws/ticket", h.CreateTicket)
-	h.Register(r)
+	r.With(middleware.JWTAuth(testutil.TestSecret)).Group(func(r chi.Router) {
+		h.RegisterProtected(r)
+	})
+	h.RegisterInternal(r)
 	return r
 }
 
@@ -46,8 +48,8 @@ func TestCreateTicket_Success(t *testing.T) {
 	userID := uuid.New().String()
 	r := newRouter(t)
 
-	req := httptest.NewRequest(http.MethodPost, "/ws/ticket", nil)
-	req.Header.Set("Authorization", testutil.AuthHeader(userID))
+	req := httptest.NewRequest(http.MethodPost, "/auth/ws-ticket", nil)
+	testutil.SetAccessCookie(req, userID)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -60,7 +62,7 @@ func TestCreateTicket_Success(t *testing.T) {
 func TestCreateTicket_Unauthenticated(t *testing.T) {
 	r := newRouter(t)
 
-	req := httptest.NewRequest(http.MethodPost, "/ws/ticket", nil)
+	req := httptest.NewRequest(http.MethodPost, "/auth/ws-ticket", nil)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -72,8 +74,8 @@ func TestValidateTicket_Success(t *testing.T) {
 	r := newRouter(t)
 
 	// Step 1: create a ticket.
-	createReq := httptest.NewRequest(http.MethodPost, "/ws/ticket", nil)
-	createReq.Header.Set("Authorization", testutil.AuthHeader(userID))
+	createReq := httptest.NewRequest(http.MethodPost, "/auth/ws-ticket", nil)
+	testutil.SetAccessCookie(createReq, userID)
 	createW := httptest.NewRecorder()
 	r.ServeHTTP(createW, createReq)
 	require.Equal(t, http.StatusCreated, createW.Code)
@@ -102,8 +104,8 @@ func TestValidateTicket_TicketIsConsumedOnce(t *testing.T) {
 	r := newRouter(t)
 
 	// Create ticket.
-	createReq := httptest.NewRequest(http.MethodPost, "/ws/ticket", nil)
-	createReq.Header.Set("Authorization", testutil.AuthHeader(userID))
+	createReq := httptest.NewRequest(http.MethodPost, "/auth/ws-ticket", nil)
+	testutil.SetAccessCookie(createReq, userID)
 	createW := httptest.NewRecorder()
 	r.ServeHTTP(createW, createReq)
 	require.Equal(t, http.StatusCreated, createW.Code)
@@ -130,8 +132,8 @@ func TestValidateTicket_TicketIsConsumedOnce(t *testing.T) {
 func TestCreateTicket_InvalidUserID(t *testing.T) {
 	r := newRouter(t)
 
-	req := httptest.NewRequest(http.MethodPost, "/ws/ticket", nil)
-	req.Header.Set("Authorization", testutil.AuthHeader("not-a-uuid"))
+	req := httptest.NewRequest(http.MethodPost, "/auth/ws-ticket", nil)
+	testutil.SetAccessCookie(req, "not-a-uuid")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 

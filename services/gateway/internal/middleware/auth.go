@@ -3,7 +3,6 @@ package middleware
 import (
 	"context"
 	"net/http"
-	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
@@ -31,19 +30,13 @@ func JWTAuth(jwtSecret string) func(http.Handler) http.Handler {
 			}
 			w.Header().Set(HeaderRequestID, requestID)
 
-			authHeader := r.Header.Get("Authorization")
-			if authHeader == "" {
+			cookie, err := r.Cookie("access_token")
+			if err != nil {
 				handler.WriteCode(w, errors.CodeUnauthenticated)
 				return
 			}
 
-			parts := strings.SplitN(authHeader, " ", 2)
-			if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-				handler.WriteCode(w, errors.CodeUnauthenticated)
-				return
-			}
-
-			tokenString := parts[1]
+			tokenString := cookie.Value
 
 			token, err := jwt.ParseWithClaims(tokenString, jwt.MapClaims{}, func(token *jwt.Token) (any, error) {
 				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {

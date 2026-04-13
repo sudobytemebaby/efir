@@ -6,10 +6,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -20,26 +18,16 @@ import (
 	"github.com/sudobytemebaby/efir/services/gateway/internal/handler/message"
 	"github.com/sudobytemebaby/efir/services/gateway/internal/handler/message/mocks"
 	"github.com/sudobytemebaby/efir/services/gateway/internal/middleware"
+	"github.com/sudobytemebaby/efir/services/gateway/internal/testutil"
 	messagev1 "github.com/sudobytemebaby/efir/services/shared/gen/message"
 )
-
-const testSecret = "test-secret"
-
-func authHeader(userID string) string {
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"sub": userID,
-		"exp": time.Now().Add(time.Hour).Unix(),
-	})
-	signed, _ := token.SignedString([]byte(testSecret))
-	return "Bearer " + signed
-}
 
 func newRouter(t *testing.T) (*mocks.MessageServiceClient, chi.Router) {
 	t.Helper()
 	client := mocks.NewMessageServiceClient(t)
 	h := message.NewHandler(client)
 	r := chi.NewRouter()
-	r.Use(middleware.JWTAuth(testSecret))
+	r.Use(middleware.JWTAuth(testutil.TestSecret))
 	h.Register(r)
 	return client, r
 }
@@ -59,7 +47,7 @@ func TestSendMessage_Success(t *testing.T) {
 
 	body, _ := json.Marshal(map[string]any{"type": "TEXT", "text": map[string]string{"text": "hello"}})
 	req := httptest.NewRequest(http.MethodPost, "/rooms/"+roomID+"/messages", bytes.NewBuffer(body))
-	req.Header.Set("Authorization", authHeader(userID))
+	testutil.SetAccessCookie(req, userID)
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -81,7 +69,7 @@ func TestSendMessage_PermissionDenied(t *testing.T) {
 
 	body, _ := json.Marshal(map[string]any{"type": "TEXT"})
 	req := httptest.NewRequest(http.MethodPost, "/rooms/"+roomID+"/messages", bytes.NewBuffer(body))
-	req.Header.Set("Authorization", authHeader(userID))
+	testutil.SetAccessCookie(req, userID)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -103,7 +91,7 @@ func TestGetMessages_Success(t *testing.T) {
 	}, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/rooms/"+roomID+"/messages", nil)
-	req.Header.Set("Authorization", authHeader(userID))
+	testutil.SetAccessCookie(req, userID)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -122,7 +110,7 @@ func TestGetMessages_WithCursorAndLimit(t *testing.T) {
 	})).Return(&messagev1.GetMessagesResponse{}, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/rooms/"+roomID+"/messages?limit=10&cursor="+cursor, nil)
-	req.Header.Set("Authorization", authHeader(userID))
+	testutil.SetAccessCookie(req, userID)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
