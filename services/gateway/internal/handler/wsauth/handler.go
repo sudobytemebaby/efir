@@ -26,17 +26,19 @@ func NewHandler(client vk.Client, ticketTTL time.Duration) *Handler {
 	}
 }
 
-// Register wires only ValidateTicket. CreateTicket requires JWT+rate-limit middleware
-// and must be registered separately by the caller (as main.go does).
-func (h *Handler) Register(r chi.Router) {
-	r.Get("/auth/validate", h.ValidateTicket)
+func (h *Handler) RegisterProtected(r chi.Router) {
+	r.Post("/auth/ws-ticket", h.createTicket)
+}
+
+func (h *Handler) RegisterInternal(r chi.Router) {
+	r.Get("/auth/validate", h.validateTicket)
 }
 
 type createTicketResponse struct {
 	Ticket string `json:"ticket"`
 }
 
-func (h *Handler) CreateTicket(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) createTicket(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	userID := middleware.MustGetUserID(r.Context())
@@ -63,7 +65,7 @@ func (h *Handler) CreateTicket(w http.ResponseWriter, r *http.Request) {
 	handler.WriteJSON(w, http.StatusCreated, createTicketResponse{Ticket: ticket})
 }
 
-func (h *Handler) ValidateTicket(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) validateTicket(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	ticket := r.Header.Get("X-Ws-Ticket")

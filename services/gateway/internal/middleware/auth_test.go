@@ -38,7 +38,7 @@ func TestJWTAuth_Success(t *testing.T) {
 	})
 
 	req := httptest.NewRequest("GET", "/", nil)
-	req.Header.Set("Authorization", "Bearer "+token)
+	req.AddCookie(&http.Cookie{Name: "access_token", Value: token})
 	w := httptest.NewRecorder()
 
 	middleware(handler).ServeHTTP(w, req)
@@ -46,7 +46,7 @@ func TestJWTAuth_Success(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestJWTAuth_MissingAuthHeader(t *testing.T) {
+func TestJWTAuth_MissingCookie(t *testing.T) {
 	middleware := JWTAuth(testSecret)
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Error("handler should not be called")
@@ -60,35 +60,6 @@ func TestJWTAuth_MissingAuthHeader(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
-func TestJWTAuth_InvalidAuthHeaderFormat(t *testing.T) {
-	tests := []struct {
-		name   string
-		header string
-	}{
-		{"no bearer prefix", "token-only"},
-		{"wrong prefix", "Basic token"},
-		{"empty bearer", "Bearer "},
-		{"bearer lowercase", "bearer token"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			middleware := JWTAuth(testSecret)
-			handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				t.Error("handler should not be called")
-			})
-
-			req := httptest.NewRequest("GET", "/", nil)
-			req.Header.Set("Authorization", tt.header)
-			w := httptest.NewRecorder()
-
-			middleware(handler).ServeHTTP(w, req)
-
-			assert.Equal(t, http.StatusUnauthorized, w.Code)
-		})
-	}
-}
-
 func TestJWTAuth_InvalidToken(t *testing.T) {
 	middleware := JWTAuth(testSecret)
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -96,7 +67,7 @@ func TestJWTAuth_InvalidToken(t *testing.T) {
 	})
 
 	req := httptest.NewRequest("GET", "/", nil)
-	req.Header.Set("Authorization", "Bearer invalid-token")
+	req.AddCookie(&http.Cookie{Name: "access_token", Value: "invalid-token"})
 	w := httptest.NewRecorder()
 
 	middleware(handler).ServeHTTP(w, req)
@@ -114,7 +85,7 @@ func TestJWTAuth_ExpiredToken(t *testing.T) {
 	})
 
 	req := httptest.NewRequest("GET", "/", nil)
-	req.Header.Set("Authorization", "Bearer "+token)
+	req.AddCookie(&http.Cookie{Name: "access_token", Value: token})
 	w := httptest.NewRecorder()
 
 	middleware(handler).ServeHTTP(w, req)
@@ -132,7 +103,7 @@ func TestJWTAuth_WrongSecret(t *testing.T) {
 	})
 
 	req := httptest.NewRequest("GET", "/", nil)
-	req.Header.Set("Authorization", "Bearer "+token)
+	req.AddCookie(&http.Cookie{Name: "access_token", Value: token})
 	w := httptest.NewRecorder()
 
 	middleware(handler).ServeHTTP(w, req)
@@ -154,7 +125,7 @@ func TestJWTAuth_MissingSubClaim(t *testing.T) {
 	})
 
 	req := httptest.NewRequest("GET", "/", nil)
-	req.Header.Set("Authorization", "Bearer "+tokenString)
+	req.AddCookie(&http.Cookie{Name: "access_token", Value: tokenString})
 	w := httptest.NewRecorder()
 
 	middleware(handler).ServeHTTP(w, req)
@@ -171,7 +142,7 @@ func TestJWTAuth_EmptySubClaim(t *testing.T) {
 	})
 
 	req := httptest.NewRequest("GET", "/", nil)
-	req.Header.Set("Authorization", "Bearer "+token)
+	req.AddCookie(&http.Cookie{Name: "access_token", Value: token})
 	w := httptest.NewRecorder()
 
 	middleware(handler).ServeHTTP(w, req)

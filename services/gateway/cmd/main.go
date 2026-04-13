@@ -120,30 +120,31 @@ func run(ctx context.Context) error {
 	r := chi.NewRouter()
 	r.Use(chimiddleware.Recoverer)
 
+	// Public — no auth required
 	r.Group(func(r chi.Router) {
-		authHandler.Register(r)
+		authHandler.RegisterPublic(r)
+		authHandler.RegisterSession(r)
 	})
 
+	// Protected — JWT + rate limit
 	r.Group(func(r chi.Router) {
 		r.Use(jwtMiddleware)
 		r.Use(userRateLimiter)
+		authHandler.RegisterProtected(r)
+		wsAuthHandler.RegisterProtected(r)
 		userHandler.Register(r)
 		roomHandler.Register(r)
 		messageHandler.Register(r)
-		r.Post("/auth/ws-ticket", wsAuthHandler.CreateTicket)
 	})
 
+	// Internal — service-to-service
 	r.Group(func(r chi.Router) {
-		r.Get("/auth/validate", wsAuthHandler.ValidateTicket)
+		wsAuthHandler.RegisterInternal(r)
 	})
 
+	// Health
 	r.HandleFunc("/health", healthHandler.Health)
 	r.HandleFunc("/ready", healthHandler.Ready)
-
-	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("gateway"))
-	})
 
 	server := &http.Server{
 		Addr:              ":" + cfg.Server.Port,

@@ -54,7 +54,7 @@ func TestCreateRoom_Success(t *testing.T) {
 
 	body := jsonBody(t, map[string]string{"name": "test-room"})
 	req := httptest.NewRequest(http.MethodPost, "/rooms", body)
-	req.Header.Set("Authorization", testutil.AuthHeader(userID))
+	testutil.SetAccessCookie(req, userID)
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -88,7 +88,7 @@ func TestGetRoom_Success(t *testing.T) {
 		}, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/rooms/"+roomID, nil)
-	req.Header.Set("Authorization", testutil.AuthHeader(userID))
+	testutil.SetAccessCookie(req, userID)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -108,7 +108,7 @@ func TestGetRoom_NotFound(t *testing.T) {
 		Return(nil, status.Error(codes.NotFound, "room not found"))
 
 	req := httptest.NewRequest(http.MethodGet, "/rooms/"+roomID, nil)
-	req.Header.Set("Authorization", testutil.AuthHeader(userID))
+	testutil.SetAccessCookie(req, userID)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -129,7 +129,7 @@ func TestUpdateRoom_Success(t *testing.T) {
 
 	body := jsonBody(t, map[string]string{"name": "New Name"})
 	req := httptest.NewRequest(http.MethodPatch, "/rooms/"+roomID, body)
-	req.Header.Set("Authorization", testutil.AuthHeader(userID))
+	testutil.SetAccessCookie(req, userID)
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -145,7 +145,7 @@ func TestUpdateRoom_InvalidBody(t *testing.T) {
 	_, r := newRouter(t)
 
 	req := httptest.NewRequest(http.MethodPatch, "/rooms/"+roomID, bytes.NewBufferString(`{invalid`))
-	req.Header.Set("Authorization", testutil.AuthHeader(userID))
+	testutil.SetAccessCookie(req, userID)
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -164,7 +164,7 @@ func TestUpdateRoom_NotOwner(t *testing.T) {
 
 	body := jsonBody(t, map[string]string{"name": "New"})
 	req := httptest.NewRequest(http.MethodPatch, "/rooms/"+roomID, body)
-	req.Header.Set("Authorization", testutil.AuthHeader(userID))
+	testutil.SetAccessCookie(req, userID)
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -183,7 +183,7 @@ func TestUpdateRoom_NotFound(t *testing.T) {
 
 	body := jsonBody(t, map[string]string{"name": "New"})
 	req := httptest.NewRequest(http.MethodPatch, "/rooms/"+roomID, body)
-	req.Header.Set("Authorization", testutil.AuthHeader(userID))
+	testutil.SetAccessCookie(req, userID)
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -202,7 +202,7 @@ func TestDeleteRoom_Success(t *testing.T) {
 	})).Return(&roomv1.DeleteRoomResponse{}, nil)
 
 	req := httptest.NewRequest(http.MethodDelete, "/rooms/"+roomID, nil)
-	req.Header.Set("Authorization", testutil.AuthHeader(userID))
+	testutil.SetAccessCookie(req, userID)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -219,7 +219,7 @@ func TestDeleteRoom_PermissionDenied(t *testing.T) {
 		Return(nil, status.Error(codes.PermissionDenied, "not owner"))
 
 	req := httptest.NewRequest(http.MethodDelete, "/rooms/"+roomID, nil)
-	req.Header.Set("Authorization", testutil.AuthHeader(userID))
+	testutil.SetAccessCookie(req, userID)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -239,7 +239,7 @@ func TestAddMember_Success(t *testing.T) {
 
 	body := jsonBody(t, map[string]string{"user_id": memberID})
 	req := httptest.NewRequest(http.MethodPost, "/rooms/"+roomID+"/members", body)
-	req.Header.Set("Authorization", testutil.AuthHeader(userID))
+	testutil.SetAccessCookie(req, userID)
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -259,7 +259,7 @@ func TestRemoveMember_Success(t *testing.T) {
 	})).Return(&roomv1.RemoveMemberResponse{}, nil)
 
 	req := httptest.NewRequest(http.MethodDelete, "/rooms/"+roomID+"/members/"+memberID, nil)
-	req.Header.Set("Authorization", testutil.AuthHeader(userID))
+	testutil.SetAccessCookie(req, userID)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 

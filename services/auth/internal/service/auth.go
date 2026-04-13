@@ -186,7 +186,7 @@ func (s *authService) RefreshToken(ctx context.Context, refreshToken string) (*T
 		if errors.Is(err, repository.ErrTokenNotFound) {
 			return nil, ErrInvalidToken
 		}
-		return nil, fmt.Errorf("consume refresh token: %w", err)
+		return nil, fmt.Errorf("revive refresh token: %w", err)
 	}
 
 	tokenPair, err := s.generateTokenPair(ctx, userID)
