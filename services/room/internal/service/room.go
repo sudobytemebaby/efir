@@ -39,6 +39,7 @@ type RoomService interface {
 	RemoveMember(ctx context.Context, roomID, userID, requesterID uuid.UUID) error
 	GetRoomMembers(ctx context.Context, roomID uuid.UUID) ([]RoomMember, error)
 	IsMember(ctx context.Context, roomID, userID uuid.UUID) (bool, error)
+	GetUserRooms(ctx context.Context, userID uuid.UUID) ([]Room, error)
 }
 
 type roomService struct {
@@ -361,6 +362,20 @@ func (s *roomService) IsMember(ctx context.Context, roomID, userID uuid.UUID) (b
 	}
 
 	return isMember, nil
+}
+
+func (s *roomService) GetUserRooms(ctx context.Context, userID uuid.UUID) ([]Room, error) {
+	rooms, err := s.roomRepo.GetUserRooms(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("get user rooms: %w", err)
+	}
+
+	result := make([]Room, len(rooms))
+	for i := range rooms {
+		result[i] = *toRoom(&rooms[i])
+	}
+
+	return result, nil
 }
 
 func memberUserIDs(members []repository.RoomMember) []uuid.UUID {

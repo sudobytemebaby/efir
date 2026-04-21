@@ -59,6 +59,7 @@ type RoomRepository interface {
 	IsMember(ctx context.Context, roomID, userID uuid.UUID) (bool, error)
 	GetMemberRole(ctx context.Context, roomID, userID uuid.UUID) (MemberRole, error)
 	GetDirectRoomByUsers(ctx context.Context, userID1, userID2 uuid.UUID) (*Room, error)
+	GetUserRooms(ctx context.Context, userID uuid.UUID) ([]Room, error)
 }
 
 type pgRoomRepository struct {
@@ -333,4 +334,35 @@ func (r *pgRoomRepository) GetDirectRoomByUsers(ctx context.Context, userID1, us
 	}
 
 	return room, nil
+}
+
+func (r *pgRoomRepository) GetUserRooms(ctx context.Context, userID uuid.UUID) ([]Room, error) {
+	const query = `
+		SELECT r.id, r.name, r.type, r.created_by, r.created_at, r.updated_at
+		FROM rooms r
+		JOIN room_members rm ON r.id = rm.room_id
+		WHERE rm.user_id = $1
+		ORDER BY r.created_at DESC
+	`
+
+	rows, err := r.pool.Query(ctx, query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("get user rooms: %w", err)
+	}
+	defer rows.Close()
+
+	var rooms []Room
+	for rows.Next() {
+		var room Room
+		if err := rows.Scan(&room.ID, &room.Name, &room.Type, &room.CreatedBy, &room.CreatedAt, &room.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan room: %w", err)
+		}
+		rooms = append(rooms, room)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate rooms: %w", err)
+	}
+
+	return rooms, nil
 }

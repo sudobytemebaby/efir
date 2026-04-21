@@ -142,6 +142,36 @@ func (_m *RoomService) GetRoomMembers(ctx context.Context, roomID uuid.UUID) ([]
 	return r0, r1
 }
 
+// GetUserRooms provides a mock function with given fields: ctx, userID
+func (_m *RoomService) GetUserRooms(ctx context.Context, userID uuid.UUID) ([]service.Room, error) {
+	ret := _m.Called(ctx, userID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetUserRooms")
+	}
+
+	var r0 []service.Room
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) ([]service.Room, error)); ok {
+		return rf(ctx, userID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) []service.Room); ok {
+		r0 = rf(ctx, userID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]service.Room)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, uuid.UUID) error); ok {
+		r1 = rf(ctx, userID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // IsMember provides a mock function with given fields: ctx, roomID, userID
 func (_m *RoomService) IsMember(ctx context.Context, roomID uuid.UUID, userID uuid.UUID) (bool, error) {
 	ret := _m.Called(ctx, roomID, userID)

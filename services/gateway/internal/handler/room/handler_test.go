@@ -265,3 +265,63 @@ func TestRemoveMember_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusNoContent, w.Code)
 }
+
+func TestGetUserRooms_Success(t *testing.T) {
+	t.Parallel()
+	userID := uuid.New().String()
+	roomID1 := uuid.New().String()
+	roomID2 := uuid.New().String()
+
+	client, r := newRouter(t)
+	client.On("GetUserRooms", mock.Anything, &roomv1.GetUserRoomsRequest{UserId: userID}).
+		Return(&roomv1.GetUserRoomsResponse{
+			Rooms: []*roomv1.Room{
+				{RoomId: roomID1, Name: "room-1"},
+				{RoomId: roomID2, Name: "room-2"},
+			},
+		}, nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/rooms", nil)
+	testutil.SetAccessCookie(req, userID)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var rooms []map[string]any
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &rooms))
+	require.Len(t, rooms, 2)
+	assert.Equal(t, roomID1, rooms[0]["room_id"])
+	assert.Equal(t, "room-1", rooms[0]["name"])
+	assert.Equal(t, roomID2, rooms[1]["room_id"])
+	assert.Equal(t, "room-2", rooms[1]["name"])
+}
+
+func TestGetUserRooms_Empty(t *testing.T) {
+	t.Parallel()
+	userID := uuid.New().String()
+
+	client, r := newRouter(t)
+	client.On("GetUserRooms", mock.Anything, &roomv1.GetUserRoomsRequest{UserId: userID}).
+		Return(&roomv1.GetUserRoomsResponse{Rooms: []*roomv1.Room{}}, nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/rooms", nil)
+	testutil.SetAccessCookie(req, userID)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var rooms []any
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &rooms))
+	assert.Empty(t, rooms)
+}
+
+func TestGetUserRooms_Unauthenticated(t *testing.T) {
+	t.Parallel()
+	_, r := newRouter(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/rooms", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}

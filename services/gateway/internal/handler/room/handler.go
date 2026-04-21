@@ -18,12 +18,27 @@ func NewHandler(client roomv1.RoomServiceClient) *Handler {
 }
 
 func (h *Handler) Register(r chi.Router) {
+	r.Get("/rooms", h.getUserRooms)
 	r.Post("/rooms", h.createRoom)
 	r.Get("/rooms/{id}", h.getRoom)
 	r.Patch("/rooms/{id}", h.updateRoom)
 	r.Delete("/rooms/{id}", h.deleteRoom)
 	r.Post("/rooms/{id}/members", h.addMember)
 	r.Delete("/rooms/{id}/members/{userId}", h.removeMember)
+}
+
+func (h *Handler) getUserRooms(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.MustGetUserID(r.Context())
+
+	resp, err := h.client.GetUserRooms(
+		middleware.InjectRequestIDToOutgoingContext(r.Context()),
+		&roomv1.GetUserRoomsRequest{UserId: userID},
+	)
+	if err != nil {
+		handler.WriteError(w, r, err, "failed to get user rooms")
+		return
+	}
+	handler.WriteJSON(w, http.StatusOK, resp.Rooms)
 }
 
 func (h *Handler) createRoom(w http.ResponseWriter, r *http.Request) {
