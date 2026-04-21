@@ -23,7 +23,7 @@ import (
 func newTestHandler(t *testing.T) (*mocks.AuthServiceClient, *auth.Handler) {
 	t.Helper()
 	client := mocks.NewAuthServiceClient(t)
-	return client, auth.NewHandler(client)
+	return client, auth.NewHandler(client, false)
 }
 
 func newPublicRouter(t *testing.T) (*mocks.AuthServiceClient, chi.Router) {
