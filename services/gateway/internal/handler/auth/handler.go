@@ -12,10 +12,11 @@ import (
 
 type Handler struct {
 	client authv1.AuthServiceClient
+	secure bool
 }
 
-func NewHandler(client authv1.AuthServiceClient) *Handler {
-	return &Handler{client: client}
+func NewHandler(client authv1.AuthServiceClient, secure bool) *Handler {
+	return &Handler{client: client, secure: secure}
 }
 
 func (h *Handler) RegisterPublic(r chi.Router) {
@@ -45,7 +46,7 @@ func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	setAuthCookies(w, resp.AccessToken, resp.RefreshToken)
+	setAuthCookies(w, resp.AccessToken, resp.RefreshToken, h.secure)
 	handler.WriteJSON(w, http.StatusOK, map[string]string{
 		"user_id": resp.UserId,
 	})
@@ -64,7 +65,7 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	setAuthCookies(w, resp.AccessToken, resp.RefreshToken)
+	setAuthCookies(w, resp.AccessToken, resp.RefreshToken, h.secure)
 	handler.WriteJSON(w, http.StatusOK, map[string]string{
 		"user_id": resp.UserId,
 	})
@@ -73,7 +74,7 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("refresh_token")
 	if err != nil {
-		clearAuthCookies(w)
+		clearAuthCookies(w, h.secure)
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
@@ -86,7 +87,7 @@ func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	clearAuthCookies(w)
+	clearAuthCookies(w, h.secure)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -106,7 +107,7 @@ func (h *Handler) refresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	setAuthCookies(w, resp.AccessToken, resp.RefreshToken)
+	setAuthCookies(w, resp.AccessToken, resp.RefreshToken, h.secure)
 	w.WriteHeader(http.StatusNoContent)
 }
 
