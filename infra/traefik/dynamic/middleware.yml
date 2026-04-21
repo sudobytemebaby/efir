@@ -15,9 +15,11 @@ http:
           - DELETE
           - OPTIONS
         accessControlAllowOriginList:
-          - "http://localhost:1700"
+          - "http://localhost:5173"
         accessControlAllowHeaders:
           - "Content-Type"
+        accessControlExposeHeaders:
+          - "X-Request-ID"
         accessControlAllowCredentials: true
         accessControlMaxAge: 86400
 
