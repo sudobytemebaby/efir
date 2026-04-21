@@ -22,6 +22,7 @@ service RoomService {
   rpc RemoveMember(RemoveMemberRequest) returns (RemoveMemberResponse);
   rpc GetRoomMembers(GetRoomMembersRequest) returns (GetRoomMembersResponse);
   rpc IsMember(IsMemberRequest) returns (IsMemberResponse);
+  rpc GetUserRooms(GetUserRoomsRequest) returns (GetUserRoomsResponse);
 }
 
 message CreateRoomRequest {
@@ -91,6 +92,14 @@ message IsMemberRequest {
 
 message IsMemberResponse {
   bool is_member = 1;
+}
+
+message GetUserRoomsRequest {
+  string user_id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message GetUserRoomsResponse {
+  repeated Room rooms = 1;
 }
 
 message Room {

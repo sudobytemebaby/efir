@@ -291,3 +291,28 @@ func (h *roomHandler) IsMember(ctx context.Context, req *roomv1.IsMemberRequest)
 		IsMember: isMember,
 	}, nil
 }
+
+func (h *roomHandler) GetUserRooms(ctx context.Context, req *roomv1.GetUserRoomsRequest) (*roomv1.GetUserRoomsResponse, error) {
+	if err := h.validate(req); err != nil {
+		return nil, err
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, sharederrors.CodeInvalidArgument.Error("invalid user_id")
+	}
+
+	rooms, err := h.svc.GetUserRooms(ctx, userID)
+	if err != nil {
+		return nil, sharederrors.CodeInternal.Wrap(err)
+	}
+
+	result := make([]*roomv1.Room, len(rooms))
+	for i := range rooms {
+		result[i] = roomToProto(&rooms[i])
+	}
+
+	return &roomv1.GetUserRoomsResponse{
+		Rooms: result,
+	}, nil
+}
