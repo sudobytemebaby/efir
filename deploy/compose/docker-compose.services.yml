@@ -100,12 +100,6 @@ services:
         condition: service_healthy
     networks:
       - efir-network
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.websocket.rule=Host(`ws.localhost`)"
-      - "traefik.http.routers.websocket.entrypoints=web"
-      - "traefik.http.routers.websocket.middlewares=ws-forward-auth"
-      - "traefik.http.services.websocket.loadbalancer.server.port=8081"
 
   gateway:
     build:
@@ -121,12 +115,6 @@ services:
         condition: service_healthy
     networks:
       - efir-network
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.gateway.rule=Host(`api.localhost`)"
-      - "traefik.http.routers.gateway.entrypoints=web"
-      - "traefik.http.routers.gateway.middlewares=cors,rate-limit"
-      - "traefik.http.services.gateway.loadbalancer.server.port=8080"
 
 networks:
   efir-network:

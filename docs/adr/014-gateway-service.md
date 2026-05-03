@@ -42,7 +42,7 @@ limiters.
 **Rationale:** Downstream services are only reachable from within the Docker
 network and accept connections exclusively from the Gateway. Rate limiting
 inside downstream services would protect against a compromised or buggy Gateway
-— a scenario considered out of scope for MVP. Traefik provides an additional
+— a scenario considered out of scope for MVP. nginx provides an additional
 global rate limiting layer at the network edge.
 
 The Auth Service already has a rate limiter implemented (per ADR-008). It is
@@ -67,7 +67,7 @@ return current
 **Rationale:** The Lua script executes atomically on the Valkey server,
 eliminating the race condition between `INCR` and `EXPIRE` documented in
 ADR-008. A sliding window was considered but rejected as over-engineering given
-that Traefik already provides a rate limiting layer. The `SET NX` + `INCR`
+that nginx already provides a rate limiting layer. The `SET NX` + `INCR`
 pattern was also considered — it is more readable but requires two round trips
 and has an edge case where a crash between the two commands leaves the counter
 stuck at zero until TTL expiry.

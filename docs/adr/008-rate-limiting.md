@@ -29,7 +29,7 @@ Implement per-email fixed window rate limiting at the service layer using Valkey
 
 ## Alternatives Considered
 
-- **Traefik rate limiting**: already configured globally in `middleware.yml`. Suitable for general traffic shaping but operates at the IP level and cannot enforce per-email semantics.
+- **nginx rate limiting**: already configured globally via `limit_req_zone`. Suitable for general traffic shaping but operates at the IP level and cannot enforce per-email semantics.
 - **Sliding window**: more accurate, prevents bursting at window boundaries, but requires a sorted set in Valkey and more complex logic. Overkill for auth rate limiting at current scale.
 - **Token bucket**: good for smooth rate limiting, but harder to reason about for "N attempts per minute" semantics that users understand.
 

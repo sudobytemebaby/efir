@@ -57,28 +57,20 @@ services:
     networks:
       - efir-network
 
-  traefik:
-    image: traefik:v3.6
-    container_name: efir-traefik
-    env_file:
-      - .env
-    environment:
-      - DOCKER_API_VERSION=1.40
-    command:
-      - "--configFile=/etc/traefik/traefik.yml"
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: efir-nginx
+    ports:
+      - "80:80"
     volumes:
-      - ./infra/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
-      - ./infra/traefik/dynamic:/etc/traefik/dynamic:ro
-      - ./infra/traefik/certs:/certs:ro
+      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     healthcheck:
-      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/healthz"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
       - efir-network
-    ports:
-      - "8090:8090"
 
 volumes:
   postgres_data:

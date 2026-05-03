@@ -25,7 +25,7 @@ Efir follows the Unix philosophy -- do one thing and do it well. No built-in sto
 
 ```
                           +-----------+
-                          |  Traefik  |  :8090
+                          |   nginx   |  :80
                           |  (reverse |
                           |   proxy)  |
                           +-----+-----+
@@ -53,7 +53,7 @@ Efir follows the Unix philosophy -- do one thing and do it well. No built-in sto
   +-------------------------+            +----------+
 ```
 
-**Request flow:** Client -> Traefik -> Gateway (HTTP/JSON) -> Service (gRPC) -> PostgreSQL
+**Request flow:** Client -> nginx -> Gateway (HTTP/JSON) -> Service (gRPC) -> PostgreSQL
 
 **Real-time flow:** Service -> NATS JetStream -> WebSocket Connector -> Client (WebSocket)
 
@@ -69,7 +69,7 @@ Each service follows clean architecture: `handler -> service -> repository`.
 | Database      | PostgreSQL 18        | Persistent storage (DB per service)   |
 | Internal RPC  | gRPC + Protobuf      | Synchronous service-to-service calls  |
 | API Gateway   | Chi (Go)             | HTTP routing, JWT auth, rate limiting |
-| Reverse Proxy | Traefik v3.6         | Edge routing, CORS, forward auth      |
+| Reverse Proxy | nginx 1.27           | Edge routing, CORS, forward auth      |
 | Validation    | protovalidate (buf)  | Request validation at proto level     |
 | Migrations    | goose                | Database schema migrations            |
 | Mocks         | mockery              | Test mock generation                  |
@@ -117,12 +117,12 @@ task docker:up
 task migrate:up
 ```
 
-The API will be available at `http://api.localhost:8090` and WebSocket at `ws://ws.localhost:8090/ws`.
+The API will be available at `http://api.localhost` and WebSocket at `ws://ws.localhost/ws`.
 
 ### Local Development
 
 ```bash
-# Start only infrastructure (Postgres, NATS, Valkey, Traefik)
+# Start only infrastructure (Postgres, NATS, Valkey, nginx)
 task docker:infra:up
 
 # Run a specific service locally
@@ -351,7 +351,7 @@ Authenticated endpoints are rate-limited per user. Default: **100 requests per 6
 
 ## WebSocket Protocol
 
-Connect to `ws://ws.localhost:8090/ws?ticket=<ticket>&room_id=<optional-room-uuid>`.
+Connect to `ws://ws.localhost/ws?ticket=<ticket>&room_id=<optional-room-uuid>`.
 
 ### Authentication Flow
 
@@ -565,7 +565,7 @@ efir/
 |   |-- postgres/            #   DB init scripts (per-service databases)
 |   |-- nats/                #   NATS server config
 |   |-- valkey/              #   Valkey config
-|   +-- traefik/             #   Traefik routing, CORS, forward auth
+|   +-- nginx/               #   nginx routing, CORS, forward auth
 |-- deploy/
 |   +-- compose/             # Modular Docker Compose files
 |       |-- docker-compose.infra.yml
@@ -621,6 +621,7 @@ Design decisions are documented in `docs/adr/`:
 | [013](docs/adr/013-websocket-connector.md)        | WebSocket Connector                    |
 | [014](docs/adr/014-gateway-service.md)            | Gateway Service Implementation         |
 | [015](docs/adr/015-random-username-generation.md) | Random Username Generation             |
+| [016](docs/adr/016-nginx-reverse-proxy.md)        | nginx as Reverse Proxy                 |
 
 ## Roadmap
 

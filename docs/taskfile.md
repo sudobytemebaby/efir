@@ -57,7 +57,7 @@ go-task setup
 | `go-task docker:ps`                   | Show container status                              |
 | `go-task docker:logs SERVICE=auth`    | Tail logs for a specific service                   |
 | `go-task docker:restart SERVICE=auth` | Restart a specific service                         |
-| `go-task docker:infra:up`             | Start infra only (postgres, nats, valkey, traefik) |
+| `go-task docker:infra:up`             | Start infra only (postgres, nats, valkey, nginx)   |
 | `go-task docker:infra:down`           | Stop infra                                         |
 | `go-task docker:obs:up`               | Start infra + full observability stack             |
 | `go-task docker:obs:down`             | Stop observability stack                           |
