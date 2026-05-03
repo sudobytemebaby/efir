@@ -1,6 +1,6 @@
 # API Reference
 
-Complete HTTP API reference for the Efir Gateway service. All endpoints are served at `http://api.localhost:8090`.
+Complete HTTP API reference for the Efir Gateway service. All endpoints are served at `http://api.localhost`.
 
 ## Overview
 
@@ -562,7 +562,7 @@ These endpoints are used for service-to-service communication and are not expose
 
 ### GET /auth/validate
 
-Validate a WebSocket ticket. Used by the WebSocket service (via Traefik forward auth) or directly.
+Validate a WebSocket ticket. Used by the WebSocket service via nginx `auth_request` forward auth.
 
 **Headers:**
 - `X-Ws-Ticket` -- the ticket UUID to validate

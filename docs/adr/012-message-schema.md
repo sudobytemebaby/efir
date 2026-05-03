@@ -93,7 +93,7 @@ Client uploads file to MinIO via presigned URL, receives `file_id`, then calls `
 
 8. **JSONB structure validation only at application level** — no database-level guarantees for fields inside content.
 
-9. **Insecure gRPC for internal service-to-service communication** — Room Service client uses `insecure.NewCredentials()`. Acceptable within docker network. External TLS terminated by Traefik.
+9. **Insecure gRPC for internal service-to-service communication** — Room Service client uses `insecure.NewCredentials()`. Acceptable within docker network. External TLS terminated by nginx.
 
 10. **Health endpoint reports ready before Room Service connectivity verified** — `SetReady(true)` called on startup. First real call happens on first request with retry.
 

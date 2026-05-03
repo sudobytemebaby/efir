@@ -28,8 +28,8 @@ We use a **one-time ticket + forward auth** pattern (NOT JWT in URL):
    Value: {user_id}
    TTL: 30s
    ```
-4. Client connects to WebSocket Connector via Traefik: `GET /ws?ticket={ticket}&room_id={room_id}`
-5. Traefik forward auth middleware calls `GET /auth/validate` on Gateway
+4. Client connects to WebSocket Connector via nginx: `GET /ws?ticket={ticket}&room_id={room_id}`
+5. nginx `auth_request` directive calls `GET /auth/validate` on Gateway
 6. Gateway performs `GETDEL` on Valkey to atomically consume the ticket, returns `X-User-Id`
 7. If ticket valid, WebSocket connection established; otherwise rejected
 
@@ -141,7 +141,7 @@ Streams are created by publishing services (message, room), not by WebSocket Con
 
 ### Negative
 
-- Additional network hop (Traefik → Gateway → Valkey) for auth validation
+- Additional network hop (nginx → Gateway → Valkey) for auth validation
 - Ticket TTL must be long enough for network latency but short enough to prevent reuse
 
 ## References

@@ -15,7 +15,7 @@ This document describes the architecture of Efir: how services interact, how dat
 ```
 Client (browser / mobile)
          |
-    Traefik :8090
+    nginx :80
     (reverse proxy, CORS, rate limiting, forward auth)
          |
     +----+----+
@@ -63,8 +63,8 @@ Client (browser / mobile)
 ### HTTP Request (e.g., send a message)
 
 ```
-1. Client sends POST /rooms/{id}/messages to api.localhost:8090
-2. Traefik routes to Gateway service (:8080)
+1. Client sends POST /rooms/{id}/messages to api.localhost
+2. nginx routes to Gateway service (:8080)
 3. Gateway middleware:
    a. Recoverer (panic recovery)
    b. JWTAuth -- extracts user_id from access_token cookie
@@ -88,8 +88,8 @@ Client (browser / mobile)
    -> Gateway creates UUID ticket in Valkey (TTL 30s)
    -> Returns { "ticket": "..." }
 
-2. Client connects to ws://ws.localhost:8090/ws?ticket=<ticket>&room_id=<uuid>
-   -> Traefik routes to WebSocket service (:8081)
+2. Client connects to ws://ws.localhost/ws?ticket=<ticket>&room_id=<uuid>
+   -> nginx routes to WebSocket service (:8081) via forward auth (auth_request)
    -> WebSocket handler validates ticket via Valkey (GETDEL, single-use)
    -> WebSocket connection is established
    -> If room_id provided, client is auto-subscribed to that room
@@ -215,14 +215,16 @@ The `services/shared/` module provides common functionality:
 
 ## Infrastructure
 
-### Traefik
+### nginx
 
-Traefik serves as the edge router with the following configuration:
+nginx serves as the edge router with the following configuration:
 
-- **Entrypoint:** `:8090` (web)
-- **Routing:** Host-based (`api.localhost` -> Gateway, `ws.localhost` -> WebSocket)
-- **Middleware:** CORS headers, rate limiting, forward auth for WebSocket
-- **Service discovery:** Docker labels on service containers
+- **Entrypoint:** `:80` (HTTP), `:443` (HTTPS, production)
+- **Routing:** Host-based (`api.localhost` → Gateway, `ws.localhost` → WebSocket)
+- **CORS:** Configured via `map` directive, allows `http://localhost:5173` in development
+- **Rate limiting:** `limit_req_zone` per IP, 100 req/min with burst of 50
+- **Forward auth:** `auth_request` directive validates WebSocket tickets via Gateway before proxying
+- **DNS resolution:** Docker's internal resolver (`127.0.0.11`) for dynamic upstream resolution
 
 ### Docker Compose (Modular)
 
@@ -231,7 +233,7 @@ The compose setup is split into modular files for flexibility:
 | File                              | Contains                         |
 |-----------------------------------|----------------------------------|
 | `docker-compose.network.yml`     | External network definition      |
-| `docker-compose.infra.yml`       | Postgres, NATS, Valkey, Traefik  |
+| `docker-compose.infra.yml`       | Postgres, NATS, Valkey, nginx    |
 | `docker-compose.services.yml`    | All application services         |
 | `docker-compose.sidecar.yml`     | Sidecar PEP containers           |
 | `docker-compose.observability.yml`| Grafana, Loki, Tempo            |

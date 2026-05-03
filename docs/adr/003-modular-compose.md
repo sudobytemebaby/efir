@@ -13,7 +13,7 @@ A microservices project needs Docker Compose for local development. A single mon
 Split docker-compose into modular files with the `include` directive (Docker Compose v2.20+) and keep host port exposure in a dev-only override file:
 
 - `docker-compose.network.yml` — network declaration
-- `docker-compose.infra.yml` — infrastructure (Traefik, Postgres, NATS, Valkey)
+- `docker-compose.infra.yml` — infrastructure (nginx, Postgres, NATS, Valkey)
 - `docker-compose.services.yml` — Go microservices
 - `docker-compose.sidecar.yml` — PEP sidecar containers
 - `docker-compose.observability.yml` — monitoring stack (optional)
