@@ -100,6 +100,9 @@ func TestLoad_InvalidYAML(t *testing.T) {
 func TestLoad_InvalidEnvironment(t *testing.T) {
 	env := map[string]string{
 		"LOG_LEVEL": "info",
+		// Explicitly set ENV so the ambient environment variable does not override
+		// the "env: invalid" value written to the yaml file below.
+		"ENV": "invalid",
 	}
 	for k, v := range env {
 		t.Setenv(k, v)

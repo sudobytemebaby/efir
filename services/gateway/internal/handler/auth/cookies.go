@@ -15,7 +15,7 @@ func setAuthCookies(w http.ResponseWriter, accessToken, refreshToken string, sec
 		Value:    accessToken,
 		HttpOnly: true,
 		Secure:   secure,
-		SameSite: http.SameSiteLaxMode,
+		SameSite: http.SameSiteNoneMode,
 		MaxAge:   accessTokenMaxAge,
 		Path:     "/",
 	})
@@ -24,7 +24,7 @@ func setAuthCookies(w http.ResponseWriter, accessToken, refreshToken string, sec
 		Value:    refreshToken,
 		HttpOnly: true,
 		Secure:   secure,
-		SameSite: http.SameSiteLaxMode,
+		SameSite: http.SameSiteNoneMode,
 		MaxAge:   refreshTokenMaxAge,
 		Path:     "/auth/session",
 	})

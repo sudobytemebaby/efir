@@ -61,6 +61,8 @@ Records fact and time of last edit. Edit history is not stored.
 
 Room Service is the single source of truth for membership. Retry up to 3 attempts with exponential backoff (100ms, 300ms, 900ms) only for `codes.Unavailable` and `codes.DeadlineExceeded`.
 
+Membership is verified for all write operations including `DeleteMessage`. A user who has left a room loses the ability to delete their own messages — leaving the room revokes all write access. Message existence is checked before membership to avoid leaking information to non-members via different error codes.
+
 ### `message.created` Published to NATS Best-Effort
 
 If NATS is unavailable — message is saved, event is lost, error is logged. WebSocket Service must re-fetch history from Message Service on reconnect.

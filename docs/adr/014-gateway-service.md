@@ -72,12 +72,15 @@ pattern was also considered — it is more readable but requires two round trips
 and has an edge case where a crash between the two commands leaves the counter
 stuck at zero until TTL expiry.
 
-Two rate limiters are applied:
+One rate limiter is applied at the Gateway layer:
 
-- **By IP** — key pattern `gateway:ratelimit:ip:{ip}:{window}`, applied to
-  public auth endpoints (`/auth/*`) to protect against brute force
 - **By userId** — key pattern `gateway:ratelimit:user:{userId}:{window}`,
-  applied to authenticated endpoints to protect against spam
+  applied to all authenticated endpoints to protect against spam.
+
+IP-based rate limiting is handled exclusively by nginx at the network edge
+(`limit_req_zone`, 100 req/min, burst 50) and is not reimplemented in the
+Gateway Go code. The `GatewayRateLimitKey` helper accepts a `limitType`
+parameter for forward compatibility, but only the `user` type is active.
 
 Window is expressed in seconds and included in the key to ensure uniqueness per
 time window.

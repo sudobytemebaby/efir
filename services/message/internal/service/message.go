@@ -152,15 +152,25 @@ func (s *messageService) GetMessageByID(ctx context.Context, messageID, requeste
 }
 
 func (s *messageService) DeleteMessage(ctx context.Context, messageID, requesterID uuid.UUID) error {
-	// DeleteMessage allows the original sender to soft-delete their message.
-	// Membership is intentionally not re-checked — a user who sent a message
-	// retains the right to delete it even after leaving the room.
+	// Fetch the message first so we can get its roomID for the membership check.
+	// We intentionally return ErrMessageNotFound before checking membership to
+	// avoid leaking the existence of messages to non-members via a different error code.
 	msg, err := s.repo.GetMessageByID(ctx, messageID)
 	if err != nil {
 		if errors.Is(err, repository.ErrMessageNotFound) {
 			return ErrMessageNotFound
 		}
 		return fmt.Errorf("get message: %w", err)
+	}
+
+	// Only current room members may delete messages. A user who has left the room
+	// loses write access to it, including deletion of their own past messages.
+	isMember, err := s.roomClient.IsMember(ctx, msg.RoomID, requesterID)
+	if err != nil {
+		return fmt.Errorf("check room membership: %w", err)
+	}
+	if !isMember {
+		return ErrNotMember
 	}
 
 	if msg.SenderID != requesterID {

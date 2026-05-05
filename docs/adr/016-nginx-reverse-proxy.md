@@ -12,12 +12,21 @@ The project initially used Traefik v3.6 as the edge reverse proxy. Traefik was c
 
 Replace Traefik with nginx 1.27 (Alpine). All routing configuration lives in a single file: `infra/nginx/nginx.conf`.
 
+### TLS
+
+nginx terminates TLS for both virtual hosts. HTTP on port 80 is permanently redirected to HTTPS (301). For local development, certificates are generated with [mkcert](https://github.com/FiloSottile/mkcert) and mounted from `infra/nginx/certs/`.
+
+```
+mkcert api.localhost ws.localhost
+# move the generated .pem files into infra/nginx/certs/
+```
+
 ### Routing
 
 | Host | Upstream | Notes |
 |------|----------|-------|
-| `api.localhost` | `efir-gateway:8080` | CORS, rate limiting |
-| `ws.localhost` | `efir-websocket:8081` | Forward auth via `auth_request` |
+| `api.localhost` | `efir-gateway:8080` | HTTPS, CORS, rate limiting |
+| `ws.localhost` | `efir-websocket:8081` | HTTPS, forward auth via `auth_request` |
 
 ### CORS
 
@@ -29,7 +38,7 @@ Global IP-based rate limiting via `limit_req_zone`: 100 req/min, burst of 50. Th
 
 ### Forward Auth (WebSocket)
 
-nginx `auth_request` replaces Traefik's `forwardAuth` middleware. Before proxying a WebSocket connection, nginx issues an internal subrequest to `GET /auth/validate` on the Gateway. If the Gateway returns 200, the `X-User-Id` response header is extracted and forwarded to the WebSocket service.
+nginx `auth_request` replaces Traefik's `forwardAuth` middleware. Before proxying a WebSocket connection, nginx issues an internal subrequest to `GET /auth/validate` on the Gateway, passing the one-time ticket as the `X-Ws-Ticket` request header. If the Gateway returns 200, the `X-User-Id` response header is extracted via `auth_request_set` and forwarded to the WebSocket service as a request header.
 
 ### Dynamic DNS Resolution
 
@@ -52,5 +61,5 @@ Docker container names are resolved at request time (not at nginx startup) by us
 
 - All routing changes require editing `infra/nginx/nginx.conf` and reloading nginx (`docker exec efir-nginx nginx -s reload`)
 - CORS origins must be updated manually in `nginx.conf` (no env var injection without additional tooling)
-- In production, TLS termination is handled by nginx — add `listen 443 ssl` blocks and mount certs into the container
+- TLS is active on both virtual hosts. Local certs are generated with mkcert and are not committed to the repository — developers must run mkcert locally and place the `.pem` files in `infra/nginx/certs/`
 - The `infra/traefik/` directory is no longer used and can be removed

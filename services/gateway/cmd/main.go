@@ -24,7 +24,6 @@ import (
 	messagev1 "github.com/sudobytemebaby/efir/services/shared/gen/message"
 	roomv1 "github.com/sudobytemebaby/efir/services/shared/gen/room"
 	userv1 "github.com/sudobytemebaby/efir/services/shared/gen/user"
-	sharedcfg "github.com/sudobytemebaby/efir/services/shared/pkg/config"
 	"github.com/sudobytemebaby/efir/services/shared/pkg/healthcheck"
 	"github.com/sudobytemebaby/efir/services/shared/pkg/logger"
 	vk "github.com/valkey-io/valkey-go"
@@ -112,7 +111,7 @@ func run(ctx context.Context) error {
 
 	authHandler := auth.NewHandler(
 		authv1.NewAuthServiceClient(authConn),
-		cfg.Env == sharedcfg.EnvProduction,
+		true,
 	)
 	userHandler := user.NewHandler(userv1.NewUserServiceClient(userConn))
 	roomHandler := room.NewHandler(roomv1.NewRoomServiceClient(roomConn))
