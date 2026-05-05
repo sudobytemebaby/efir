@@ -4,3 +4,7 @@ networks:
   efir-network:
     name: efir-network
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/28
+        - gateway: 172.20.0.1

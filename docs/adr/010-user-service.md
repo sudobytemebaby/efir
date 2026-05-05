@@ -40,7 +40,9 @@ When Auth Service registers a user, it publishes `auth.user.registered` to NATS:
 }
 ```
 
-User Service subscribes to this event and creates the profile. The username is derived from the email prefix (e.g., `john@example.com` → `john`).
+User Service subscribes to this event and creates the profile.
+
+> **Note:** Username generation strategy has changed. The original email-prefix approach (e.g., `john@example.com` → `john`) caused collisions and was replaced in **ADR-015** with random adjective-noun generation (e.g., `brave-wolf`). The `email` field in the event is stored in the auth database only; the User Service does not derive a username from it.
 
 ### Idempotent Creation
 
@@ -80,4 +82,4 @@ This approach ensures:
 
 - User profile creation is eventually consistent (depends on NATS delivery)
 - If NATS is unavailable during registration, the user is created in Auth but no profile exists — requires reconciliation job (out of scope for MVP)
-- Username uniqueness is enforced at DB level — duplicate emails get same username prefix, but different UUIDs
+- Username uniqueness is enforced at DB level — random adjective-noun format means collisions are extremely rare (~400k combinations), and the service retries up to 3 times on collision (see ADR-015)

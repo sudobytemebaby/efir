@@ -35,9 +35,8 @@ Implement per-email fixed window rate limiting at the service layer using Valkey
 
 ## Known Limitations
 
-There is a race condition between `INCR` and `EXPIRE`: if the service crashes after incrementing but before setting the TTL, the key will persist indefinitely and the email will be permanently blocked.
-
-TODO: replace `INCR` + conditional `EXPIRE` with a Lua script or `SET key 1 EX {ttl} NX` pattern to make the operation atomic.
+~~There is a race condition between `INCR` and `EXPIRE`.~~
+**Resolved in ADR-014:** The Lua script in `services/shared/pkg/valkey.IncrWithExpiryScript` executes `INCR` and `EXPIRE` atomically on the Valkey server, eliminating the race condition. The same script is reused by both the Auth Service limiter and the Gateway rate limiter.
 
 ## Consequences
 

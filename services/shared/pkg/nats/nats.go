@@ -57,6 +57,9 @@ func ProvisionConsumer(ctx context.Context, js jetstream.JetStream, stream strin
 	return c, nil
 }
 
+// ProvisionConsumerWithRetry creates a durable consumer, retrying only when the target
+// stream does not yet exist. This allows a consuming service to start before the
+// producing service has provisioned its stream. Any other error is returned immediately.
 func ProvisionConsumerWithRetry(ctx context.Context, js jetstream.JetStream, stream string, cfg ConsumerConfig, retryInterval time.Duration) (jetstream.Consumer, error) {
 	if retryInterval <= 0 {
 		retryInterval = 100 * time.Millisecond

@@ -63,6 +63,11 @@ type Conn interface {
 	Send(data []byte) bool
 }
 
+// Hub is a single-goroutine actor: all state mutations go through channels and are
+// processed exclusively inside Run. No mutexes are needed.
+//
+// rooms[roomID][userID] holds all active connections for a user in a room.
+// A single user may have multiple simultaneous connections (e.g. multiple browser tabs).
 type Hub struct {
 	rooms     map[string]map[string][]Conn
 	userIDs   map[Conn]string
@@ -243,6 +248,8 @@ func (h *Hub) sendToRoom(roomID string, envelope Envelope) {
 
 	for _, conns := range room {
 		for _, conn := range conns {
+			// Send is non-blocking. If the outbound buffer is full the connection is
+			// considered slow and gets closed asynchronously to avoid stalling the hub loop.
 			if !conn.Send(data) {
 				go func(c Conn) {
 					_ = c.Close(StatusAbnormalClosure, "slow write")

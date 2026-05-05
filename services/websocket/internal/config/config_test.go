@@ -109,6 +109,7 @@ func TestLoad_InvalidYAML(t *testing.T) {
 func TestLoad_InvalidEnvironment(t *testing.T) {
 	env := map[string]string{
 		"LOG_LEVEL": "info",
+		"ENV":       "invalid",
 	}
 	for k, v := range env {
 		t.Setenv(k, v)

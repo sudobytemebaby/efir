@@ -273,10 +273,11 @@ func TestGetMessageByID_NotMember(t *testing.T) {
 
 func TestDeleteMessage_NotOwner(t *testing.T) {
 	t.Parallel()
-	msgID, senderID, requesterID := uuid.New(), uuid.New(), uuid.New()
+	msgID, roomID, senderID, requesterID := uuid.New(), uuid.New(), uuid.New(), uuid.New()
 
-	svc, repo, _, _ := newSvc(t)
-	repo.On("GetMessageByID", mock.Anything, msgID).Return(repoMsg(msgID, uuid.New(), senderID), nil)
+	svc, repo, roomClient, _ := newSvc(t)
+	repo.On("GetMessageByID", mock.Anything, msgID).Return(repoMsg(msgID, roomID, senderID), nil)
+	roomClient.On("IsMember", mock.Anything, roomID, requesterID).Return(true, nil)
 
 	err := svc.DeleteMessage(context.Background(), msgID, requesterID)
 	assert.ErrorIs(t, err, service.ErrNotOwner)
@@ -295,12 +296,24 @@ func TestDeleteMessage_NotFound(t *testing.T) {
 
 func TestDeleteMessage_AfterLeaving(t *testing.T) {
 	t.Parallel()
-	// A user who left the room can still delete their own message (no membership check on delete).
-	msgID, senderID := uuid.New(), uuid.New()
-	roomID := uuid.New()
+	// A user who left the room loses write access — delete is rejected even for their own messages.
+	msgID, senderID, roomID := uuid.New(), uuid.New(), uuid.New()
 
-	svc, repo, _, _ := newSvc(t)
+	svc, repo, roomClient, _ := newSvc(t)
 	repo.On("GetMessageByID", mock.Anything, msgID).Return(repoMsg(msgID, roomID, senderID), nil)
+	roomClient.On("IsMember", mock.Anything, roomID, senderID).Return(false, nil)
+
+	err := svc.DeleteMessage(context.Background(), msgID, senderID)
+	assert.ErrorIs(t, err, service.ErrNotMember)
+}
+
+func TestDeleteMessage_Success(t *testing.T) {
+	t.Parallel()
+	msgID, senderID, roomID := uuid.New(), uuid.New(), uuid.New()
+
+	svc, repo, roomClient, _ := newSvc(t)
+	repo.On("GetMessageByID", mock.Anything, msgID).Return(repoMsg(msgID, roomID, senderID), nil)
+	roomClient.On("IsMember", mock.Anything, roomID, senderID).Return(true, nil)
 	repo.On("SoftDeleteMessage", mock.Anything, msgID).Return(nil)
 
 	err := svc.DeleteMessage(context.Background(), msgID, senderID)

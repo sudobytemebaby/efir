@@ -28,6 +28,9 @@ func NewUserService(userRepo repository.UserRepository) UserService {
 	return &userService{userRepo: userRepo}
 }
 
+// CreateUser is idempotent: if the user already exists it returns the existing record.
+// This handles duplicate delivery of the auth.user.registered NATS event.
+// Username generation is retried up to maxAttempts times to resolve random collisions.
 func (s *userService) CreateUser(ctx context.Context, userID uuid.UUID, email string) (*User, error) {
 	const maxAttempts = 3
 

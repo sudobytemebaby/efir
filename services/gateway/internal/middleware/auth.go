@@ -21,6 +21,8 @@ const (
 	MetadataKeyRequestID = "x-request-id"
 )
 
+// JWTAuth validates the JWT from the access_token cookie (not the Authorization header).
+// On success it stores the subject claim (user ID) and request ID in the request context.
 func JWTAuth(jwtSecret string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

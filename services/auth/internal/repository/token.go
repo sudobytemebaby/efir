@@ -74,6 +74,8 @@ func (r *valkeyTokenRepository) DeleteRefreshToken(ctx context.Context, token st
 	return nil
 }
 
+// ReviveRefreshToken atomically reads and deletes the token in a single Lua call,
+// making each refresh token single-use: a second call for the same token returns ErrTokenNotFound.
 func (r *valkeyTokenRepository) ReviveRefreshToken(ctx context.Context, token string) (uuid.UUID, error) {
 	key := valkey.AuthRefreshKey(token)
 	resp := r.client.Do(ctx, r.client.B().Eval().Script(valkey.GetAndDeleteScript).Numkeys(1).Key(key).Build())

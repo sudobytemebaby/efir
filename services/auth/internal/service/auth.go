@@ -17,6 +17,9 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// hashEmail returns the first 4 bytes of SHA-256 as a hex string.
+// Used only for log correlation — not collision-resistant, just enough to
+// identify the same email across log entries without exposing the address.
 func hashEmail(email string) string {
 	h := sha256.Sum256([]byte(email))
 	return hex.EncodeToString(h[:4])
@@ -197,6 +200,9 @@ func (s *authService) RefreshToken(ctx context.Context, refreshToken string) (*T
 	return tokenPair, nil
 }
 
+// isUniqueViolation guards against the TOCTOU race in Register: two concurrent
+// requests can both pass the "account not found" check before either inserts a row,
+// so we also catch the DB-level unique constraint violation (SQLSTATE 23505).
 func isUniqueViolation(err error) bool {
 	var pgxErr *pgconn.PgError
 	if errors.As(err, &pgxErr) && pgxErr.Code == "23505" {

@@ -33,6 +33,9 @@ func NewWebSocketHandler(hub *hub.Hub, gatewayURL string, client vk.Client, cfg 
 	}
 }
 
+// HandleWS upgrades the HTTP connection to WebSocket. Each connection is managed
+// by three goroutines (readPump, writePump, pingPump) that share a cancellable
+// context — when any one exits it cancels the context, triggering the others to stop.
 func (h *WebSocketHandler) HandleWS(w http.ResponseWriter, r *http.Request) {
 	ticket := r.URL.Query().Get("ticket")
 	if ticket == "" {
@@ -79,6 +82,8 @@ func (h *WebSocketHandler) HandleWS(w http.ResponseWriter, r *http.Request) {
 	go h.pingPump(ctx, cancel, wsConn, userID)
 }
 
+// validateTicket consumes the one-time WS ticket via GETDEL.
+// A ticket that has already been used or never existed returns an error.
 func (h *WebSocketHandler) validateTicket(ctx context.Context, ticket string) (string, error) {
 	key := valkey.GatewayWSTicketKey(ticket)
 	resp := h.client.Do(ctx, h.client.B().Getdel().Key(key).Build())
@@ -244,6 +249,9 @@ func (c *wsConnWrapper) closeOutbound() {
 	})
 }
 
+// Send enqueues data for the writePump without blocking. Returns false if the buffer
+// is full (slow client). The recover guards against a send on a closed channel during
+// shutdown, which would otherwise panic.
 func (c *wsConnWrapper) Send(data []byte) bool {
 	defer func() {
 		_ = recover()

@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Accepted
 
 ## Context
 
@@ -20,18 +20,18 @@ Implement a WebSocket Connector service that:
 
 We use a **one-time ticket + forward auth** pattern (NOT JWT in URL):
 
-1. Client authenticates via existing auth service, receives JWT
-2. Client calls `POST /auth/ws-ticket` on Gateway with `X-User-Id` header
-3. Gateway generates a one-time UUID ticket, stores it in Valkey with 30s TTL:
+1. Client authenticates via existing auth service, receives JWT in `access_token` cookie.
+2. Client calls `POST /auth/ws-ticket` on Gateway. Gateway validates the JWT cookie via the `JWTAuth` middleware and extracts the `user_id` from the token claims.
+3. Gateway generates a one-time UUID ticket, stores it in Valkey with a configurable TTL (default 30s):
    ```
    Key: gateway:ws:ticket:{ticket}
    Value: {user_id}
-   TTL: 30s
+   TTL: configured via WS_TICKET_TTL
    ```
-4. Client connects to WebSocket Connector via nginx: `GET /ws?ticket={ticket}&room_id={room_id}`
-5. nginx `auth_request` directive calls `GET /auth/validate` on Gateway
-6. Gateway performs `GETDEL` on Valkey to atomically consume the ticket, returns `X-User-Id`
-7. If ticket valid, WebSocket connection established; otherwise rejected
+4. Client connects to WebSocket Connector via nginx: `wss://ws.localhost/ws?ticket={ticket}&room_id={room_id}`
+5. nginx `auth_request` directive issues an internal subrequest to `GET /auth/validate` on the Gateway, forwarding the ticket via the `X-Ws-Ticket` request header.
+6. Gateway handler (`/auth/validate`) performs `GETDEL` on Valkey to atomically consume the ticket, then sets `X-User-Id` in the response header.
+7. If the ticket is valid, nginx extracts `X-User-Id` from the subrequest response and forwards it to the WebSocket Connector as a request header. The WebSocket connection is established. Otherwise, nginx returns 401 and the connection is rejected.
 
 ### WebSocket Envelope Format
 
@@ -69,9 +69,11 @@ connRooms: map[Conn]map[roomID]struct{}  // reverse index for cleanup
 
 #### Thread Safety
 
-- All hub operations use channels for communication with the hub goroutine
-- `sendToRoom` acquires RLock, copies connections to a local slice, then releases lock before iterating
-- This prevents data races between iteration and concurrent `removeConn`
+The Hub is a single-goroutine actor. All state mutations (register, unregister, disconnect, broadcast) are sent through buffered channels and processed exclusively by `Hub.Run`. No mutexes are used. This eliminates data races by design — there is only one goroutine reading and writing the internal maps at any time.
+
+`sendToRoom` is called from inside `Run` and iterates over connections directly without any locking.
+
+Slow clients are handled without stalling the hub: `Conn.Send` is non-blocking (buffered channel). If the buffer is full, the connection is closed asynchronously in a separate goroutine.
 
 #### Graceful Shutdown
 
