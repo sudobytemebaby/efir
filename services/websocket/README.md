@@ -16,14 +16,14 @@ task websocket:test
 
 ```
 services/websocket/
-├── cmd/main.go                    # Entry point
+├── cmd/main.go                  # Entry point
 ├── internal/
-│   ├── config/                   # Configuration
-│   ├── handler/                  # WebSocket handlers
+│   ├── config/                  # Configuration
+│   ├── handler/                 # WebSocket handlers
 │   │   └── ws.go                # Connection handling, pumps
 │   ├── hub/                     # Room/connection management
 │   │   └── hub.go               # Central hub
-│   ├── subscriber/               # NATS event handlers
+│   ├── subscriber/              # NATS event handlers
 │   │   └── events.go            # Event processing
 │   └── nats/                    # NATS consumer setup
 │       └── consumers.go         # Consumer definitions

@@ -3,7 +3,6 @@
 services:
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.147.0
-    container_name: efir-otel-collector
     profiles: ["observability"]
     env_file:
       - .env
@@ -20,7 +19,6 @@ services:
 
   prometheus:
     image: prom/prometheus:3.10.0
-    container_name: efir-prometheus
     profiles: ["observability"]
     env_file:
       - .env
@@ -37,7 +35,6 @@ services:
 
   loki:
     image: grafana/loki:3.6.7
-    container_name: efir-loki
     profiles: ["observability"]
     env_file:
       - .env
@@ -54,7 +51,6 @@ services:
 
   tempo:
     image: grafana/tempo:2.10.1
-    container_name: efir-tempo
     profiles: ["observability"]
     env_file:
       - .env
@@ -72,7 +68,6 @@ services:
 
   grafana:
     image: grafana/grafana:12.4.1
-    container_name: efir-grafana
     profiles: ["observability"]
     env_file:
       - .env
