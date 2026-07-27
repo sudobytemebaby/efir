@@ -4,8 +4,7 @@ services:
   auth:
     build:
       context: .
-      dockerfile: ./services/auth/Dockerfile
-    container_name: efir-auth
+      dockerfile: ./services/auth/Containerfile
     env_file:
       - .env
     environment:
@@ -25,8 +24,7 @@ services:
   user:
     build:
       context: .
-      dockerfile: ./services/user/Dockerfile
-    container_name: efir-user
+      dockerfile: ./services/user/Containerfile
     env_file:
       - .env
     environment:
@@ -44,8 +42,7 @@ services:
   room:
     build:
       context: .
-      dockerfile: ./services/room/Dockerfile
-    container_name: efir-room
+      dockerfile: ./services/room/Containerfile
     env_file:
       - .env
     environment:
@@ -63,8 +60,7 @@ services:
   message:
     build:
       context: .
-      dockerfile: ./services/message/Dockerfile
-    container_name: efir-message
+      dockerfile: ./services/message/Containerfile
     env_file:
       - .env
     environment:
@@ -85,8 +81,7 @@ services:
   websocket:
     build:
       context: .
-      dockerfile: ./services/websocket/Dockerfile
-    container_name: efir-websocket
+      dockerfile: ./services/websocket/Containerfile
     env_file:
       - .env
     environment:
@@ -104,8 +99,7 @@ services:
   gateway:
     build:
       context: .
-      dockerfile: ./services/gateway/Dockerfile
-    container_name: efir-gateway
+      dockerfile: ./services/gateway/Containerfile
     env_file:
       - .env
     volumes:

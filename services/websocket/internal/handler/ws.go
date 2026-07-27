@@ -10,26 +10,20 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/sudobytemebaby/efir/services/shared/pkg/errors"
-	"github.com/sudobytemebaby/efir/services/shared/pkg/valkey"
 	"github.com/sudobytemebaby/efir/services/websocket/internal/config"
 	"github.com/sudobytemebaby/efir/services/websocket/internal/hub"
-	vk "github.com/valkey-io/valkey-go"
 	"nhooyr.io/websocket"
 )
 
 type WebSocketHandler struct {
-	hub        *hub.Hub
-	gatewayURL string
-	client     vk.Client
-	cfg        *config.Config
+	hub *hub.Hub
+	cfg *config.Config
 }
 
-func NewWebSocketHandler(hub *hub.Hub, gatewayURL string, client vk.Client, cfg *config.Config) *WebSocketHandler {
+func NewWebSocketHandler(hub *hub.Hub, cfg *config.Config) *WebSocketHandler {
 	return &WebSocketHandler{
-		hub:        hub,
-		gatewayURL: gatewayURL,
-		client:     client,
-		cfg:        cfg,
+		hub: hub,
+		cfg: cfg,
 	}
 }
 
@@ -37,20 +31,9 @@ func NewWebSocketHandler(hub *hub.Hub, gatewayURL string, client vk.Client, cfg 
 // by three goroutines (readPump, writePump, pingPump) that share a cancellable
 // context — when any one exits it cancels the context, triggering the others to stop.
 func (h *WebSocketHandler) HandleWS(w http.ResponseWriter, r *http.Request) {
-	ticket := r.URL.Query().Get("ticket")
-	if ticket == "" {
-		writeError(w, r, errors.CodeUnauthenticated, "missing ticket")
-		return
-	}
-	if len(ticket) > 256 {
-		writeError(w, r, errors.CodeInvalidArgument, "ticket too long")
-		return
-	}
-
-	userID, err := h.validateTicket(r.Context(), ticket)
-	if err != nil {
-		slog.ErrorContext(r.Context(), "failed to validate ticket", "error", err)
-		writeError(w, r, errors.CodeUnauthenticated, "invalid or expired ticket")
+	userID := r.Header.Get("X-User-Id")
+	if userID == "" {
+		writeError(w, r, errors.CodeUnauthenticated, "missing user id")
 		return
 	}
 
@@ -80,18 +63,6 @@ func (h *WebSocketHandler) HandleWS(w http.ResponseWriter, r *http.Request) {
 	go h.writePump(ctx, cancel, wsConn, userID)
 	go h.readPump(ctx, cancel, wsConn, userID)
 	go h.pingPump(ctx, cancel, wsConn, userID)
-}
-
-// validateTicket consumes the one-time WS ticket via GETDEL.
-// A ticket that has already been used or never existed returns an error.
-func (h *WebSocketHandler) validateTicket(ctx context.Context, ticket string) (string, error) {
-	key := valkey.GatewayWSTicketKey(ticket)
-	resp := h.client.Do(ctx, h.client.B().Getdel().Key(key).Build())
-	userID, err := resp.ToString()
-	if err != nil {
-		return "", err
-	}
-	return userID, nil
 }
 
 func (h *WebSocketHandler) readPump(ctx context.Context, cancel context.CancelFunc, conn *wsConnWrapper, userID string) {

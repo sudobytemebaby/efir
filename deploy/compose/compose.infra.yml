@@ -3,7 +3,6 @@
 services:
   postgres:
     image: postgres:18-alpine
-    container_name: efir-postgres
     env_file:
       - .env
     environment:
@@ -11,7 +10,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_HOST_AUTH_METHOD: md5
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
       - ./infra/postgres/init:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
@@ -23,7 +22,6 @@ services:
 
   nats:
     image: nats:2.12-alpine
-    container_name: efir-nats
     env_file:
       - .env
     command:
@@ -42,7 +40,6 @@ services:
 
   valkey:
     image: valkey/valkey:9-alpine
-    container_name: efir-valkey
     env_file:
       - .env
     command: sh -c 'exec valkey-server /etc/valkey/valkey.conf --requirepass "$${VALKEY_PASSWORD:-valkey}"'
@@ -59,10 +56,9 @@ services:
 
   nginx:
     image: nginx:1.27-alpine
-    container_name: efir-nginx
     ports:
-      - "80:80"
-      - "443:443"
+      - "8080:80"
+      - "8443:443"
     volumes:
       - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./infra/nginx/certs:/etc/nginx/certs:ro

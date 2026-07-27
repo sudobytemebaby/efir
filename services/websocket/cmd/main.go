@@ -18,7 +18,6 @@ import (
 	"github.com/sudobytemebaby/efir/services/websocket/internal/handler"
 	"github.com/sudobytemebaby/efir/services/websocket/internal/hub"
 	"github.com/sudobytemebaby/efir/services/websocket/internal/subscriber"
-	vk "github.com/valkey-io/valkey-go"
 )
 
 func main() {
@@ -50,19 +49,6 @@ func run(ctx context.Context) error {
 	l := logger.New(logger.Options{Level: logLevel})
 	slog.SetDefault(l)
 
-	valkeyClient, err := vk.NewClient(vk.ClientOption{
-		InitAddress: []string{cfg.Cache.Addr},
-		Password:    cfg.Cache.Pass,
-	})
-	if err != nil {
-		return err
-	}
-	defer valkeyClient.Close()
-
-	if err := valkeyClient.Do(ctx, valkeyClient.B().Ping().Build()).Error(); err != nil {
-		return err
-	}
-
 	nc, err := nats.Connect(cfg.NATS.URL, cfg.NATS.User, cfg.NATS.Pass, nats.ConnectOptions{
 		ReconnectWait: cfg.NATS.ReconnectWait,
 		MaxReconnects: cfg.NATS.MaxReconnects,
@@ -89,7 +75,7 @@ func run(ctx context.Context) error {
 		return err
 	}
 
-	wsHandler := handler.NewWebSocketHandler(wsHub, cfg.Services.GatewayURL, valkeyClient, cfg)
+	wsHandler := handler.NewWebSocketHandler(wsHub, cfg)
 
 	healthHandler := healthcheck.New()
 
